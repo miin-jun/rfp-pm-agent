@@ -1,0 +1,18 @@
+#!/bin/bash
+set -euo pipefail
+
+# 에이전트가 조회 전용으로 쓰는 계정 — SELECT만 허용 (POSTGRES_READONLY_DSN)
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+    DO \$\$
+    BEGIN
+        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${AGENT_RO_USER}') THEN
+            CREATE ROLE ${AGENT_RO_USER} LOGIN PASSWORD '${AGENT_RO_PASSWORD}';
+        END IF;
+    END
+    \$\$;
+
+    GRANT CONNECT ON DATABASE ${POSTGRES_DB} TO ${AGENT_RO_USER};
+    GRANT USAGE ON SCHEMA public TO ${AGENT_RO_USER};
+    GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${AGENT_RO_USER};
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO ${AGENT_RO_USER};
+EOSQL

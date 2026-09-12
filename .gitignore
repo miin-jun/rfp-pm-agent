@@ -1,0 +1,18 @@
+# secrets
+.env
+.env.local
+
+# data (raw/parsed/chunked artifacts, RFP originals — never committed)
+data/
+
+# claude code local state
+.claude/logs/
+.claude/settings.local.json
+
+# python
+.venv/
+__pycache__/
+*.pyc
+
+# uv
+.python-version.local

@@ -1,0 +1,17 @@
+[project]
+name = "rfp-pm-agent"
+version = "0.1.0"
+description = "공공 SI RFP와 합성 PMS 데이터를 근거로 답하는 AI 어시스턴트"
+readme = "README.md"
+authors = [
+    { name = "miin-jun", email = "ggp0258@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+rfp-pm-agent = "rfp_pm_agent:main"
+
+[build-system]
+requires = ["uv_build>=0.12.13,<0.13.0"]
+build-backend = "uv_build"

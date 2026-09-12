@@ -10,6 +10,24 @@
 uv sync
 ```
 
+## 알려진 함정
+
+- **WSL2에서 OpenSearch 컨테이너가 계속 재시작되거나 바로 죽는 경우**: 커널의 `vm.max_map_count`가 기본값(65530)이라 OpenSearch(Lucene)가 요구하는 최소값(262144)에 못 미쳐서 발생합니다.
+  - 임시 적용 (WSL 재시작 시 초기화됨):
+    ```bash
+    sudo sysctl -w vm.max_map_count=262144
+    ```
+  - 영구 적용 (WSL2, `/etc/sysctl.conf`에 추가):
+    ```bash
+    echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf
+    sudo sysctl -p
+    ```
+    Windows 쪽에서 WSL을 재시작(`wsl --shutdown`)해도 유지되지 않는 환경이라면, Windows 사용자 홈의 `.wslconfig`에 아래를 추가하고 `wsl --shutdown` 후 다시 켭니다.
+    ```ini
+    [wsl2]
+    kernelCommandLine = "sysctl.vm.max_map_count=262144"
+    ```
+
 ## 문서
 
 - `docs/architecture.md` — 전체 구조, 단계(Phase), 결정 로그

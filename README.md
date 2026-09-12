@@ -27,6 +27,9 @@ uv sync
     [wsl2]
     kernelCommandLine = "sysctl.vm.max_map_count=262144"
     ```
+  - **확인됨**: `sudo sysctl -w`는 그 부팅 세션에만 적용되는 임시 설정이다. WSL을 재시작하면 값이 초기화되므로, 매번 새로 켤 때마다 다시 설정하지 않으려면 위 영구 적용법(`/etc/sysctl.conf` 또는 `.wslconfig`)을 반드시 함께 적용한다.
+
+- **`agent_ro` 읽기 전용 계정 권한 검증 방법**: `psql`로 `agent_ro`에 접속해 `SELECT`는 성공하고 `CREATE TABLE`은 `permission denied`로 **실패해야 정상**입니다. 실패하지 않고 성공한다면 `docker/postgres/init/01_create_readonly_user.sh`의 권한 부여가 의도보다 넓게 된 것이니 다시 확인합니다.
 
 ## 문서
 

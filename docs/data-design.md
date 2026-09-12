@@ -295,6 +295,9 @@ projects ─┬─< project_members >── users
 - `expected_facts`는 **7절 6단계의 정답 기록에서 자동 생성** → 사람은 질문 문장만 검수
 - `should_refuse: true` 문항 포함 (문서에 없는 내용 질문 → 거절해야 정답)
 
+- **평가 실행 진입점**: `eval/run_retrieval.py`, `eval/run_agent.py`
+- **기준선**: `eval/results/baseline.json` (이슈 #17에서 생성)
+
 ---
 
 ## 10. 설정값 (`.env.example`에 들어갈 데이터 관련 항목)

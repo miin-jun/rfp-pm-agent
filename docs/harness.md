@@ -375,10 +375,17 @@ tools: Read, Grep, Glob, Bash
 
 ## 8. `.pre-commit-config.yaml`
 
-도구 버전을 `uv.lock`과 맞추기 위해 ruff·mypy는 **로컬 훅(`uv run`)** 으로 실행합니다.
+도구 버전을 `uv.lock`과 맞추기 위해 ruff·mypy는 **로컬 훅(`uv run`)** 으로 실행합니다. 기본 위생 훅(trailing-whitespace 등)은 표준 `pre-commit-hooks` 레포를 그대로 씁니다.
 
 ```yaml
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0   # 설치 후 `uv run pre-commit autoupdate`로 최신 버전으로 갱신
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
   - repo: local
     hooks:
       - id: ruff-check
@@ -403,10 +410,35 @@ repos:
       - id: gitleaks
 ```
 
+`pyproject.toml`에 ruff·mypy·pytest 설정도 함께 둡니다 (도구를 실행할 때 항상 같은 규칙을 적용하기 위함):
+
+```toml
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["rfp_pm_agent"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src"]          # tests/는 mypy 대상 아님 — CLAUDE.md 명령어(`uv run mypy src`)와 일치
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: requires local Docker services (opensearch, postgres) — run with `-m integration`",
+]
+```
+
 ```bash
 uv add --dev pre-commit ruff mypy pytest
 uv run pre-commit install
 ```
+
+`tests/unit/`, `tests/integration/`, `tests/fakes/`는 각각 `__init__.py`만 둔 뼈대로 시작하고, `tests/unit/test_smoke.py`에 패키지 임포트를 확인하는 최소 테스트 1개를 둡니다 (pytest는 수집된 테스트가 0개면 exit code 5로 실패하므로, 스켈레톤 단계에서도 최소 1개는 있어야 합니다).
 
 **완료 기준(#6)**: 가짜 키(`OPENAI_API_KEY=sk-...` 형태)를 넣은 파일을 커밋 시도 → gitleaks가 차단하는 화면 캡처
 

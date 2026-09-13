@@ -14,7 +14,7 @@
 - 테스트(단위): `uv run pytest tests/unit -q`
 - 테스트(통합, Docker 필요): `uv run pytest tests/integration -q -m integration`
 - 린트·포맷: `uv run ruff check --fix . && uv run ruff format .`
-- 타입 검사: `uv run mypy src`
+- 타입 검사: `uv run mypy src tests`
 - 인프라: `docker compose up -d` / `docker compose ps` / `docker compose logs <서비스>`
 - DB 마이그레이션: `uv run alembic upgrade head`
 
@@ -96,7 +96,7 @@ Claude는 구현하지 말고, 설계 논의·테스트 작성·리뷰·리팩�
 - 개발 중 기본 모델은 저가 모델(`LLM_MODEL_DEV`). 최종 평가에서만 상위 모델
 
 ## 끝내기 전 체크
-- `uv run ruff check . && uv run mypy src && uv run pytest tests/unit -q` 통과
+- `uv run ruff check . && uv run mypy src tests && uv run pytest tests/unit -q` 통과
 - 이슈의 완료 기준 항목을 하나씩 확인하고 결과를 PR 본문 "검증 방법"에 적는다
 - PR 전 reviewer 서브에이전트로 검토한다
 
@@ -107,3 +107,4 @@ Claude는 구현하지 말고, 설계 논의·테스트 작성·리뷰·리팩�
 - RunPod가 꺼져 있으면 `EMBED_BASE_URL`·`RERANK_BASE_URL`을 로컬 TEI 주소로 바꾼다
 - `agent_ro` 권한 검증: SELECT는 성공해야 하고, CREATE TABLE 등 쓰기 시도는 permission denied로 **실패해야 정상**
 - pre-commit 훅의 `rev`가 오래되면 검사는 "Passed"로 통과하지만 규칙이 없어 실제로는 아무것도 못 잡는다 (예: gitleaks `v8.0.0`엔 `openai-api-key` 규칙이 없어 가짜 키를 넣어도 통과했음). 훅을 추가하거나 바꿀 때는 `autoupdate` 후 반드시 실제로 차단되는지 시험한다
+- 검사 도구를 여러 층(Claude Code 훅/pre-commit/CI)에 걸 때는 검사 대상 범위를 동일하게 유지한다. 한 층에서만 잡히면 통과가 안전을 뜻하지 않게 된다 (예: 훅은 `tests/`도 검사했지만 pre-commit·CI는 `mypy src`만 실행해 같은 오류를 못 잡았음)

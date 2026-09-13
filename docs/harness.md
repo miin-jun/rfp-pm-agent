@@ -380,7 +380,7 @@ tools: Read, Grep, Glob, Bash
 ```yaml
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0   # 설치 후 `uv run pre-commit autoupdate`로 최신 버전으로 갱신
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -405,10 +405,12 @@ repos:
         types: [python]
         pass_filenames: false
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.0.0   # 설치 후 `uv run pre-commit autoupdate`로 최신 버전으로 갱신
+    rev: v8.30.0
     hooks:
       - id: gitleaks
 ```
+
+※ 2026-09-13: 처음 pin했던 `v8.0.0`(2021년)에는 OpenAI 키 규칙(`openai-api-key`)이 없어 가짜 키를 넣어도 "Passed"로 통과했다. `uv run pre-commit autoupdate`로 `v8.30.0`으로 올린 뒤 실제로 차단(exit code 1)되는 것을 확인했다. 자세한 경위는 `docs/learning-log.md` 참고.
 
 `pyproject.toml`에 ruff·mypy·pytest 설정도 함께 둡니다 (도구를 실행할 때 항상 같은 규칙을 적용하기 위함):
 

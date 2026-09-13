@@ -106,3 +106,4 @@ Claude는 구현하지 말고, 설계 논의·테스트 작성·리뷰·리팩�
 - OpenSearch 한국어 분석은 nori 플러그인이 설치된 이미지여야 함 (docker/opensearch/Dockerfile)
 - RunPod가 꺼져 있으면 `EMBED_BASE_URL`·`RERANK_BASE_URL`을 로컬 TEI 주소로 바꾼다
 - `agent_ro` 권한 검증: SELECT는 성공해야 하고, CREATE TABLE 등 쓰기 시도는 permission denied로 **실패해야 정상**
+- pre-commit 훅의 `rev`가 오래되면 검사는 "Passed"로 통과하지만 규칙이 없어 실제로는 아무것도 못 잡는다 (예: gitleaks `v8.0.0`엔 `openai-api-key` 규칙이 없어 가짜 키를 넣어도 통과했음). 훅을 추가하거나 바꿀 때는 `autoupdate` 후 반드시 실제로 차단되는지 시험한다

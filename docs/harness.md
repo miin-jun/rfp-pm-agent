@@ -364,6 +364,8 @@ uv run pre-commit install
 
 ## 9. `.github/workflows/ci.yml`
 
+검사 명령은 로컬 pre-commit·CLAUDE.md와 **정확히 일치**시킵니다 (범위가 어긋나면 학습 로그 2026-09-13 두 번째 항목과 같은 사고가 재발합니다).
+
 ```yaml
 name: ci
 on:
@@ -376,13 +378,20 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6   # 착수 시 최신 메이저 버전 확인
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      - run: uv run mypy src
+      - run: uv run mypy src tests
       - run: uv run pytest tests/unit -q
 ```
+
+- `.python-version`(3.12)을 `uv sync --locked`가 자동으로 읽어 그 버전을 쓰므로 별도 Python 설치 스텝은 두지 않습니다.
+- 통합 테스트(`tests/integration`)는 Docker가 필요해 CI에서 돌리지 않습니다 (범위 밖 — 필요해지면 별도 이슈로 서비스 컨테이너를 붙입니다).
+- 비밀값이 필요한 스텝을 두지 않습니다 — 단위 테스트는 네트워크·실제 API를 쓰지 않는다는 CLAUDE.md 테스트 규칙과 같은 이유입니다.
 
 평가 회귀 게이트는 #25에서 이 워크플로에 추가합니다.
 

@@ -7,7 +7,10 @@ authors = [
     { name = "miin-jun", email = "ggp0258@gmail.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "httpx>=0.28.1",
+    "openai>=3.13.0",
+]
 
 [project.scripts]
 rfp-pm-agent = "rfp_pm_agent:main"

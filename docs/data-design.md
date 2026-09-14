@@ -229,7 +229,7 @@ projects ─┬─< project_members >── users
 | **미해결 Risk** | `status IN ('open', 'mitigating')`, 정렬 = `probability × impact` 내림차순 |
 | **관련 산출물** | 업무(wbs)에 연결된 deliverables + 같은 요구사항에 연결된 업무의 deliverables |
 
-→ 면접 포인트: **"지연"처럼 사람마다 다르게 해석하는 말을 코드 한 곳에 정의**하고, 툴 설명·평가 정답이 같은 정의를 쓰게 함
+→ 설계 원칙: **"지연"처럼 사람마다 다르게 해석하는 말을 코드 한 곳에 정의**하고, 툴 설명·평가 정답이 같은 정의를 쓰게 함
 
 ---
 

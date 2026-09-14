@@ -40,11 +40,12 @@ class CostLogger:
 
 def compute_llm_cost(config: ClientsConfig, *, input_tokens: int, output_tokens: int) -> float:
     """OpenAI 계열 단가로 비용을 계산한다. 단가는 변동하므로 config(.env)의
-    `LLM_PRICE_INPUT_PER_1K`/`LLM_PRICE_OUTPUT_PER_1K`를 주기적으로 확인해 갱신해야
-    한다. 기본값은 0이라, 값을 채우기 전에는 항상 비용 0으로 기록된다."""
-    return (input_tokens / 1000) * config.llm_price_input_per_1k + (
-        output_tokens / 1000
-    ) * config.llm_price_output_per_1k
+    `LLM_PRICE_INPUT_PER_1M`/`LLM_PRICE_OUTPUT_PER_1M`을 주기적으로 확인해 갱신해야
+    한다. OpenAI 요금 페이지가 100만 토큰(1M) 단위로 표기하므로 계산도 1M
+    기준으로 맞춘다. 기본값은 0이라, 값을 채우기 전에는 항상 비용 0으로 기록된다."""
+    return (input_tokens / 1_000_000) * config.llm_price_input_per_1m + (
+        output_tokens / 1_000_000
+    ) * config.llm_price_output_per_1m
 
 
 def now_iso() -> str:

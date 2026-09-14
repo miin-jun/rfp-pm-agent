@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from rfp_pm_agent.clients.cost import CostLogger
+from rfp_pm_agent.clients.cost import CostLogger, compute_llm_cost
 from rfp_pm_agent.clients.llm import ChatMessage, OpenAICompatLLMClient
 from rfp_pm_agent.clients.logged import LoggingLLMClient
 from rfp_pm_agent.config import ClientsConfig
@@ -42,7 +42,7 @@ def test_env_var_change_flows_through_to_client_base_url(monkeypatch: pytest.Mon
 
 
 def test_logging_llm_client_records_cost_and_latency(tmp_path: Path) -> None:
-    config = make_clients_config(llm_price_input_per_1k=1.0, llm_price_output_per_1k=2.0)
+    config = make_clients_config(llm_price_input_per_1m=1000.0, llm_price_output_per_1m=2000.0)
     log_path = tmp_path / "cost.jsonl"
     logger = CostLogger(log_path)
     wrapped = LoggingLLMClient(FakeLLMClient(), config, logger)
@@ -54,7 +54,7 @@ def test_logging_llm_client_records_cost_and_latency(tmp_path: Path) -> None:
     assert len(lines) == 1
     assert '"client": "llm"' in lines[0]
     assert '"input_tokens": 2' in lines[0]
-    # cost = 2/1000*1.0(입력) + 3/1000*2.0(출력) = 0.002 + 0.006 = 0.008
+    # cost = 2/1_000_000*1000.0(입력) + 3/1_000_000*2000.0(출력) = 0.002 + 0.006 = 0.008
     assert '"cost_usd": 0.008' in lines[0]
 
 
@@ -66,3 +66,14 @@ def test_llm_price_defaults_to_zero_cost(tmp_path: Path) -> None:
     wrapped.chat([ChatMessage(role="user", content="hi")])
 
     assert '"cost_usd": 0.0' in log_path.read_text(encoding="utf-8")
+
+
+def test_compute_llm_cost_uses_per_1m_not_per_1k() -> None:
+    # OpenAI 요금 페이지 표기 그대로: 입력 $3/1M, 출력 $15/1M 토큰 100/200개.
+    # 1K로 착각해 나누면 1000배 큰(잘못된) 값이 나온다.
+    config = make_clients_config(llm_price_input_per_1m=3.0, llm_price_output_per_1m=15.0)
+
+    cost = compute_llm_cost(config, input_tokens=100, output_tokens=200)
+
+    assert cost == pytest.approx(100 / 1_000_000 * 3.0 + 200 / 1_000_000 * 15.0)
+    assert cost == pytest.approx(0.0033)

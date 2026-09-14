@@ -26,10 +26,12 @@ class ClientsConfig(BaseModel):
     llm_model_dev: str
     llm_model_eval: str
     llm_timeout_s: float
-    # 단가는 OpenAI가 수시로 바꾼다 — 값을 추측해서 채우지 않는다.
-    # .env.example 기본값은 0이고, 실제 단가는 착수 시 공식 가격표를 보고 채운다.
-    llm_price_input_per_1k: float
-    llm_price_output_per_1k: float
+    # 단가는 OpenAI가 수시로 바꾼다 — 값을 추측해서 채우지 않는다. OpenAI 요금
+    # 페이지가 100만 토큰(1M) 단위로 표기하므로 단위를 맞춰 둔다 — 1K로 두면
+    # 값을 옮겨 적을 때 1000배 오차가 난다. .env.example 기본값은 0이고,
+    # 실제 단가는 착수 시 공식 가격표를 보고 채운다.
+    llm_price_input_per_1m: float
+    llm_price_output_per_1m: float
 
     embed_base_url: str
     embed_api_key: str | None
@@ -51,8 +53,8 @@ class ClientsConfig(BaseModel):
             llm_model_dev=os.environ.get("LLM_MODEL_DEV", ""),
             llm_model_eval=os.environ.get("LLM_MODEL_EVAL", ""),
             llm_timeout_s=_get_float("LLM_TIMEOUT_S", 60.0),
-            llm_price_input_per_1k=_get_float("LLM_PRICE_INPUT_PER_1K", 0.0),
-            llm_price_output_per_1k=_get_float("LLM_PRICE_OUTPUT_PER_1K", 0.0),
+            llm_price_input_per_1m=_get_float("LLM_PRICE_INPUT_PER_1M", 0.0),
+            llm_price_output_per_1m=_get_float("LLM_PRICE_OUTPUT_PER_1M", 0.0),
             embed_base_url=os.environ.get("EMBED_BASE_URL", "http://localhost:8080"),
             embed_api_key=os.environ.get("TEI_API_KEY") or None,
             embed_model_id=os.environ.get("EMBED_MODEL_ID", ""),

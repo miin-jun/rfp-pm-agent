@@ -141,7 +141,7 @@ Closes #
 | 23 | [agent] FastAPI — `/chat`, `/search`, `/health` | feature, agent, mvp | API 문서 페이지에서 호출 성공 | #22 |
 | 24 | [agent] MCP 서버 — stdio, 읽기 전용 툴, Claude Desktop 연동 | feature, agent, mvp | Claude Desktop에서 툴 호출 화면 캡처 | #21 |
 | 25 | [eval] 평가 게이트 — 에이전트 골든셋(툴 순서) + 답변 근거성 채점 + CI 연결 | feature, eval, mvp | 기준선보다 떨어지는 PR이 CI에서 실패 | #8, #20, #22 |
-| 26 | [docs] MVP 마감 — 데모 녹화, README, 이력서 문장 초안 | docs, mvp | 데모 영상·README·문장 초안 | #22, #23, #24, #25 |
+| 26 | [docs] MVP 마감 — 데모 녹화, README 정리 | docs, mvp | 데모 영상·README 정리 완료 | #22, #23, #24, #25 |
 
 ### 밀릴 때 자르는 순서 (컷 라인)
 

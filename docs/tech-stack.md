@@ -37,15 +37,13 @@
 | 벡터 검색 | k-NN (HNSW) | dense_vector (HNSW) | pgvector (HNSW) |
 | 하이브리드 + RRF | **엔진 내장** (2.19+ 기본 RRF) | **무료 티어에서 RRF 불가** (Enterprise 전용, 호출 시 403) → 앱 코드로 구현해야 함 | 앱 코드로 구현 |
 | 권한 사전 필터 | k-NN 쿼리 안에 필터 조건 | 가능 | SQL WHERE로 쉬움 |
-| 공고 매칭 | 컴앤휴먼 "ES/OpenSearch" ✅, 뉴데이 "Elasticsearch" 환경 — 쿼리 DSL 계열이 같아 경험 이전됨 | 컴앤휴먼 ✅, 뉴데이 ✅ 직접 | 컴앤휴먼 "pgvector" ✅ |
 | 운영 부담 | JVM, 메모리 1~2GB | 동일 | 가장 가벼움 |
 
-**추천: OpenSearch.** 이유 3가지
+**추천: OpenSearch.** 이유 2가지
 1. 한국어 BM25(nori) + 벡터 + RRF를 **무료로 한 엔진에서** 처리
-2. Elasticsearch와 뿌리가 같아 뉴데이 환경(ES)에도 경험이 그대로 이어짐
-3. PostgreSQL은 PMS용으로 어차피 쓰므로, 문서 검색은 검색 전문 엔진으로 역할 분리
+2. PostgreSQL은 PMS용으로 어차피 쓰므로, 문서 검색은 검색 전문 엔진으로 역할 분리
 
-※ 면접 대비 한 줄: "Elasticsearch 무료 티어는 RRF가 막혀 있어, 같은 계열이면서 Apache 2.0으로 RRF를 내장한 OpenSearch를 선택했다."
+**핵심 근거**: Elasticsearch 무료 티어는 RRF가 막혀 있어, 같은 계열이면서 Apache 2.0으로 RRF를 내장한 OpenSearch를 선택했다.
 ※ 주의: Docker로 띄울 때 `vm.max_map_count=262144` 설정 필요 (WSL2에서 흔한 첫 오류)
 
 ---
@@ -61,7 +59,7 @@
 | 라이선스 | MIT | MIT | MIT |
 | 한국어 검색 (공개 벤치마크 Recall@10) | 0.797 | 0.792 | 0.759 |
 
-- 공개 벤치마크 차이는 작음 → **우리 RFP 평가 세트로 bge-m3와 직접 비교**하는 걸 Phase 2 실험으로 (이력서 재료)
+- 공개 벤치마크 차이는 작음 → **우리 RFP 평가 세트로 bge-m3와 직접 비교**하는 걸 Phase 2 실험으로
 - RFP는 긴 요구사항 표가 많아 **512 토큰 제한이 없는 모델**이 유리
 - 한국어 검색 순위 1위는 KURE-v2지만 **Late-interaction(ColBERT 계열)** 이라 서빙·인덱싱 구조가 달라짐 → MVP에서는 제외
 
@@ -88,7 +86,6 @@
 ## 6. 에이전트 — LangGraph
 
 - 교육과정에서 다룬 도구 → 이번엔 서비스 수준으로 (State, 조건 분기, Checkpointer, 최대 반복 제한)
-- 컴앤휴먼 우대 "LangChain, **LangGraph**" 직접 매칭
 - 툴 함수는 `tools/` 한 곳에 두고 **에이전트와 MCP 서버가 같은 함수를 import**
 
 ## 7. 정형 DB — PostgreSQL 16
@@ -191,9 +188,9 @@
 
 **서빙 근거 보강(선택)**: 청크 1,000개 색인을 TEI vs sentence-transformers 직접 호출로 비교해 처리량 측정
 
-### 면접 답변 형태
+### 근거 요약
 
-"공개 벤치마크로 KURE-v1·bge-m3·e5를 후보로 좁혔고, 공공 RFP 청크로 만든 평가 세트 [N]문항에서 Recall@10을 측정해 결정했다. 차이가 1%p 이내면 가벼운 모델을 고른다는 규칙을 측정 전에 정해 뒀다."
+공개 벤치마크로 KURE-v1·bge-m3·e5를 후보로 좁혔고, 공공 RFP 청크로 만든 평가 세트 [N]문항에서 Recall@10을 측정해 결정한다. 차이가 1%p 이내면 가벼운 모델을 고른다는 규칙을 측정 전에 정해 둔다.
 
 ## 13. 확정 내역
 

@@ -1,5 +1,7 @@
 # rfp-pm-agent
 
+> **처음 보거나 헷갈리면 여기부터**: [`docs/project-overview.md`](docs/project-overview.md)
+
 공공 SI 사업 제안요청서(RFP)와 RFP 기반 합성 PMS 데이터를 근거로, "이번 주 지연된 업무", "미해결 Risk", "관련 산출물" 같은 질문에 출처를 달아 답하는 에이전트. 설계 배경은 `docs/`를 참고.
 
 ## 실행 방법
@@ -33,6 +35,7 @@ uv sync
 
 ## 문서
 
+- `docs/project-overview.md` — 오리엔테이션 (처음 보거나 헷갈리면 여기부터)
 - `docs/architecture.md` — 전체 구조, 단계(Phase), 결정 로그
 - `docs/tech-stack.md` — 기술 스택과 선정 근거
 - `docs/data-design.md` — 스키마, 판단 규칙, 평가 세트 형식

@@ -6,7 +6,7 @@ import httpx
 
 from rfp_pm_agent.config import NaraApiConfig
 from rfp_pm_agent.ingest.collect import collect_from_api, register_manual_files
-from rfp_pm_agent.ingest.manifest import read_manifest
+from rfp_pm_agent.ingest.manifest import ManifestEntry, append_entry, now_iso, read_manifest
 from rfp_pm_agent.ingest.nara_client import NaraApiClient
 
 FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "nara_search_response.json"
@@ -96,3 +96,46 @@ def test_manual_and_api_share_dedup_by_doc_id(tmp_path: Path) -> None:
     assert len(manual_entries) == 1
     assert api_entries == []  # 같은 doc_id라 API 쪽에서는 신규로 잡히지 않음
     assert not raw_api_dir.exists() or list(raw_api_dir.iterdir()) == []
+
+
+def _seed_api_entries(manifest_path: Path, count: int) -> None:
+    for i in range(count):
+        entry = ManifestEntry(
+            doc_id=f"seed{i:012x}",
+            file_name=f"seed{i}.pdf",
+            source_type="api",
+            notice_no=f"9999000{i}",
+            notice_title="이미 보유한 공고",
+            url=None,
+            file_size=10,
+            sha256=f"seedsha{i}",
+            collected_at=now_iso(),
+        )
+        append_entry(manifest_path, entry)
+
+
+def test_collect_from_api_skips_http_call_when_target_already_met(tmp_path: Path) -> None:
+    """limit은 '이번 실행의 신규 건수'가 아니라 'manifest에 보유할 목표 총량'이다.
+    이미 목표치를 채웠으면 API를 아예 호출하지 않아야 한다(이슈 #10 3차 수정)."""
+    manifest_path = tmp_path / "manifest.jsonl"
+    raw_api_dir = tmp_path / "api"
+    _seed_api_entries(manifest_path, count=5)
+
+    call_count = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        call_count["n"] += 1
+        return httpx.Response(200, json=_load_fixture())
+
+    transport = httpx.MockTransport(handler)
+    http_client = httpx.Client(base_url="https://nara.test", transport=transport)
+    config = NaraApiConfig(api_key="test-key", base_url="https://nara.test", timeout_s=5.0)
+    client = NaraApiClient(config, http_client=http_client)
+
+    entries = collect_from_api(
+        client=client, manifest_path=manifest_path, raw_api_dir=raw_api_dir, limit=5
+    )
+
+    assert entries == []
+    assert call_count["n"] == 0  # 검색 API조차 호출하지 않음
+    assert len(read_manifest(manifest_path)) == 5  # 보유 건수가 늘지 않음

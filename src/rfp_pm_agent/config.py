@@ -4,13 +4,26 @@ CLAUDE.md 코드 규칙: 설정은 이 파일 한 곳에서 환경변수로 읽�
 URL·키·모델명·타임아웃을 하드코딩하지 않는다. 이 파일은 현재 이슈(#9,
 모델 클라이언트)에 필요한 값만 담고 있고, 이후 이슈(OpenSearch·Postgres 등)가
 같은 파일에 자기 설정을 추가한다.
+
+이슈 #10 검증 중 발견: `.env`를 읽는 코드가 레포 어디에도 없어서, 지금까지
+모든 설정이 (실제로는 `.env`에 값이 있어도) 하드코딩된 기본값으로만 동작하고
+있었다 (docs/learning-log.md 네 번째 항목). 아래 `load_dotenv(override=False)`
+한 줄로 이 모듈이 처음 import될 때 `.env`를 한 번 읽는다. 이미 설정된 환경변수
+(쉘 export, CI secrets 등)는 덮지 않고, `.env` 파일이 없어도 조용히 넘어간다
+(python-dotenv 기본 동작 — 예외를 던지지 않음).
 """
 
 from __future__ import annotations
 
+import logging
 import os
 
+from dotenv import load_dotenv
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
+
+load_dotenv(override=False)
 
 
 def _get_float(name: str, default: float) -> float:
@@ -64,4 +77,33 @@ class ClientsConfig(BaseModel):
             rerank_model_id=os.environ.get("RERANK_MODEL_ID", ""),
             rerank_timeout_s=_get_float("RERANK_TIMEOUT_S", 30.0),
             cost_log_path=os.environ.get("COST_LOG_PATH", "data/cost_log.jsonl"),
+        )
+
+
+class NaraApiConfig(BaseModel):
+    """나라장터 입찰공고정보서비스(공공데이터포털) 클라이언트 설정."""
+
+    api_key: str
+    base_url: str
+    timeout_s: float
+
+    @classmethod
+    def from_env(cls) -> NaraApiConfig:
+        api_key = os.environ.get("NARA_API_KEY", "")
+        if "%" in api_key:
+            # 공공데이터포털이 주는 "인코딩된" 키를 그대로 넣으면 httpx가 쿼리
+            # 파라미터로 보낼 때 '%'를 다시 인코딩(%→%25)해 이중 인코딩이 되고,
+            # 서버가 403을 낸다 — 조용히 실패하는 것보다 경고가 낫다
+            # (docs/learning-log.md 다섯 번째 항목).
+            logger.warning(
+                "NARA_API_KEY에 '%%' 문자가 있습니다 — 포털이 주는 인코딩된 값을 그대로 "
+                "넣은 것으로 보입니다. httpx가 요청 시 한 번 더 인코딩해 403이 날 수 "
+                "있으니 .env.example 안내대로 디코딩된 값(예: %%2B → +)으로 바꿔 넣으세요."
+            )
+        return cls(
+            api_key=api_key,
+            base_url=os.environ.get(
+                "NARA_BASE_URL", "https://apis.data.go.kr/1230000/ad/BidPublicInfoService"
+            ),
+            timeout_s=_get_float("NARA_TIMEOUT_S", 30.0),
         )

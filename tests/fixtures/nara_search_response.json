@@ -1,0 +1,60 @@
+{
+  "response": {
+    "header": {
+      "resultCode": "00",
+      "resultMsg": "NORMAL SERVICE."
+    },
+    "body": {
+      "pageNo": 1,
+      "numOfRows": 10,
+      "totalCount": 3,
+      "items": {
+        "item": [
+          {
+            "bidNtceNo": "20260901001",
+            "bidNtceNm": "공공기관 정보시스템 고도화 구축 용역",
+            "ntceInsttNm": "테스트기관",
+            "dminsttNm": "테스트수요기관",
+            "bidNtceDtlUrl": "https://www.g2b.go.kr/detail?bidNtceNo=20260901001",
+            "srvceDivNm": "일반용역",
+            "pubPrcrmntLrgClsfcNm": "정보통신",
+            "pubPrcrmntMidClsfcNm": "소프트웨어개발",
+            "infoBizYn": "Y",
+            "ntceSpecDocUrl1": "https://apis.data.go.kr/1230000/ad/downloadFile.do?fileId=1",
+            "ntceSpecFileNm1": "제안요청서.pdf",
+            "ntceSpecDocUrl2": "https://apis.data.go.kr/1230000/ad/downloadFile.do?fileId=2",
+            "ntceSpecFileNm2": "제안요청서.hwpx",
+            "ntceSpecDocUrl3": "https://apis.data.go.kr/1230000/ad/downloadFile.do?fileId=3",
+            "ntceSpecFileNm3": "과업내용서.hwp"
+          },
+          {
+            "bidNtceNo": "20260901002",
+            "bidNtceNm": "의상 제작 및 운영 용역",
+            "ntceInsttNm": "테스트기관",
+            "dminsttNm": "테스트수요기관",
+            "bidNtceDtlUrl": "https://www.g2b.go.kr/detail?bidNtceNo=20260901002",
+            "srvceDivNm": "일반용역",
+            "pubPrcrmntLrgClsfcNm": "문화",
+            "pubPrcrmntMidClsfcNm": "공연예술",
+            "infoBizYn": "N",
+            "ntceSpecDocUrl1": "https://apis.data.go.kr/1230000/ad/downloadFile.do?fileId=4",
+            "ntceSpecFileNm1": "제안요청서.hwp"
+          },
+          {
+            "bidNtceNo": "20260901003",
+            "bidNtceNm": "청사 시설물 유지보수 용역",
+            "ntceInsttNm": "테스트기관",
+            "dminsttNm": "테스트수요기관",
+            "bidNtceDtlUrl": "https://www.g2b.go.kr/detail?bidNtceNo=20260901003",
+            "srvceDivNm": "일반용역",
+            "pubPrcrmntLrgClsfcNm": "시설",
+            "pubPrcrmntMidClsfcNm": "유지보수",
+            "infoBizYn": "N",
+            "ntceSpecDocUrl1": "https://apis.data.go.kr/1230000/ad/downloadFile.do?fileId=5",
+            "ntceSpecFileNm1": "규격서.pdf"
+          }
+        ]
+      }
+    }
+  }
+}

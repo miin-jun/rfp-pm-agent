@@ -3,7 +3,11 @@
 .env.local
 
 # data (raw/parsed/chunked artifacts, RFP originals — never committed)
-data/
+# manifest.jsonl은 예외: 원본은 안 올리지만 "무엇을 어디서 받았는지"는 레포에 남긴다
+data/*
+!data/raw/
+data/raw/*
+!data/raw/manifest.jsonl
 
 # claude code local state
 .claude/logs/

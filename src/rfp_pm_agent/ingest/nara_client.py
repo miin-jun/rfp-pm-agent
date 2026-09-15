@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from typing import Any
 
@@ -20,6 +21,12 @@ from rfp_pm_agent.config import NaraApiConfig
 
 logger = logging.getLogger(__name__)
 
+# httpx는 기본적으로 자기 로거("httpx")에 INFO 레벨로 요청 URL 전체를 찍는다
+# ("HTTP Request: GET https://...?serviceKey=...") — 인증키가 쿼리 파라미터로
+# 실려 있어서 그대로 두면 애플리케이션 로그 레벨(INFO)만으로도 키가 새 나간다.
+# 이슈 #10 검증 중 실측으로 발견 (docs/learning-log.md 네 번째 항목).
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 MAX_RETRIES = 3
 BACKOFF_BASE_S = 1.0
 
@@ -28,9 +35,27 @@ SEARCH_OPERATION = "getBidPblancListInfoServcPPSSrch"
 
 SW_KEYWORDS = ("소프트웨어", "정보시스템", "정보화", "SW")
 
+_SERVICE_KEY_PATTERN = re.compile(r"(serviceKey=)[^&\s'\"]+", re.IGNORECASE)
+
+
+def _redact(text: str) -> str:
+    """로그·예외 메시지에 들어갈 문자열에서 `serviceKey` 값을 `***`로 가린다."""
+    return _SERVICE_KEY_PATTERN.sub(r"\1***", text)
+
 
 class NaraApiError(RuntimeError):
     """나라장터 API가 오류 응답(header.resultCode != "00")을 반환했을 때."""
+
+
+class NaraRequestError(RuntimeError):
+    """나라장터 요청이 재시도 후에도 실패했을 때.
+
+    원본 예외(httpx.HTTPStatusError 등)의 메시지에는 요청 URL 전체(인증키
+    쿼리 파라미터 포함)가 들어 있다. 그 예외를 그대로 올리지 않고, 가린
+    메시지만 담은 이 예외로 바꿔 올린다. `from None`으로 원본 예외를
+    체이닝하지 않는다 — 체이닝하면 트레이스백에 원본의 가려지지 않은
+    메시지가 그대로 다시 찍힌다.
+    """
 
 
 class NaraBidItem(BaseModel):
@@ -108,19 +133,23 @@ class NaraApiClient:
     def _get_with_retry(
         self, url: str, *, params: dict[str, str | int] | None, context: str
     ) -> httpx.Response:
-        last_exc: Exception | None = None
+        safe_context = _redact(context)
+        last_message = "알 수 없는 오류"
         for attempt in range(1, MAX_RETRIES + 1):
             try:
                 response = self._http.get(url, params=params)
                 response.raise_for_status()
                 return response
             except (httpx.TimeoutException, httpx.HTTPError) as exc:
-                last_exc = exc
+                last_message = _redact(str(exc))
                 logger.warning(
-                    "나라장터 요청 실패 (%s), 시도 %d/%d: %s", context, attempt, MAX_RETRIES, exc
+                    "나라장터 요청 실패 (%s), 시도 %d/%d: %s",
+                    safe_context,
+                    attempt,
+                    MAX_RETRIES,
+                    last_message,
                 )
                 if attempt < MAX_RETRIES:
                     time.sleep(BACKOFF_BASE_S * (2 ** (attempt - 1)))
-        logger.error("나라장터 요청 최종 실패 (%s): %s", context, last_exc)
-        assert last_exc is not None
-        raise last_exc
+        logger.error("나라장터 요청 최종 실패 (%s): %s", safe_context, last_message)
+        raise NaraRequestError(f"{safe_context}: {last_message}") from None

@@ -1,6 +1,10 @@
-import pytest
+import os
+from pathlib import Path
 
-from rfp_pm_agent.config import ClientsConfig
+import pytest
+from dotenv import load_dotenv
+
+from rfp_pm_agent.config import ClientsConfig, NaraApiConfig
 
 
 def test_from_env_reads_base_urls_and_models(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -45,3 +49,61 @@ def test_from_env_missing_api_key_is_none(monkeypatch: pytest.MonkeyPatch) -> No
     config = ClientsConfig.from_env()
 
     assert config.llm_api_key is None
+
+
+def test_nara_api_config_from_env_reads_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("NARA_API_KEY", "test-nara-key")
+
+    config = NaraApiConfig.from_env()
+
+    assert config.api_key == "test-nara-key"
+
+
+def test_nara_api_config_from_env_default_key_is_empty_string(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("NARA_API_KEY", raising=False)
+
+    config = NaraApiConfig.from_env()
+
+    assert config.api_key == ""
+
+
+# --- 이슈 #10 검증 중 발견한 결함(.env 미로딩) 재발 방지: load_dotenv 계약 자체를 검증 ---
+# config.py는 이 계약(override=False, 파일 없으면 조용히 통과)에 기대어 동작하므로,
+# 여기서 실제 os.environ/임시 .env 파일로 계약을 직접 확인한다. 실제 레포의 .env는
+# 절대 참조하지 않고 tmp_path에 만든 임시 파일의 dotenv_path만 명시적으로 사용한다
+# — 그래야 이 테스트가 .env 존재 여부와 무관하게 통과한다.
+
+
+def test_load_dotenv_does_not_override_existing_env_var(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("NARA_API_KEY", "from-shell")
+    dotenv_path = tmp_path / ".env"
+    dotenv_path.write_text("NARA_API_KEY=from-dotenv-should-not-apply\n", encoding="utf-8")
+
+    load_dotenv(dotenv_path=dotenv_path, override=False)
+
+    assert os.environ["NARA_API_KEY"] == "from-shell"
+
+
+def test_load_dotenv_fills_in_when_not_already_set(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("NARA_API_KEY", raising=False)
+    dotenv_path = tmp_path / ".env"
+    dotenv_path.write_text("NARA_API_KEY=from-dotenv\n", encoding="utf-8")
+
+    load_dotenv(dotenv_path=dotenv_path, override=False)
+
+    assert os.environ.get("NARA_API_KEY") == "from-dotenv"
+    monkeypatch.delenv("NARA_API_KEY", raising=False)  # 다음 테스트로 새지 않게 정리
+
+
+def test_load_dotenv_missing_file_does_not_raise(tmp_path: Path) -> None:
+    missing_path = tmp_path / "does_not_exist.env"
+
+    result = load_dotenv(dotenv_path=missing_path, override=False)
+
+    assert result is False

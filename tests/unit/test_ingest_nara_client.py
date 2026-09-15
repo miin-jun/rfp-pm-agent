@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,7 @@ from rfp_pm_agent.config import NaraApiConfig
 from rfp_pm_agent.ingest.nara_client import (
     NaraApiClient,
     NaraApiError,
+    NaraRequestError,
     has_attachment,
     is_sw_related,
     parse_search_response,
@@ -98,7 +100,29 @@ def test_download_attachment_gives_up_after_max_retries(monkeypatch: pytest.Monk
     http_client = httpx.Client(base_url="https://nara.test", transport=transport)
     client = NaraApiClient(_config(), http_client=http_client)
 
-    with pytest.raises(httpx.TimeoutException):
+    with pytest.raises(NaraRequestError):
         client.download_attachment("https://nara.test/files/a.pdf", context="notice=X")
 
     assert attempts["count"] == 3
+
+
+def test_401_response_does_not_leak_service_key_in_logs_or_exception(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    secret = "SECRET_KEY_VALUE_123"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, text="unauthorized")
+
+    monkeypatch.setattr("rfp_pm_agent.ingest.nara_client.BACKOFF_BASE_S", 0.0)
+    transport = httpx.MockTransport(handler)
+    http_client = httpx.Client(base_url="https://nara.test", transport=transport)
+    config = NaraApiConfig(api_key=secret, base_url="https://nara.test", timeout_s=5.0)
+    client = NaraApiClient(config, http_client=http_client)
+
+    with caplog.at_level(logging.WARNING), pytest.raises(NaraRequestError) as exc_info:
+        client.search_service_bids(begin_date="20260801", end_date="20260901")
+
+    assert secret not in str(exc_info.value)
+    assert secret not in caplog.text
+    assert "***" in str(exc_info.value)

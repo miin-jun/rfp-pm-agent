@@ -108,3 +108,4 @@ Claude는 구현하지 말고, 설계 논의·테스트 작성·리뷰·리팩�
 - `agent_ro` 권한 검증: SELECT는 성공해야 하고, CREATE TABLE 등 쓰기 시도는 permission denied로 **실패해야 정상**
 - pre-commit 훅의 `rev`가 오래되면 검사는 "Passed"로 통과하지만 규칙이 없어 실제로는 아무것도 못 잡는다 (예: gitleaks `v8.0.0`엔 `openai-api-key` 규칙이 없어 가짜 키를 넣어도 통과했음). 훅을 추가하거나 바꿀 때는 `autoupdate` 후 반드시 실제로 차단되는지 시험한다
 - 검사 도구를 여러 층(Claude Code 훅/pre-commit/CI)에 걸 때는 검사 대상 범위를 동일하게 유지한다. 한 층에서만 잡히면 통과가 안전을 뜻하지 않게 된다 (예: 훅은 `tests/`도 검사했지만 pre-commit·CI는 `mypy src`만 실행해 같은 오류를 못 잡았음)
+- 설정 파일(`.env.example`, `config.py`)을 만들었다고 그 값이 읽히는 것은 아니다. `.env`를 `os.environ`에 올리는 코드(`load_dotenv` 등)가 없으면 전부 하드코딩된 기본값으로 조용히 동작한다 — 새 설정값을 추가하면 실제로 그 값이 코드에 도달하는지 새 프로세스로 한 번은 직접 실행해서 확인한다 (이슈 #10에서 `NARA_API_KEY`가 계속 빈 값으로 동작하다가 발견됨)

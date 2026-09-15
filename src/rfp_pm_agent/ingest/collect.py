@@ -18,7 +18,12 @@ from rfp_pm_agent.ingest.manifest import (
     existing_doc_ids,
     now_iso,
 )
-from rfp_pm_agent.ingest.nara_client import NaraApiClient, has_attachment, is_sw_related
+from rfp_pm_agent.ingest.nara_client import (
+    NaraApiClient,
+    has_attachment,
+    is_sw_related,
+    select_proposal_attachment,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -82,44 +87,48 @@ def collect_from_api(
     for item in candidates:
         if len(new_entries) >= limit:
             break
-        for url in item.spec_doc_urls:
-            try:
-                data = client.download_attachment(
-                    url, context=f"notice={item.notice_no}({item.notice_title})"
-                )
-            except Exception:
-                logger.exception(
-                    "공고 %s(%s) 첨부파일 다운로드 실패: %s",
-                    item.notice_no,
-                    item.notice_title,
-                    url,
-                )
-                continue
 
-            doc_id, sha256_hex = compute_hashes(data)
-            if doc_id in known:
-                continue
+        attachment = select_proposal_attachment(item)
+        if attachment is None:
+            continue
 
-            original_name = url.rsplit("/", 1)[-1] or "attachment"
-            file_name = f"{doc_id}_{original_name}"
-            raw_api_dir.mkdir(parents=True, exist_ok=True)
-            (raw_api_dir / file_name).write_bytes(data)
-
-            entry = ManifestEntry(
-                doc_id=doc_id,
-                file_name=file_name,
-                source_type="api",
-                notice_no=item.notice_no,
-                notice_title=item.notice_title,
-                url=url,
-                file_size=len(data),
-                sha256=sha256_hex,
-                collected_at=now_iso(),
+        try:
+            data = client.download_attachment(
+                attachment.url, context=f"notice={item.notice_no}({item.notice_title})"
             )
-            append_entry(manifest_path, entry)
-            known.add(doc_id)
-            new_entries.append(entry)
-            break  # 공고 하나당 대표 첨부파일 1건만
+        except Exception:
+            logger.exception(
+                "공고 %s(%s) 첨부파일 다운로드 실패: %s",
+                item.notice_no,
+                item.notice_title,
+                attachment.file_name,
+            )
+            continue
+
+        doc_id, sha256_hex = compute_hashes(data)
+        if doc_id in known:
+            continue
+
+        # 저장 파일명은 attachment.url이 아니라 attachment.file_name에서 가져온다
+        # — url은 실제로는 전부 downloadFile.do라 파일명 구분이 안 된다.
+        file_name = f"{doc_id}_{attachment.file_name}"
+        raw_api_dir.mkdir(parents=True, exist_ok=True)
+        (raw_api_dir / file_name).write_bytes(data)
+
+        entry = ManifestEntry(
+            doc_id=doc_id,
+            file_name=file_name,
+            source_type="api",
+            notice_no=item.notice_no,
+            notice_title=item.notice_title,
+            url=attachment.url,
+            file_size=len(data),
+            sha256=sha256_hex,
+            collected_at=now_iso(),
+        )
+        append_entry(manifest_path, entry)
+        known.add(doc_id)
+        new_entries.append(entry)
     return new_entries
 
 

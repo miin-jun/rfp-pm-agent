@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 
@@ -67,6 +68,32 @@ def test_nara_api_config_from_env_default_key_is_empty_string(
     config = NaraApiConfig.from_env()
 
     assert config.api_key == ""
+
+
+def test_nara_api_config_warns_when_key_still_encoded(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    # '%'가 남아 있으면 포털의 "Encoding" 키를 그대로 넣은 것 — 이중 인코딩으로
+    # 403이 나는 실제 사고(이슈 #10)의 재발 방지용 경고.
+    monkeypatch.setenv("NARA_API_KEY", "abcd%2Bwxyz")
+
+    with caplog.at_level(logging.WARNING):
+        config = NaraApiConfig.from_env()
+
+    assert config.api_key == "abcd%2Bwxyz"  # 값 자체는 그대로 통과시킴 (경고만)
+    assert "NARA_API_KEY" in caplog.text
+    assert "abcd%2Bwxyz" not in caplog.text  # 경고 메시지에 실제 키 값을 그대로 싣지 않음
+
+
+def test_nara_api_config_no_warning_when_key_decoded(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setenv("NARA_API_KEY", "abcd+wxyz")
+
+    with caplog.at_level(logging.WARNING):
+        NaraApiConfig.from_env()
+
+    assert caplog.text == ""
 
 
 # --- 이슈 #10 검증 중 발견한 결함(.env 미로딩) 재발 방지: load_dotenv 계약 자체를 검증 ---

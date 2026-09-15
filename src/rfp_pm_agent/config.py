@@ -15,10 +15,13 @@ URL·키·모델명·타임아웃을 하드코딩하지 않는다. 이 파일은
 
 from __future__ import annotations
 
+import logging
 import os
 
 from dotenv import load_dotenv
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 load_dotenv(override=False)
 
@@ -86,8 +89,19 @@ class NaraApiConfig(BaseModel):
 
     @classmethod
     def from_env(cls) -> NaraApiConfig:
+        api_key = os.environ.get("NARA_API_KEY", "")
+        if "%" in api_key:
+            # 공공데이터포털이 주는 "인코딩된" 키를 그대로 넣으면 httpx가 쿼리
+            # 파라미터로 보낼 때 '%'를 다시 인코딩(%→%25)해 이중 인코딩이 되고,
+            # 서버가 403을 낸다 — 조용히 실패하는 것보다 경고가 낫다
+            # (docs/learning-log.md 다섯 번째 항목).
+            logger.warning(
+                "NARA_API_KEY에 '%%' 문자가 있습니다 — 포털이 주는 인코딩된 값을 그대로 "
+                "넣은 것으로 보입니다. httpx가 요청 시 한 번 더 인코딩해 403이 날 수 "
+                "있으니 .env.example 안내대로 디코딩된 값(예: %%2B → +)으로 바꿔 넣으세요."
+            )
         return cls(
-            api_key=os.environ.get("NARA_API_KEY", ""),
+            api_key=api_key,
             base_url=os.environ.get(
                 "NARA_BASE_URL", "https://apis.data.go.kr/1230000/ad/BidPublicInfoService"
             ),

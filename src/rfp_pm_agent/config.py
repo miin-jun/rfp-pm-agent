@@ -65,3 +65,21 @@ class ClientsConfig(BaseModel):
             rerank_timeout_s=_get_float("RERANK_TIMEOUT_S", 30.0),
             cost_log_path=os.environ.get("COST_LOG_PATH", "data/cost_log.jsonl"),
         )
+
+
+class NaraApiConfig(BaseModel):
+    """나라장터 입찰공고정보서비스(공공데이터포털) 클라이언트 설정."""
+
+    api_key: str
+    base_url: str
+    timeout_s: float
+
+    @classmethod
+    def from_env(cls) -> NaraApiConfig:
+        return cls(
+            api_key=os.environ.get("NARA_API_KEY", ""),
+            base_url=os.environ.get(
+                "NARA_BASE_URL", "https://apis.data.go.kr/1230000/ad/BidPublicInfoService"
+            ),
+            timeout_s=_get_float("NARA_TIMEOUT_S", 30.0),
+        )

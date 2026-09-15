@@ -1,0 +1,34 @@
+{
+  "response": {
+    "header": {
+      "resultCode": "00",
+      "resultMsg": "NORMAL SERVICE."
+    },
+    "body": {
+      "pageNo": 1,
+      "numOfRows": 10,
+      "totalCount": 3,
+      "items": {
+        "item": [
+          {
+            "bidNtceNo": "20260901001",
+            "bidNtceNm": "공공기관 정보시스템 고도화 소프트웨어 개발 용역",
+            "ntceInsttNm": "테스트기관",
+            "specDocUrl1": "https://example.test/files/rfp-001.hwpx"
+          },
+          {
+            "bidNtceNo": "20260901002",
+            "bidNtceNm": "청사 시설물 유지보수 용역",
+            "ntceInsttNm": "테스트기관",
+            "specDocUrl1": "https://example.test/files/spec-002.pdf"
+          },
+          {
+            "bidNtceNo": "20260901003",
+            "bidNtceNm": "정보화 사업 통합 유지관리 용역",
+            "ntceInsttNm": "테스트기관"
+          }
+        ]
+      }
+    }
+  }
+}

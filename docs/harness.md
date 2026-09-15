@@ -397,44 +397,13 @@ jobs:
 
 ## 10. `.env.example`
 
-```bash
-# --- LLM ---
-OPENAI_API_KEY=
-LLM_BASE_URL=https://api.openai.com/v1
-LLM_MODEL_DEV=
-LLM_MODEL_EVAL=
-AGENT_MAX_STEPS=6
-
-# --- 임베딩·리랭커 (TEI) ---
-EMBED_BASE_URL=http://localhost:8080
-RERANK_BASE_URL=http://localhost:8081
-TEI_API_KEY=
-EMBED_MODEL_ID=nlpai-lab/KURE-v1        # 기본값 — 이슈 #16 실험 결과로 변경될 수 있음
-RERANK_MODEL_ID=BAAI/bge-reranker-v2-m3 # 기본값 — 이슈 #16 실험 결과로 변경될 수 있음
-
-# --- 저장소 ---
-OPENSEARCH_URL=http://localhost:9200
-OPENSEARCH_INDEX_ALIAS=rfp_chunks
-POSTGRES_DSN=postgresql+psycopg://app:app@localhost:5432/si
-POSTGRES_READONLY_DSN=postgresql+psycopg://agent_ro:agent_ro@localhost:5432/si
-
-# --- 데이터 ---
-DATA_GO_KR_SERVICE_KEY=
-AS_OF_DATE=2026-09-21
-SYNTH_SEED=42
-```
+실제 내용은 레포 루트의 [`.env.example`](../.env.example)을 참조. 여기 전문을 복사해 두지 않는다 — CLAUDE.md 2절과 같은 이유로, 새 이슈가 환경변수를 추가할 때마다 이 사본이 벌어져 왔다(예: 이슈 #9의 타임아웃·단가 변수, 이슈 #10의 나라장터 변수가 여기 반영되지 않았던 것).
 
 ## 11. `.gitignore` 핵심 항목
 
-```
-.env
-.env.local
-data/
-.claude/logs/
-.claude/settings.local.json
-.venv/
-__pycache__/
-```
+실제 내용은 레포 루트의 [`.gitignore`](../.gitignore)를 참조. 같은 이유로 전문 복사를 두지 않는다. 원칙만 적는다:
+- `.env`류(비밀), `data/`(대용량·원본)는 기본적으로 제외
+- 예외: `data/raw/manifest.jsonl`은 재현성을 위해 커밋 대상 (data-design.md 1절)
 
 ---
 
@@ -471,7 +440,7 @@ mkdir -p docs
 # 설계 문서: Windows 보관 폴더(C:\comhuman_project\docs)에서 복사
 cp /mnt/c/comhuman_project/docs/*.md docs/
 # RFP 원본(HWPX 5건, 수동 반입): data/는 .gitignore 대상이라 GitHub에 올라가지 않음
-# _manifest.jsonl에 source_type=manual로 등록하는 작업은 이슈 #10에서 처리 (data-design.md 1절)
+# manifest.jsonl에 source_type=manual로 등록하는 작업은 이슈 #10에서 처리 (data-design.md 1절)
 mkdir -p data/raw/manual
 cp /mnt/c/comhuman_project/rfp/*.hwpx data/raw/manual/   # RFP를 옮겨 둔 폴더 경로에 맞게
 ```

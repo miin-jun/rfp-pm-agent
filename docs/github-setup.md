@@ -125,7 +125,7 @@ Closes #
 
 | # | 제목 | 라벨 | 완료 기준 | 선행 이슈 |
 |---|---|---|---|---|
-| 10 | [ingest] 나라장터 수집 + 수동 반입 5건 등록 — API 클라이언트 구현, 착수 시 수동 반입한 RFP 샘플 5건(HWPX)을 `_manifest.jsonl`에 등록, 이후 API로 추가 수집 (멱등) | feature, ingest, mvp | 수동 반입분이 `source_type=manual`로 `_manifest.jsonl`에 등록됨, API 재실행해도 sha256 기준 중복 없음, `data/raw/`에 원본 저장 | #2 |
+| 10 | [ingest] 나라장터 수집 + 수동 반입 5건 등록 — API 클라이언트 구현, 착수 시 수동 반입한 RFP 샘플 5건(HWPX)을 `manifest.jsonl`에 등록, 이후 API로 추가 수집 (멱등) | feature, ingest, mvp | 수동 반입분이 `source_type=manual`로 `manifest.jsonl`에 등록됨, API 재실행해도 sha256 기준 중복 없음, `data/raw/`에 원본 저장 | #2 |
 | 11 | [ingest] 파서 — PDF·HWPX → 공통 스키마(Document/Section/Block) | feature, ingest, mvp | **확보한 형식 전부 파싱**, 표가 Block으로 보존 | #10 |
 | 12 | [exp] HWP 변환 — LibreOffice + H2Orestart (**반나절 타임박스**) | experiment, ingest | PDF·HWP 샘플이 없으면 샘플 확보 후 진행. 성공 시 파서에 연결 / 실패 시 결과 기록 후 M2로 이동 | #10, #11 |
 | 13 | [ingest] 구조 기반 청킹 — 요구사항 ID 단위 + 메타데이터 | feature, ingest, mvp | 요구사항 ID 누락률 측정·기록 | #11 |

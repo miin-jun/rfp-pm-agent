@@ -19,10 +19,11 @@
 ## 1. 데이터 흐름과 디렉토리
 
 ```
-나라장터 API ──► data/raw/{공고번호}/{파일}          [Bronze] 원본, git 제외
-data/raw/manual/{파일} ──► sha256 계산 ────┘         수동 반입(착수 초기 샘플 등) → 같은 _manifest.jsonl에 등록
-                 data/raw/_manifest.jsonl            수집 기록 (source_type: api|manual, 공고번호 nullable,
-                                                      파일명, sha256, URL nullable, 받은 시각)
+나라장터 API ──► data/raw/api/{doc_id}_{파일명}       [Bronze] 원본, git 제외
+data/raw/manual/{파일} ──► sha256 계산 ────┘         수동 반입(착수 초기 샘플 등) → 같은 manifest.jsonl에 등록
+                 data/raw/manifest.jsonl             수집 기록 (doc_id, 파일명, source_type: api|manual,
+                                                      공고번호 nullable, 공고명, URL nullable, 파일 크기,
+                                                      sha256, 수집 시각) — git 포함(예외)
                         │ 파싱
                         ▼
                  data/parsed/{doc_id}.json           [Silver] 공통 문서 스키마, git 제외
@@ -39,7 +40,8 @@ eval/sets/*.jsonl        평가 세트 (git 포함, 사람 검수 기록 포함)
 eval/results/**          평가 결과 요약 (git 포함)
 ```
 
-- **중복 방지**: `source_type`(api·manual)과 무관하게 `doc_id`(sha256 앞 16자리)가 같으면 같은 문서로 취급한다. 수동 반입한 파일이 이후 나라장터 API로 다시 수집돼도 `_manifest.jsonl`에 중복 등록되지 않는다.
+- **중복 방지**: `source_type`(api·manual)과 무관하게 `doc_id`(sha256 앞 16자리)가 같으면 같은 문서로 취급한다. 수동 반입한 파일이 이후 나라장터 API로 다시 수집돼도 `manifest.jsonl`에 중복 등록되지 않는다.
+- **파일명 충돌 방지**: `data/raw/api/`에 저장하는 파일명은 `{doc_id}_{원본 파일명}`으로 접두해, 서로 다른 공고가 같은 첨부파일 이름(예: "제안요청서.hwp")을 쓰더라도 덮어쓰지 않는다.
 
 ---
 
@@ -309,7 +311,8 @@ projects ─┬─< project_members >── users
 | `OPENSEARCH_INDEX_ALIAS` | `rfp_chunks` | |
 | `POSTGRES_DSN` | `postgresql+psycopg://app:app@localhost:5432/si` | |
 | `POSTGRES_READONLY_DSN` | `postgresql+psycopg://agent_ro:...@localhost:5432/si` | 에이전트 툴 전용 읽기 계정 |
-| `DATA_GO_KR_SERVICE_KEY` | (비밀) | 공공데이터포털 인증키 |
+| `NARA_API_KEY` | (비밀) | 나라장터 입찰공고정보서비스(공공데이터포털) 인증키 |
+| `NARA_BASE_URL` | `https://apis.data.go.kr/1230000/ad/BidPublicInfoService` | |
 | `SYNTH_SEED` | `42` | 합성 데이터 재현용 |
 
 ---

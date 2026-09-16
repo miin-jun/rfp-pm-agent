@@ -9,12 +9,25 @@ docs/parsing-exploration.md 실측 근거:
 - 세부내용이 길면 정의표 하나가 여러 페이지의 별개 표 객체로 쪼개진다. 이어붙임은
   "코드 없는 표가 (a) 그 페이지의 첫 콘텐츠 블록이고 (b) 직전 조각 이후 문단
   블록이 끼어들지 않았고 (c) 열 수가 직전 조각과 같거나 더 적을 때"만 한다.
-  (c)가 "이하"인 이유: 산출정보·관련요구사항 값이 둘 다 비어 있으면 pymupdf가
-  그 열 자체를 못 잡아 열 수가 3→2로 줄어드는 경우가 실제로 있다(독립 검증으로
-  발견, ECR-005/ECR-007/SER-006/SFR-003/SFR-005). 열이 늘어나는 쪽은 구조가
-  다른 무관한 표라는 신호로 보고 그대로 거부한다. 머리글·꼬리말 영역(페이지
-  상단 8%·하단 15%)은 이 판정에서 제외한다 — 인쇄 쪽번호 추출과 같은 영역
-  상수를 쓴다.
+  (c)가 "이하"인 이유: **처음엔 "산출정보·관련요구사항 값이 둘 다 비어 있어서
+  pymupdf가 그 열을 못 잡는다"고 봤는데, 사용자가 PDF 원본과 직접 대조해 이 설명이
+  틀렸음을 확인했다** — ECR-005 등 5건은 값이 실제로 있었는데(예: "납품확인서,
+  설치계획서, 설치결과서, 기술지원확약서") `find_tables()`가 그 값 열 전체를
+  bbox 밖으로 놓쳐(라벨 셀만 포함하는 아주 좁은 bbox를 반환) 표 밖 자유
+  텍스트(문단)로 떨어뜨린 것이었다 — "값이 비어 있다"가 아니라 "표가 값 열
+  자체를 못 찾아 내용이 표 밖으로 유실된다"였다. 그래서 열 수 완화만으로는
+  부족하고, `absorb_trailing_paragraphs`로 표 밖에 떨어진 문단을 되찾아야
+  했다(아래 참고). 열이 늘어나는 쪽은 구조가 다른 무관한 표라는 신호로 보고
+  그대로 거부한다. 머리글·꼬리말 영역(페이지 상단 8%·하단 15%)은 이 판정에서
+  제외한다 — 인쇄 쪽번호 추출과 같은 영역 상수를 쓴다.
+- 열 수가 문서의 정상 정의표 열 수(최빈값)보다 적은 표를 만나면, 그 직후 같은
+  페이지에서 이어지는 문단들을 `absorb_trailing_paragraphs`로 되찾는다 — 위
+  bbox 유실 문제의 실제 복구 장치. 문단의 첫 줄이 알려진 라벨이면 그 필드를
+  채우고, 아니면 직전에 열려 있던 라벨(보통 세부내용)에 이어붙인다. 단, 그
+  직전 라벨이 "세부내용"이 아니면(정의표 시작 자체가 이미 조각나 있던 극단
+  사례 QUR-003에서 실제로 "요구사항 고유번호"가 되어 버린 적이 있다) 이어붙이지
+  않고 버린다 — 짧은 구조적 필드(고유번호 등)가 자유 텍스트로 오염되는 것보다
+  그 필드를 비워 두는 게 낫다(`common.py` `RequirementBuilder.add_paragraph`).
 
 `_build_document_parts`는 pymupdf 객체와 분리된 순수 함수다 — 실제 PDF 없이도
 실물에서 추출한 표 matrix(fixture)만으로 이어붙임·종료 로직을 단위 테스트할 수
@@ -24,6 +37,7 @@ docs/parsing-exploration.md 실측 근거:
 from __future__ import annotations
 
 import re
+from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -120,6 +134,21 @@ def _page_items(page: Any) -> list[PageItem]:
     return items
 
 
+def _modal_definition_col_count(pages: list[list[PageItem]]) -> int:
+    """문서 전체에서 "제대로 잡힌" 정의표의 열 수(최빈값)를 구한다. 이 문서에서
+    정의표는 거의 다 3열이지만, 문서마다 다를 수 있어 하드코딩하지 않고 실제
+    데이터에서 뽑는다 — 아래 열 수 부족분 복구 로직의 기준값으로 쓴다."""
+    counts = [
+        len(item.matrix[0]) if item.matrix else 0
+        for page in pages
+        for item in page
+        if isinstance(item, TableItem) and table_role(item.matrix)[0] == "definition"
+    ]
+    if not counts:
+        return 0
+    return Counter(counts).most_common(1)[0][0]
+
+
 def build_document_parts(
     pages: list[list[PageItem]],
     printed_page: Callable[[int], int | None],
@@ -129,6 +158,7 @@ def build_document_parts(
     blocks: list[Block] = []
     requirements: list[Requirement] = []
     summary_ids: set[str] = set()
+    modal_col_count = _modal_definition_col_count(pages)
 
     source_order = 0
     current: RequirementBuilder | None = None
@@ -169,8 +199,35 @@ def build_document_parts(
         current_source_order = None
         paragraph_seen_since_attach = False
 
+    def absorb_trailing_paragraphs(
+        items: list[PageItem], start_idx: int, fallback_label: str | None
+    ) -> int:
+        """실측(ECR-005 외 5건): pymupdf가 산출정보·관련요구사항 값 열의
+        존재 자체를 못 잡으면(그 열에 렌더링된 텍스트가 하나도 없어서), 표는
+        라벨만 남긴 채 열 수가 줄어들고 실제 값은 표 밖 자유 텍스트(문단)로
+        떨어진다 — "값이 비어 있다"가 아니라 "값이 표 밖으로 유실됐다"였다.
+        열 수가 문서의 정상 정의표 열 수(modal_col_count)보다 적은 표를
+        처리한 직후에는, 같은 페이지에서 바로 이어지는 문단들을 이 요구사항에
+        되돌려 붙인다. 각 문단의 첫 줄이 알려진 라벨이면 그 필드를 채우고
+        (표 자체가 비워 둔 값을 덮어씀), 아니면 fallback_label(이 표를 만나기
+        직전까지 열려 있던 라벨 — 보통 세부내용)에 이어붙인다."""
+        nonlocal source_order
+        j = start_idx
+        while j < len(items):
+            next_item = items[j]
+            if not isinstance(next_item, ParagraphItem):
+                break
+            assert current is not None
+            current.add_paragraph(next_item.text, fallback_label=fallback_label)
+            source_order += 1
+            j += 1
+        return j
+
     for pno, items in enumerate(pages):
-        for local_idx, item in enumerate(items):
+        idx = 0
+        while idx < len(items):
+            item = items[idx]
+            local_idx = idx
             source_order += 1
             if isinstance(item, TableItem):
                 matrix = item.matrix
@@ -188,6 +245,9 @@ def build_document_parts(
                     current_last_page = pno
                     current_col_count = cols
                     paragraph_seen_since_attach = False
+                    if cols < modal_col_count:
+                        idx = absorb_trailing_paragraphs(items, idx + 1, current.current_label)
+                        continue
                 elif role == "summary":
                     summary_ids |= collect_loose_codes(matrix)
                     blocks.append(
@@ -228,10 +288,14 @@ def build_document_parts(
                         and pno <= current_last_page + 1
                     )
                     if attach and current is not None:
+                        pre_label = current.current_label
                         for row in matrix:
                             current.add_row(row)
                         current_last_page = pno
                         paragraph_seen_since_attach = False
+                        if cols < modal_col_count:
+                            idx = absorb_trailing_paragraphs(items, idx + 1, pre_label)
+                            continue
                     else:
                         finalize_current()
                         blocks.append(
@@ -256,6 +320,7 @@ def build_document_parts(
                         pdf_page=pno,
                     )
                 )
+            idx += 1
 
     finalize_current()
     return blocks, requirements, summary_ids

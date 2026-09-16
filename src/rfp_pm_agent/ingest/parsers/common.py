@@ -159,6 +159,43 @@ class RequirementBuilder:
         if key:
             self.fields[key] = value
 
+    @property
+    def current_label(self) -> str | None:
+        return self._current_label
+
+    def add_paragraph(self, text: str, *, fallback_label: str | None = None) -> None:
+        """표 밖으로 떨어진 문단 텍스트를 흡수한다.
+
+        실측(ECR-005 외, 이슈 #11 PR #46 후속 발견): 이어지는 조각의
+        산출정보·관련요구사항 값이 있는데도, pymupdf가 그 값 열에 렌더링된
+        텍스트가 전혀 없다고 판단해(값 열 자체의 폭을 못 잡아) 표 밖 자유
+        텍스트로 떨어뜨리는 경우가 실제로 있다 — "값이 비어 있다"가 아니라
+        "값이 표 밖으로 유실됐다"였다. 이 메서드는 그렇게 떨어진 문단을 다시
+        붙인다: 첫 줄이 알려진 라벨이면 그 라벨의 새 필드로 설정하고(표 자체가
+        잡은 빈 값을 덮어씀), 라벨이 아니면 `fallback_label`(호출부가 기억해
+        둔, 이 문단이 흘러나오기 직전까지 열려 있던 필드)에 이어붙인다.
+
+        `fallback_label`이 "세부내용"(detail)으로 매핑되는 필드가 아니면
+        이어붙이지 않고 버린다 — 실측(QUR-003, 정의표 시작 자체가 이미
+        조각나 있던 극단 사례)으로 fallback이 "요구사항 고유번호" 같은 짧은
+        구조적 필드를 가리키는 경우가 실제로 있었고, 그대로 이어붙이면 그
+        필드가 자유 텍스트로 오염된다(id 필드에 세부내용 문장이 섞여 들어감).
+        detail은 원래도 여러 문단을 이어붙이는 필드라 안전하지만, 다른
+        필드는 짧은 단일 값이라는 전제가 깨진다 — 이 경우는 복구를 포기하고
+        해당 필드를 비워 두는 편이 오염보다 낫다."""
+        lines = text.splitlines()
+        if lines and normalize_label(lines[0]) in LABEL_ALIASES:
+            label = lines[0]
+            value = "\n".join(line for line in lines[1:] if line.strip())
+            self._set_field(label, value)
+            return
+
+        target = fallback_label or self._current_label
+        if target is None or LABEL_ALIASES.get(normalize_label(target)) != "detail":
+            return
+        self.raw_fields[target] = self.raw_fields.get(target, "") + "\n" + text
+        self.fields["detail"] = self.fields.get("detail", "") + "\n" + text
+
     def build_text(self) -> str:
         return "\n".join(f"{label}: {self.raw_fields[label]}" for label in self._label_order)
 

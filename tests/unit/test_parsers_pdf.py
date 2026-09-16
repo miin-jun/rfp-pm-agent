@@ -92,7 +92,8 @@ def test_paragraph_between_fragments_breaks_the_chain() -> None:
 def test_more_columns_than_current_breaks_the_chain() -> None:
     """로직 검증용 합성 입력 — 열이 더 많은 코드 없는 표는 구조가 다른 무관한
     표라는 신호이므로 이어붙이면 안 된다(열이 더 적은 쪽은 실측으로 확인된
-    "값이 비어 pymupdf가 열을 못 잡은" 정상 이어짐 케이스라 허용한다 — 아래
+    "값 열 자체를 pymupdf가 bbox 밖으로 놓쳐 표 밖 문단으로 떨어진" 정상
+    이어짐 케이스라 허용한다 — 아래
     test_fewer_columns_due_to_empty_trailing_values_is_still_joined 참고)."""
     fixtures = _load_fixtures()
     fragments = fixtures["sfr_002_page_fragments"]
@@ -110,14 +111,30 @@ def test_more_columns_than_current_breaks_the_chain() -> None:
     assert any(b.type == "table" and b.pdf_page == 1 for b in blocks)
 
 
-def test_fewer_columns_due_to_empty_trailing_values_is_still_joined() -> None:
-    """실물(천안시 PDF) ECR-005 — 산출정보·관련요구사항 값이 둘 다 비어 있어서
-    pymupdf가 그 열 자체를 못 잡아 이어지는 조각이 3열이 아니라 2열로 잡힌다
-    (독립 검증에서 발견). 이 경우는 흡수해야 정상이다."""
-    fixtures = _load_fixtures()
-    ecr005_fragments = fixtures["ecr_005_page_fragments"]  # 44,45쪽(0-based)
+def _build_page_items(raw_items: list[dict[str, Any]]) -> list[PageItem]:
+    result: list[PageItem] = []
+    for it in raw_items:
+        if it["kind"] == "table":
+            result.append(TableItem(BBOX, it["matrix"]))
+        else:
+            result.append(ParagraphItem(BBOX, it["text"]))
+    return result
 
-    pages: list[list[PageItem]] = [[TableItem(BBOX, m)] for m in ecr005_fragments]
+
+def test_fewer_columns_due_to_empty_trailing_values_is_still_joined() -> None:
+    """실물(천안시 PDF) ECR-005 — 45쪽(0-based 44)에서 시작해 46쪽(0-based 45)
+    으로 이어진다. 처음엔 "산출정보·관련요구사항 값이 둘 다 비어 있어서
+    pymupdf가 그 열 자체를 못 잡는다"고 설명했는데, 사용자가 PDF 원본과
+    직접 대조해 실제로는 값이 있는데(산출정보="납품확인서, 설치계획서,
+    설치결과서, 기술지원확약서") pymupdf가 그 값 열의 존재 자체를 못 잡아
+    표 밖 자유 텍스트(문단)로 떨어뜨린 것임을 확인했다 — "값이 비어 있다"가
+    아니라 "값이 표 밖으로 유실됐다"였다. fixture는 표 matrix만이 아니라
+    46쪽의 실제 문단(자유 텍스트)까지 실물 그대로 포함한다(pdf_parser.py의
+    `_page_items`로 직접 뽑음)."""
+    fixtures = _load_fixtures()
+    raw_pages = fixtures["ecr_005_page_items"]  # 45,46쪽(0-based 44,45)
+
+    pages: list[list[PageItem]] = [_build_page_items(p) for p in raw_pages]
 
     blocks, requirements, _summary_ids = build_document_parts(pages, _no_printed_page)
 
@@ -125,8 +142,8 @@ def test_fewer_columns_due_to_empty_trailing_values_is_still_joined() -> None:
     req = requirements[0]
     assert req.requirement_id == "ECR-005"
     assert req.pdf_page_end == 1
-    assert "output" in req.fields
-    assert "related" in req.fields
+    assert req.fields["output"] == "납품확인서, 설치계획서, 설치결과서, 기술지원확약서"
+    assert "17) 한전불입금" in req.text
     assert blocks == []
 
 

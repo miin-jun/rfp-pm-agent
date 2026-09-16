@@ -105,12 +105,23 @@ def test_pdf_multi_page_requirement_count(pdf_target: tuple[dict[str, str], Path
     조각남"이라고 적었는데, 그건 행 수(<7)를 기준으로 한 근사치였다. 실제로
     페이지를 이어붙이는 로직을 구현해 측정해 보니(사용자가 독립적으로
     합계·누락 필드·고아 블록을 대조해 검증) 71개 중 15개로 — 우연히 같은
-    숫자지만 기준 코드 집합이 다르다(SIR 포함 71 vs 제외 68). 처음 구현했을 때는
-    11개로 나왔는데, "산출정보·관련요구사항 값이 둘 다 비어 pymupdf가 그 열을
-    못 잡아 이어지는 조각의 열 수가 3→2로 줄어드는" 케이스 5건(ECR-005,
-    ECR-007, SER-006, SFR-003, SFR-005)을 열 수 불일치로 놓치고 있었다 —
-    표준 필드(category/id/name/definition/detail/output/related) 누락 검사로
-    처음 드러났다."""
+    숫자지만 기준 코드 집합이 다르다(SIR 포함 71 vs 제외 68).
+
+    처음 구현했을 때는 11개로 나왔다. 그 5건(ECR-005, ECR-007, SER-006,
+    SFR-003, SFR-005)을 "이어지는 조각의 산출정보·관련요구사항 값이 둘 다
+    비어 있다"고 설명했는데, **이 설명은 원본과 대조해 보니 틀렸다** — 사용자가
+    PDF 원본을 직접 확인해, ECR-005의 46쪽(1-based) 원문에 "출력전압 : 27V"부터
+    "17) 한전불입금..."까지의 세부내용 이어짐과 산출정보 값("납품확인서,
+    설치계획서, 설치결과서, 기술지원확약서")이 실제로 존재함을 확인했다. 진짜
+    원인은 pymupdf가 그 페이지에서 표를 찾긴 하지만(`find_tables()`가 라벨
+    셀만 포함하는 아주 좁은 bbox를 반환), 값이 있는 열 자체를 표 bbox 밖으로
+    완전히 놓쳐 표 밖 자유 텍스트(문단)로 떨어뜨린 것이었다 — "값이 비어
+    있다"가 아니라 "표가 값 열을 못 찾아 내용이 표 밖으로 유실된다"였다.
+    `pdf_parser.py`의 `absorb_trailing_paragraphs`가 이 유실분을 되찾는다.
+
+    QUR-003도 같은 원인으로 name/definition/output이 비어 있었다(6번째
+    사례, 표준 필드 "존재"만 확인하는 검사로는 못 잡았다 — 값이 채워졌는지도
+    확인해야 드러난다)."""
     entry, path = pdf_target
     doc = parse_document(path, doc_id=entry["doc_id"], bid_title=entry["notice_title"] or "")
 
@@ -127,6 +138,16 @@ def test_pdf_multi_page_requirement_count(pdf_target: tuple[dict[str, str], Path
         assert standard_fields <= set(r.fields.keys()), (
             f"{r.requirement_id}: 표준 필드 누락 {standard_fields - set(r.fields.keys())}"
         )
+
+    by_id = {r.requirement_id: r for r in doc.requirements}
+
+    # 값 존재까지 확인 — 키만 있고 값이 빈 채로 남는 회귀를 잡기 위함
+    # (실측: ECR-005 등은 키는 있었지만 값이 원본과 다르게 비어 있었다).
+    assert by_id["ECR-005"].fields["output"] == "납품확인서, 설치계획서, 설치결과서, 기술지원확약서"
+    assert "17) 한전불입금" in by_id["ECR-005"].text
+    assert "• 2010년형 경찰청 규격 사용" in by_id["ECR-007"].text
+    assert "능한 Tool을 사용하여 정적코드 분석 수행" in by_id["SER-006"].text
+    assert "9) 사이니지" in by_id["SFR-003"].text
 
 
 def test_pdf_printed_page_numbers_differ_from_pdf_page_when_cover_has_no_number(

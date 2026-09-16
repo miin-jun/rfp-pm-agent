@@ -19,6 +19,7 @@ docs/learning-log.md 여섯 번째 항목, docs/data-design.md 0절):
 
 from __future__ import annotations
 
+import argparse
 import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -87,7 +88,9 @@ def collect_from_api(
     이상이면 **API를 아예 호출하지 않고** 빈 리스트를 반환한다. `limit`은
     "이번 실행에서 새로 받을 건수"가 아니라 "manifest에 보유할 API 수집
     문서의 목표 총량"이다 — 그래야 실행 횟수와 무관하게 보유 건수가
-    `limit`을 넘지 않는다(모듈 docstring의 멱등성 2번 성질). 부족한
+    `limit`을 넘지 않는다(모듈 docstring의 멱등성 2번 성질). `limit`은
+    상한일 뿐 목표치를 강제하지 않는다 — 이미 보유한 건수보다 낮은
+    `limit`으로 실행해도 기존 파일이나 manifest 항목을 지우지 않는다. 부족한
     만큼만 소프트웨어 용역 공고 중 제안요청서 첨부가 있는 공고를 찾아
     다운로드한다. 이미 manifest에 있는 doc_id(source_type 무관, 멱등성
     1번 성질)는 다시 받지 않는다. 공고 하나가 실패해도 나머지는 계속
@@ -162,10 +165,35 @@ def collect_from_api(
     return new_entries
 
 
-def main() -> None:
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="나라장터 API 수집 + 수동 반입 등록을 실행한다.")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=5,
+        help=(
+            "이번 실행에서 받을 건수가 아니라, manifest에 보유할 API 수집 문서의 "
+            "목표 총량이다. 이미 이만큼 보유하고 있으면 API를 아예 호출하지 않는다. "
+            "이 값을 낮춰도 이미 저장된 파일이나 manifest 항목은 지우지 않는다 "
+            "(상한일 뿐 목표치를 강제로 맞추지 않음)."
+        ),
+    )
+    parser.add_argument(
+        "--lookback-days",
+        type=int,
+        default=30,
+        help="공고를 검색할 조회 기간(일). 오늘부터 이 일수만큼 과거까지의 공고를 조회한다.",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> None:
     """`uv run python -m rfp_pm_agent.ingest.collect`로 실제 수집을 실행하는
-    진입점. 수동 반입 등록 → API 수집 순서로 진행한다."""
+    진입점. 수동 반입 등록 → API 수집 순서로 진행한다.
+
+    `--limit`을 낮춰도 이미 저장된 파일이나 manifest 항목은 지우지 않는다."""
     logging.basicConfig(level=logging.INFO)
+    args = build_arg_parser().parse_args(argv)
     manifest_path = "data/raw/manifest.jsonl"
 
     manual_new = register_manual_files("data/raw/manual", manifest_path)
@@ -174,7 +202,11 @@ def main() -> None:
     config = NaraApiConfig.from_env()
     client = NaraApiClient(config)
     api_new = collect_from_api(
-        client=client, manifest_path=manifest_path, raw_api_dir="data/raw/api"
+        client=client,
+        manifest_path=manifest_path,
+        raw_api_dir="data/raw/api",
+        limit=args.limit,
+        lookback_days=args.lookback_days,
     )
     logger.info("API 수집: %d건 신규", len(api_new))
 

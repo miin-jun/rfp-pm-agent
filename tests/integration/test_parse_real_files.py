@@ -102,19 +102,31 @@ def test_pdf_extracts_71_requirements_matching_declared_total(
 
 def test_pdf_multi_page_requirement_count(pdf_target: tuple[dict[str, str], Path]) -> None:
     """docs/parsing-exploration.md는 "68개 중 15개(약 22%)가 페이지 경계로
-    조각남"이라고 적었지만, 그건 행 수(<7)를 기준으로 한 근사치였다. 실제로
-    페이지를 이어붙이는 로직을 구현해 측정한 정확한 값은 71개 중 11개다 —
-    행 수 기준 추정치와 실측 사이의 차이는 이 테스트 자체가 기록으로 남긴다."""
+    조각남"이라고 적었는데, 그건 행 수(<7)를 기준으로 한 근사치였다. 실제로
+    페이지를 이어붙이는 로직을 구현해 측정해 보니(사용자가 독립적으로
+    합계·누락 필드·고아 블록을 대조해 검증) 71개 중 15개로 — 우연히 같은
+    숫자지만 기준 코드 집합이 다르다(SIR 포함 71 vs 제외 68). 처음 구현했을 때는
+    11개로 나왔는데, "산출정보·관련요구사항 값이 둘 다 비어 pymupdf가 그 열을
+    못 잡아 이어지는 조각의 열 수가 3→2로 줄어드는" 케이스 5건(ECR-005,
+    ECR-007, SER-006, SFR-003, SFR-005)을 열 수 불일치로 놓치고 있었다 —
+    표준 필드(category/id/name/definition/detail/output/related) 누락 검사로
+    처음 드러났다."""
     entry, path = pdf_target
     doc = parse_document(path, doc_id=entry["doc_id"], bid_title=entry["notice_title"] or "")
 
     multi_page = [r for r in doc.requirements if r.pdf_page_start != r.pdf_page_end]
-    assert len(multi_page) == 11
+    assert len(multi_page) == 15
 
     for r in multi_page:
         assert r.pdf_page_start is not None
         assert r.pdf_page_end is not None
         assert r.pdf_page_start < r.pdf_page_end  # pdf_page_*: 0-based 장 번호
+
+    standard_fields = {"category", "id", "name", "definition", "detail", "output", "related"}
+    for r in doc.requirements:
+        assert standard_fields <= set(r.fields.keys()), (
+            f"{r.requirement_id}: 표준 필드 누락 {standard_fields - set(r.fields.keys())}"
+        )
 
 
 def test_pdf_printed_page_numbers_differ_from_pdf_page_when_cover_has_no_number(

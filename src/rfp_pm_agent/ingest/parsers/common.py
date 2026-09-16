@@ -94,10 +94,19 @@ def parse_row(row: list[str | None]) -> tuple[str, str] | None:
     확인)상 non-null 셀은 항상 2개 아니면 3개다. 3개면 마지막 두 개가
     (라벨, 값)이고 그 앞은 rowspan으로 묶인 그룹 라벨이라 무시한다. non-null이
     1개면 라벨 없이 이어지는 순수 텍스트 조각(페이지 경계로 잘린 부분)이라
-    None을 반환 — 호출부가 직전 필드에 이어붙인다."""
+    None을 반환 — 호출부가 직전 필드에 이어붙인다.
+
+    non-null 2개는 보통 (라벨, 값)이지만, **값 자체가 비어 있는 행**(실측:
+    PSR-003 전체 공란·QUR-003 페이지 조각)에서는 (그룹라벨, 서브라벨)만 남아
+    "서브라벨을 값으로" 잘못 읽는다 — 두 번째 셀 자체가 이미 알려진 라벨(정의/
+    세부내용 등)이면 그걸 라벨로, 값은 빈 문자열로 본다."""
     non_null = [c for c in row if c not in (None, "")]
-    if len(non_null) >= 2:
+    if len(non_null) >= 3:
         return non_null[-2], non_null[-1]
+    if len(non_null) == 2:
+        if normalize_label(non_null[1]) in LABEL_ALIASES:
+            return non_null[1], ""
+        return non_null[0], non_null[1]
     return None
 
 

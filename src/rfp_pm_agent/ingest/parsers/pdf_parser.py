@@ -8,9 +8,13 @@ docs/parsing-exploration.md 실측 근거:
   오프셋으로 계산하지 않고 실제 위치·텍스트를 읽는다. 못 찾으면 null.
 - 세부내용이 길면 정의표 하나가 여러 페이지의 별개 표 객체로 쪼개진다. 이어붙임은
   "코드 없는 표가 (a) 그 페이지의 첫 콘텐츠 블록이고 (b) 직전 조각 이후 문단
-  블록이 끼어들지 않았고 (c) 열 수가 직전 조각과 같을 때"만 한다. 머리글·꼬리말
-  영역(페이지 상단 8%·하단 15%)은 이 판정에서 제외한다 — 인쇄 쪽번호 추출과
-  같은 영역 상수를 쓴다.
+  블록이 끼어들지 않았고 (c) 열 수가 직전 조각과 같거나 더 적을 때"만 한다.
+  (c)가 "이하"인 이유: 산출정보·관련요구사항 값이 둘 다 비어 있으면 pymupdf가
+  그 열 자체를 못 잡아 열 수가 3→2로 줄어드는 경우가 실제로 있다(독립 검증으로
+  발견, ECR-005/ECR-007/SER-006/SFR-003/SFR-005). 열이 늘어나는 쪽은 구조가
+  다른 무관한 표라는 신호로 보고 그대로 거부한다. 머리글·꼬리말 영역(페이지
+  상단 8%·하단 15%)은 이 판정에서 제외한다 — 인쇄 쪽번호 추출과 같은 영역
+  상수를 쓴다.
 
 `_build_document_parts`는 pymupdf 객체와 분리된 순수 함수다 — 실제 PDF 없이도
 실물에서 추출한 표 matrix(fixture)만으로 이어붙임·종료 로직을 단위 테스트할 수
@@ -201,7 +205,12 @@ def build_document_parts(
                         current is not None
                         and local_idx == 0
                         and not paragraph_seen_since_attach
-                        and cols == current_col_count
+                        # 실측: 이어지는 조각의 마지막 필드(산출정보·관련요구사항)
+                        # 값이 전부 비어 있으면 pymupdf가 그 열 자체를 못 잡아
+                        # 열 수가 줄어든다(3→2). 열이 늘어나는 쪽은 구조가 다른
+                        # 무관한 표라는 신호로 보고 거부하되, 줄어드는 쪽은 허용.
+                        and current_col_count is not None
+                        and cols <= current_col_count
                         and current_last_page is not None
                         and pno <= current_last_page + 1
                     )

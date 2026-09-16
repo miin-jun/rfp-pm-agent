@@ -89,15 +89,18 @@ def test_paragraph_between_fragments_breaks_the_chain() -> None:
     assert len(table_blocks) == 1  # 조각이 일반 블록으로 남음
 
 
-def test_column_count_mismatch_breaks_the_chain() -> None:
-    """로직 검증용 합성 입력 — 열 수가 다른 코드 없는 표는 이어붙이면 안 된다."""
+def test_more_columns_than_current_breaks_the_chain() -> None:
+    """로직 검증용 합성 입력 — 열이 더 많은 코드 없는 표는 구조가 다른 무관한
+    표라는 신호이므로 이어붙이면 안 된다(열이 더 적은 쪽은 실측으로 확인된
+    "값이 비어 pymupdf가 열을 못 잡은" 정상 이어짐 케이스라 허용한다 — 아래
+    test_fewer_columns_due_to_empty_trailing_values_is_still_joined 참고)."""
     fixtures = _load_fixtures()
     fragments = fixtures["sfr_002_page_fragments"]
-    mismatched_cols_table: list[list[str | None]] = [["a", "b"]]  # 2열 (원래 3열)
+    more_cols_table: list[list[str | None]] = [["a", "b", "c", "d"]]  # 4열 (원래 3열)
 
     pages: list[list[PageItem]] = [
         [TableItem(BBOX, fragments[0])],
-        [TableItem(BBOX, mismatched_cols_table)],
+        [TableItem(BBOX, more_cols_table)],
     ]
 
     blocks, requirements, _summary_ids = build_document_parts(pages, _no_printed_page)
@@ -105,3 +108,23 @@ def test_column_count_mismatch_breaks_the_chain() -> None:
     assert len(requirements) == 1
     assert requirements[0].pdf_page_end == 0
     assert any(b.type == "table" and b.pdf_page == 1 for b in blocks)
+
+
+def test_fewer_columns_due_to_empty_trailing_values_is_still_joined() -> None:
+    """실물(천안시 PDF) ECR-005 — 산출정보·관련요구사항 값이 둘 다 비어 있어서
+    pymupdf가 그 열 자체를 못 잡아 이어지는 조각이 3열이 아니라 2열로 잡힌다
+    (독립 검증에서 발견). 이 경우는 흡수해야 정상이다."""
+    fixtures = _load_fixtures()
+    ecr005_fragments = fixtures["ecr_005_page_fragments"]  # 44,45쪽(0-based)
+
+    pages: list[list[PageItem]] = [[TableItem(BBOX, m)] for m in ecr005_fragments]
+
+    blocks, requirements, _summary_ids = build_document_parts(pages, _no_printed_page)
+
+    assert len(requirements) == 1
+    req = requirements[0]
+    assert req.requirement_id == "ECR-005"
+    assert req.pdf_page_end == 1
+    assert "output" in req.fields
+    assert "related" in req.fields
+    assert blocks == []

@@ -3,9 +3,11 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import pytest
 
 from rfp_pm_agent.config import NaraApiConfig
-from rfp_pm_agent.ingest.collect import collect_from_api, register_manual_files
+from rfp_pm_agent.ingest import collect as collect_module
+from rfp_pm_agent.ingest.collect import collect_from_api, main, register_manual_files
 from rfp_pm_agent.ingest.manifest import ManifestEntry, append_entry, now_iso, read_manifest
 from rfp_pm_agent.ingest.nara_client import NaraApiClient
 
@@ -139,3 +141,92 @@ def test_collect_from_api_skips_http_call_when_target_already_met(tmp_path: Path
     assert entries == []
     assert call_count["n"] == 0  # 검색 API조차 호출하지 않음
     assert len(read_manifest(manifest_path)) == 5  # 보유 건수가 늘지 않음
+
+
+def test_collect_from_api_does_not_shrink_when_limit_lowered(tmp_path: Path) -> None:
+    """limit은 상한이지 목표치 강제가 아니다 — 이미 30건 보유한 상태에서
+    --limit 5로 실행해도 API를 호출하지 않고, 기존 파일도 지우지 않는다."""
+    manifest_path = tmp_path / "manifest.jsonl"
+    raw_api_dir = tmp_path / "api"
+    raw_api_dir.mkdir()
+    _seed_api_entries(manifest_path, count=30)
+    for i in range(30):
+        (raw_api_dir / f"seed{i}.pdf").write_bytes(b"seed bytes")
+
+    call_count = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        call_count["n"] += 1
+        return httpx.Response(200, json=_load_fixture())
+
+    transport = httpx.MockTransport(handler)
+    http_client = httpx.Client(base_url="https://nara.test", transport=transport)
+    config = NaraApiConfig(api_key="test-key", base_url="https://nara.test", timeout_s=5.0)
+    client = NaraApiClient(config, http_client=http_client)
+
+    entries = collect_from_api(
+        client=client, manifest_path=manifest_path, raw_api_dir=raw_api_dir, limit=5
+    )
+
+    assert entries == []
+    assert call_count["n"] == 0  # API를 호출하지 않음
+    assert len(read_manifest(manifest_path)) == 30  # manifest 항목을 지우지 않음
+    assert len(list(raw_api_dir.iterdir())) == 30  # 기존 파일을 지우지 않음
+
+
+def test_main_passes_limit_and_lookback_days_to_collect_from_api(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: dict[str, Any] = {}
+
+    def fake_register_manual_files(manual_dir: Any, manifest_path: Any) -> list[Any]:
+        return []
+
+    def fake_collect_from_api(**kwargs: Any) -> list[Any]:
+        calls.update(kwargs)
+        return []
+
+    monkeypatch.setattr(collect_module, "register_manual_files", fake_register_manual_files)
+    monkeypatch.setattr(collect_module, "collect_from_api", fake_collect_from_api)
+    monkeypatch.setattr(
+        NaraApiConfig,
+        "from_env",
+        classmethod(
+            lambda cls: NaraApiConfig(
+                api_key="test-key", base_url="https://nara.test", timeout_s=5.0
+            )
+        ),
+    )
+
+    main(["--limit", "30"])
+
+    assert calls["limit"] == 30
+    assert calls["lookback_days"] == 30  # 기본값
+
+
+def test_main_defaults_limit_5_and_lookback_days_30(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: dict[str, Any] = {}
+
+    def fake_register_manual_files(manual_dir: Any, manifest_path: Any) -> list[Any]:
+        return []
+
+    def fake_collect_from_api(**kwargs: Any) -> list[Any]:
+        calls.update(kwargs)
+        return []
+
+    monkeypatch.setattr(collect_module, "register_manual_files", fake_register_manual_files)
+    monkeypatch.setattr(collect_module, "collect_from_api", fake_collect_from_api)
+    monkeypatch.setattr(
+        NaraApiConfig,
+        "from_env",
+        classmethod(
+            lambda cls: NaraApiConfig(
+                api_key="test-key", base_url="https://nara.test", timeout_s=5.0
+            )
+        ),
+    )
+
+    main([])
+
+    assert calls["limit"] == 5
+    assert calls["lookback_days"] == 30

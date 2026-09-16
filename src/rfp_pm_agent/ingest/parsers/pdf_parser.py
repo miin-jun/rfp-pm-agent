@@ -201,14 +201,27 @@ def build_document_parts(
                         )
                     )
                 else:  # "other" — 이어짐 후보이거나 무관한 표
+                    # cols<=current_col_count인 이유: pymupdf가 열 경계를 셀
+                    # 텍스트의 실제 위치로 추론하는데, 산출정보·관련요구사항 값이
+                    # 둘 다 빈 문자열이면 그 열엔 렌더링된 텍스트가 하나도 없어
+                    # pymupdf가 열 자체의 존재를 못 잡는다 — 그래서 이어지는
+                    # 조각만 3열→2열로 줄어든다(실측: ECR-005/ECR-007/SER-006/
+                    # SFR-003/SFR-005). 열이 늘어나는 쪽은 반대로 "이 조각에 값이
+                    # 있는 열이 원본보다 많다"는 뜻이라 구조가 다른 무관한 표라는
+                    # 신호로 보고 그대로 거부한다.
+                    #
+                    # 이 완화만으로는 흡수 위험이 커지지 않는다 — local_idx==0
+                    # 조건이 같은 페이지의 두 번째 이후 블록을 걸러 준다. 실측
+                    # 사례: 37쪽(0-based 36)은 `SFR-006` 정의표(3열, 이미 완결)
+                    # 바로 아래 같은 페이지에 무관한 2열 표(`세부 항목|개발 내용`)
+                    # 가 있는데, 열 수 조건은 통과해도(2<=3) 그 표가 페이지의
+                    # "두 번째" 블록이라 흡수되지 않는다
+                    # (tests/unit/test_parsers_pdf.py
+                    #  test_unrelated_smaller_table_on_same_page_is_not_absorbed).
                     attach = (
                         current is not None
                         and local_idx == 0
                         and not paragraph_seen_since_attach
-                        # 실측: 이어지는 조각의 마지막 필드(산출정보·관련요구사항)
-                        # 값이 전부 비어 있으면 pymupdf가 그 열 자체를 못 잡아
-                        # 열 수가 줄어든다(3→2). 열이 늘어나는 쪽은 구조가 다른
-                        # 무관한 표라는 신호로 보고 거부하되, 줄어드는 쪽은 허용.
                         and current_col_count is not None
                         and cols <= current_col_count
                         and current_last_page is not None

@@ -128,3 +128,26 @@ def test_fewer_columns_due_to_empty_trailing_values_is_still_joined() -> None:
     assert "output" in req.fields
     assert "related" in req.fields
     assert blocks == []
+
+
+def test_unrelated_smaller_table_on_same_page_is_not_absorbed() -> None:
+    """실물(천안시 PDF, 37쪽/0-based 36) — `SFR-006` 정의표(3열, 7행 전부
+    완결) 바로 아래 같은 페이지에 완전히 무관한 표(`['세부 항목',
+    '개발 내용']`, 2열)가 있다. 열 수 조건을 "같거나 더 적을 때"로 완화한
+    뒤에도, 이 표는 **같은 페이지의 두 번째 블록**이라 "그 페이지의 첫
+    콘텐츠 블록" 조건에서 걸러진다 — 열 수 완화가 이 조건까지 무력화하지
+    않는다는 걸 확인하는 회귀 테스트."""
+    fixtures = _load_fixtures()
+    same_page_tables = fixtures["sfr_006_and_unrelated_orphan_same_page"]
+
+    pages: list[list[PageItem]] = [[TableItem(BBOX, m) for m in same_page_tables]]
+
+    blocks, requirements, _summary_ids = build_document_parts(pages, _no_printed_page)
+
+    assert len(requirements) == 1
+    assert requirements[0].requirement_id == "SFR-006"
+    assert requirements[0].pdf_page_end == 0
+
+    table_blocks = [b for b in blocks if b.type == "table"]
+    assert len(table_blocks) == 1
+    assert table_blocks[0].table == [["세부 항목", "개발 내용"]]

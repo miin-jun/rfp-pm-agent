@@ -19,7 +19,7 @@
 | 평가 채점 LLM | OpenAI mini급 | 기본값(모델명 미확정) | — |
 | 에이전트 | **LangGraph** + langchain-openai | 확정 | HITL(쓰기 동작) |
 | API / MCP | **FastAPI** / **MCP Python SDK (FastMCP)** | 확정 | Streamable HTTP 원격 배포 |
-| 문서 파싱 | PDF: **pdfplumber 또는 PyMuPDF** / HWPX: **XML 직접 파싱** / HWP: **LibreOffice + H2Orestart 변환** | PDF 파서는 기본값(샘플로 결정 대기) · HWPX·HWP 방식은 확정 | docx·xlsx |
+| 문서 파싱 | PDF: **PyMuPDF** / HWP: **hwp5html(pyhwp) 변환** | 실측(docs/parsing-exploration.md)으로 확정(이슈 #11) · HWPX는 범위 밖(스텁) | docx·xlsx, HWPX 실제 파싱 |
 | 평가 | 자체 평가 스크립트 + JSONL 골든셋 | 확정 | **Langfuse** 트레이싱 |
 | 파이프라인 | Python 스크립트 (멱등·증분) | 확정 | **Airflow**, **PySpark**, **OpenAI Batch API** |
 | 개발 환경 | **WSL2 Ubuntu** ✅ + **uv** ✅ + Docker Compose | 확정 | AWS EC2 |
@@ -99,13 +99,31 @@
 
 | 형식 | 방법 | 비고 |
 |---|---|---|
-| PDF | pdfplumber(MIT, HPM에서 사용) 또는 PyMuPDF(f1-ragops에서 사용, **AGPL**) | 표 추출은 pdfplumber가 유리. 샘플로 결정 |
-| HWPX | ZIP 해제 → 섹션 XML을 lxml로 직접 파싱 (문단·표) | 가장 안정적 |
-| HWP (구형) | **LibreOffice headless + H2Orestart 확장**으로 변환 → 변환본 파싱 | pyhwp는 2020년 이후 업데이트 없음·표 미지원·Python 3.9+ 호환 문제 → 비추천 |
+| PDF | **PyMuPDF**(AGPL) 최종 채택 | 실제 샘플(docs/parsing-exploration.md)로 pdfplumber와 비교한 결과 `find_tables()`가 요구사항 정의표를 표 구조로 정상 인식했다 — 아래 "pyhwp 재평가" 이전에 "표 추출은 pdfplumber가 유리"라고 적었던 건 실측 전 추정이었고 틀렸다. pdfplumber는 프로덕션 의존성에서 제거함(이슈 #11) |
+| HWP (구형) | **hwp5html(pyhwp, AGPLv3+)로 변환한 HTML을 파싱** — 채택 | 아래 "pyhwp 재평가" 참고. `<table>`이 표준 HTML 표로 그대로 보존됨(실측 37/37). 별도 프로세스로 CLI만 호출하고 `import hwp5`는 하지 않음 |
+| HWPX | (이슈 #11 범위 밖, 스텁만) | 수집된 HWPX 샘플에 요구사항 코드가 0건이라(docs/parsing-exploration.md) 구조 파싱은 미룸. `parse_status=unsupported_format`으로 표시만 하고 건너뜀 |
 | docx / xlsx | python-docx / openpyxl | Phase 2 |
 
-- **HWP는 반나절 타임박스.** 실패하면 MVP는 PDF·HWPX RFP로 진행하고 HWP는 Phase 2로
-- 파싱 결과는 공통 스키마(`Document → Section → Block(문단/표)`)로 정규화 → 형식이 달라도 청킹 코드는 하나
+- 파싱 결과는 공통 스키마(`Document`, Section 없이 `blocks`+`requirements` 평면 구조 — docs/data-design.md 2절, 이슈 #11에서 개정)로 정규화 → 형식이 달라도 청킹 코드는 하나
+
+### pyhwp 재평가 (이슈 #11, 2026-09-16 — 위 표를 "LibreOffice headless + H2Orestart"에서 바꾼 근거)
+
+기존 표는 "pyhwp는 2020년 이후 업데이트 없음·**표 미지원**·Python 3.9+ 호환 문제 →
+비추천"이라 적고 LibreOffice headless + H2Orestart(이슈 #12)를 채택했었다. 이슈
+#11 사전 조사(docs/parsing-exploration.md)에서 실제로 `hwp5html --html`로 변환해
+보니 **표가 `<table>`로 정상 보존됐다**(37개 요구사항 정의표 전부, 오탈자 라벨
+포함해도 구조 자체는 깨지지 않음). "표 미지원"이라는 기각 근거를 다시 보니, 이건
+`hwp5txt`(텍스트만 뽑는 별도 서브커맨드)를 가리키는 말이었을 가능성이 높다 —
+**`hwp5txt`는 표를 버리지만 `hwp5html`은 표를 `<table>`로 보존한다**(실측). "관리
+중단"(pyhwp가 2020년 이후 업데이트 없음) 리스크는 여전히 유효해 남겨 둔다.
+
+- 라이선스: **AGPLv3+** (`pyhwp-0.1b15` 패키지 메타데이터로 확인). 이 코드는
+  `import hwp5`를 하지 않고 별도 프로세스로 `hwp5html` CLI만 `subprocess`로
+  호출한다 — AGPL의 파생저작물·네트워크 조항이 별개 프로세스로 실행되는 외부
+  도구 호출에는 일반적으로 적용되지 않는다는 실무 해석에 따른 것이며, 법률
+  자문은 아니다
+- 이슈 #12(LibreOffice headless + H2Orestart)는 닫지 않고 **M2 백업 계획**으로
+  남겨 둔다 — pyhwp가 실패하는 HWP 파일이 나올 경우의 대안
 
 ## 9. API · MCP
 

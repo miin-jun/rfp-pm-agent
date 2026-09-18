@@ -10,9 +10,10 @@ requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.28.1",
     "openai>=3.13.0",
-    "pdfplumber>=0.11.10",
+    "pyhwp>=0.1b15",
     "pymupdf>=1.28.2",
     "python-dotenv>=1.2.3",
+    "six>=1.17.0",
 ]
 
 [project.scripts]

@@ -53,69 +53,95 @@ eval/results/**          평가 결과 요약 (git 포함)
 
 ## 2. 문서 공통 스키마 (Silver)
 
-형식(PDF·HWPX·HWP)이 달라도 파서의 출력은 모두 이 구조 → 청킹 코드는 하나
+형식(PDF·HWP)이 달라도 파서의 출력은 모두 이 구조. **이슈 #11 구현(2026-09-16)으로
+아래처럼 확정** — 원래 있던 `Document→Section→Block`(heading_path 기반) 계층은
+실제 문서 구조와 안 맞아 폐기했다: 요구사항 1개는 "섹션"이 아니라 표(또는 페이지에
+걸친 표 조각들) 1개였고, HWP·HWPX는 애초에 페이지 개념이 없어 heading_path보다
+`requirement_id`·페이지 기준 출처 표기가 실제 구조에 맞았다
+(docs/parsing-exploration.md "요구사항 정의표 구조" 절 실측 근거).
 
 ```
 Document
-├── doc_id            str    sha256 앞 16자리
-├── source
-│   ├── source_type   enum   api | manual        수집 경로 (나라장터 API 자동 수집 | 수동 반입)
-│   ├── notice_no     str | null   입찰공고번호 (manual 반입 시 확인 전까지 null 가능)
-│   ├── notice_title  str    공고명
-│   ├── agency        str    수요기관
-│   ├── url           str | null   원본 URL (manual 반입은 null 가능)
-│   ├── file_name     str
-│   ├── file_type     enum   pdf | hwpx | hwp | docx
-│   └── downloaded_at datetime
-├── title             str
-├── page_count        int | null     HWPX·HWP는 페이지 개념이 없을 수 있음
-├── security_level    enum   public | internal | confidential   (RFP 원문은 public)
-├── allowed_roles     list[str]      (public이면 전체 역할)
-├── parser            {name, version}
-└── sections: list[Section]
-      ├── section_id  str    "s003"
-      ├── heading     str    "3. 기능 요구사항"
-      ├── heading_path list[str]  ["Ⅲ. 제안요청 내용", "3. 기능 요구사항"]
-      ├── level       int
-      ├── page_start / page_end   int | null
-      └── blocks: list[Block]
-            ├── block_id        str   "s003-b012"
-            ├── type            enum  paragraph | table | list
-            ├── text            str   (표는 행을 "열이름: 값" 형태로 풀어 쓴 텍스트)
-            ├── table           list[list[str]] | null   원래 표 구조 보존
-            ├── page            int | null
-            └── requirement_id  str | null   블록에서 탐지된 요구사항 ID
+├── doc_id               str    sha256 앞 16자리
+├── source_file          str
+├── bid_title             str    manifest의 notice_title
+├── format                enum   pdf | hwp | hwpx
+├── parse_status          enum   parsed | unsupported_format | failed
+├── has_requirements      bool
+├── requirement_count     int
+├── declared_total        int | null   문서 자체 "합계" 숫자 (없거나 후보가 여럿이면 null)
+├── summary_ids           list[str]    목록(요약)표에서 모은 코드 (검증용)
+├── validation_warnings   list[str]
+├── blocks: list[Block]                요구사항으로 소비되지 않은 나머지 콘텐츠
+│     ├── block_id        str    "b0001"
+│     ├── type            enum   paragraph | table
+│     ├── text            str
+│     ├── table           list[list[str|null]] | null
+│     ├── source_order    int
+│     └── pdf_page        int | null   0-based, PDF만
+└── requirements: list[Requirement]
+      ├── requirement_id     str    "SFR-001"
+      ├── prefix             str    "SFR" — 코드 자체에서 분리, 접두어 하드코딩 없음
+      ├── fields             dict   별칭 매핑된 표준 키만(category/id/name/definition/detail/output/related)
+      ├── raw_fields         dict   원문 라벨 그대로, 별칭에 없는 라벨도 보존
+      ├── text               str
+      ├── source_order       int
+      ├── pdf_page_start/end int | null   0-based 장 번호, PDF만
+      └── printed_page_start/end int | null   페이지 하단 인쇄 쪽번호, 못 읽으면 null
 ```
 
 ### 출처 표기 규칙 (Grounded 답변에 사용)
 
 | 파일 형식 | 출처 표기 |
 |---|---|
-| PDF | `[문서명 p.23 · SFR-001]` |
-| HWPX·HWP | `[문서명 · 3. 기능 요구사항 · SFR-001]` (페이지 대신 섹션 경로) |
+| PDF | `[문서명 p.23(인쇄) · SFR-001]` — `printed_page_start`가 있으면 그 값, 없으면 `pdf_page_start`(0-based)에 안내 문구를 붙여 구분 |
+| HWP·HWPX | `[문서명 · SFR-001]` (페이지 개념이 없어 요구사항 ID만으로 인용) |
 
-※ HWPX는 화면 크기에 따라 줄바꿈이 달라지는 형식이라 **고정된 페이지 번호가 없습니다.** 페이지를 억지로 만들지 말고 섹션 경로로 표기합니다.
+※ 페이지를 억지로 계산(예: "장 번호 - 1" 같은 고정 오프셋)하지 않는다 — 인쇄 쪽번호는 페이지 하단 텍스트를 실제로 읽어서 채우고, 못 읽으면 null로 둔다(docs/parsing-exploration.md, 천안시 PDF 실측: 1쪽이 표지라 번호가 없고, 그 뒤로는 우연히 `printed_page == pdf_page(0-based)`였다 — 이 우연을 코드에 고정 규칙으로 넣지 않는다).
 
 ---
 
 ## 3. 요구사항 ID
 
-공공 SW사업 제안요청서는 요구사항에 분류 코드를 붙이는 관행이 있습니다 (예시 — **실제 샘플로 반드시 확인**)
+공공 SW사업 제안요청서는 요구사항에 분류 코드를 붙이는 관행이 있습니다. 아래 표는
+실제 샘플 2건(연구행정 데이터 기반 AI 플랫폼 구축·2024년 천안시 거점형
+스마트도시 조성사업)에서 **관찰된 예시일 뿐, 고정된 접두어 목록이 아닙니다** —
+천안시 문서는 인터페이스 요구사항에 `INR`이 아니라 `SIR`을 쓴다는 게 실측으로
+드러났습니다(docs/parsing-exploration.md, 이슈 #11 구현 중 재확인).
 
 | 코드 | 분류 | 코드 | 분류 |
 |---|---|---|---|
 | ECR | 시스템 장비 구성 | TER | 테스트 |
 | SFR | 기능 | SER | 보안 |
 | PER | 성능 | QUR | 품질 |
-| INR | 인터페이스 | COR | 제약사항 |
+| SIR(문서에 따라 INR) | 인터페이스 | COR | 제약사항 |
 | DAR | 데이터 | PMR / PSR | 프로젝트 관리 / 지원 |
 
-- 탐지 정규식은 **느슨하게 시작하고 테스트로 고정**: `SFR-001`, `SFR - 001`, `SFR_001`, 표 셀 안의 ID
-- ⚠️ **f1-ragops 교훈**: 정규식 불일치로 조문 청킹이 0건 동작했던 사고 → 이번엔 **"요구사항 ID 탐지 수 / 요구사항 표의 행 수"를 파싱 품질 지표로 매번 출력**하고, 기준 미만이면 테스트 실패
+- **코드 탐지는 라벨 문구가 아니라 셀 텍스트로 판정한다.** 실제 문서(연구행정
+  AI 플랫폼)의 `SER-004`·`SER-005` 표는 라벨이 "요구사항 고유번호"가 아니라
+  "요구사항 교유번호"(오타)다 — 라벨 문구를 매칭 기준으로 쓰면 이 두 건이
+  조용히 누락된다. 정규식은 "셀 텍스트 전체(공백 제거)가 `^[A-Z]{3}-\d{3}$`에
+  일치"로 고정하고, **접두어는 화이트리스트로 제한하지 않는다**(위 SIR 사례).
+- **정의표/요약표 판정은 "셀 하나에 코드가 여러 개 뭉쳐 있는지"로 한다.** 천안시
+  PDF의 목록표는 `"SFR-001\nSFR-002\n...\nSFR-007"`처럼 코드를 한 셀에 몰아
+  쓰고, 그 목록표가 페이지 경계에서 쪼개지면 코드 1개짜리 조각이 생긴다. "코드
+  셀 2개 이상=요약표"나 "코드 1개=정의표"만으로는 이 두 경우를 못 가른다 —
+  실측(이슈 #11 구현 초기)으로 정확히 71개(정의표)=71개(요약표)=문서 자체
+  "합계 71"이 일치하는 규칙을 확인했다.
+- ⚠️ **f1-ragops 교훈**: 정규식 불일치로 조문 청킹이 0건 동작했던 사고 → 요구사항
+  탐지 수와 문서 자체 "합계" 숫자를 항상 비교해 불일치를 `validation_warnings`에
+  남긴다(이슈 #11에서 구현). "느슨하게 시작하고 테스트로 고정"이라는 원래
+  방향은 유효했지만, 구분자(공백·언더스코어)를 느슨하게 하는 대신 접두어를
+  느슨하게(비고정) 하는 쪽이 실제 필요였다.
 
 ---
 
 ## 4. 청크 스키마 (Gold = OpenSearch 문서)
+
+> ⚠️ 이슈 #11에서 2절의 Document 스키마가 Section 없는 구조로 바뀌었다. 아래
+> "섹션 경로"·`heading_path`는 그 전 스키마 기준이라 지금 구조와 안 맞는다 —
+> #13(청킹, 학습 모드 이슈)에서 `heading_path`를 `requirement_id`나 페이지
+> 기준으로 다시 정의해야 한다. 여기서는 손대지 않고 표시만 해 둔다.
 
 ### 청킹 규칙
 

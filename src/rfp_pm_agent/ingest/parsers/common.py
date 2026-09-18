@@ -259,3 +259,36 @@ def validate_requirement_ids(
         )
 
     return warnings
+
+
+# "표준 필드가 값까지 채워졌는지" 검사 대상. related·output은 일부러 뺐다:
+# - related(관련요구사항): 천안시 문서 71개 전부 원본 자체가 빈 문자열 —
+#   포함하면 매번 71건이 뜨는 무의미한 경고가 된다(호출부 지시대로 제외)
+# - output(산출정보): 이 검사는 dict[str,str]만 보고 페이지·열 수 같은 구조
+#   정보를 모른다. 실측(천안시 문서, output이 빈 24건 전수 확인)으로 24건
+#   전부 원본 자체가 빈칸이었다(단일 페이지·정상 열 수 표는 그 자리에서
+#   직접, 여러 페이지 표는 원문 대조로 확인) — 지금은 오탐 0건이지만, 이
+#   문서에서만도 정상 요구사항의 34%(24/71)가 원래 output이 없다. 이
+#   검사가 모르는 "이 코드가 페이지 조각으로 잘렸는지"까지 알아야 진짜
+#   유실과 원본 공란을 가른다(실제로 그 판단은 pdf_parser.py의 열 수
+#   비교·문단 흡수가 담당한다) — 여기 포함하면 미래 문서에서 노이즈만
+#   커진다. detail은 반대로 71개 중 2건(QUR-003·PSR-003)만 비어 있었고
+#   둘 다 설명 가능해(전자는 알려진 파서 한계, 후자는 문서 자체가 전부
+#   공란인 템플릿 행) 신호가 깨끗하다 — 그래서 detail은 포함한다.
+REQUIRED_FIELD_VALUES = frozenset({"category", "id", "name", "definition", "detail"})
+
+
+def validate_required_field_values(
+    requirements: list[tuple[str, dict[str, str]]],
+    *,
+    required_fields: set[str] | frozenset[str],
+) -> list[str]:
+    """요구사항 표준 필드가 키만 있는 게 아니라 실제 값까지 채워졌는지 확인한다.
+    불일치는 예외가 아니라 경고 문자열 목록으로 반환한다(validate_requirement_ids와
+    같은 방식)."""
+    warnings: list[str] = []
+    for requirement_id, fields in requirements:
+        for field in sorted(required_fields):
+            if not fields.get(field, "").strip():
+                warnings.append(f"{requirement_id}: {field} 필드 값이 비어 있음")
+    return warnings

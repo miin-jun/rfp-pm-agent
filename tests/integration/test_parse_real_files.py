@@ -97,7 +97,19 @@ def test_pdf_extracts_71_requirements_matching_declared_total(
     requirement_ids = [r.requirement_id for r in doc.requirements]
     assert len(requirement_ids) == len(set(requirement_ids))  # 중복 0건
     assert set(requirement_ids) == set(doc.summary_ids)  # 요약표·정의표 코드 집합 일치
-    assert doc.validation_warnings == []
+
+    # 값 기반 필드 검사(validate_required_field_values)의 실측 결과 — 그대로
+    # 못 박는다. QUR-003의 detail은 알려진 한계(PR #46 "알려진 한계" 참고)이고,
+    # PSR-003은 문서 자체가 전부 공란인 템플릿 행이다(원본 대조로 확인, 파서
+    # 결함 아님). 이 목록이 늘어나면 새로운 유실이거나 새로운 원본 공란이다 —
+    # 둘 다 원본과 대조 없이 이 값에 맞춰 늘리지 않는다.
+    assert doc.validation_warnings == [
+        "QUR-003: detail 필드 값이 비어 있음",
+        "PSR-003: category 필드 값이 비어 있음",
+        "PSR-003: definition 필드 값이 비어 있음",
+        "PSR-003: detail 필드 값이 비어 있음",
+        "PSR-003: name 필드 값이 비어 있음",
+    ]
 
 
 def test_pdf_multi_page_requirement_count(pdf_target: tuple[dict[str, str], Path]) -> None:

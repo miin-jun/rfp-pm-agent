@@ -45,10 +45,12 @@ from typing import Any
 import pymupdf
 
 from rfp_pm_agent.ingest.parsers.common import (
+    REQUIRED_FIELD_VALUES,
     RequirementBuilder,
     collect_loose_codes,
     find_declared_total,
     table_role,
+    validate_required_field_values,
     validate_requirement_ids,
 )
 from rfp_pm_agent.schemas.document import Block, Document, Requirement
@@ -352,6 +354,10 @@ def parse_pdf(path: str | Path, *, doc_id: str, bid_title: str) -> Document:
     requirement_ids = [r.requirement_id for r in requirements]
     validation_warnings = total_warnings + validate_requirement_ids(
         requirement_ids, summary_ids, declared_total
+    )
+    validation_warnings += validate_required_field_values(
+        [(r.requirement_id, r.fields) for r in requirements],
+        required_fields=REQUIRED_FIELD_VALUES,
     )
 
     doc.close()  # type: ignore[no-untyped-call]

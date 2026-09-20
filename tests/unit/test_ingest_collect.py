@@ -65,6 +65,48 @@ def test_collect_from_api_saves_one_file_per_notice(tmp_path: Path) -> None:
     assert saved_files[0].read_bytes() == b"fake rfp bytes"
 
 
+def test_collect_from_api_records_query_range_in_manifest(tmp_path: Path) -> None:
+    """이슈 #47 문제 3 — API로 수집한 항목은 실제로 보낸 조회 범위
+    (inqryBgnDt~inqryEndDt)를 manifest에 남겨야 한다. 시작은 0000, 끝은
+    2359로 하루 전체를 포함해야 한다(8자리만 보내면 서버가 HHMM을 0000으로
+    채워 종료일 당일 공고가 빠진다는 게 실측으로 확인됨)."""
+    manifest_path = tmp_path / "manifest.jsonl"
+    raw_api_dir = tmp_path / "api"
+    client = _make_client()
+
+    entries = collect_from_api(
+        client=client,
+        manifest_path=manifest_path,
+        raw_api_dir=raw_api_dir,
+        limit=5,
+        lookback_days=30,
+    )
+
+    assert len(entries) == 1
+    entry = entries[0]
+    assert entry.inqry_bgn_dt is not None
+    assert entry.inqry_end_dt is not None
+    assert entry.inqry_bgn_dt.endswith("0000")
+    assert entry.inqry_end_dt.endswith("2359")
+    assert len(entry.inqry_bgn_dt) == 12
+    assert len(entry.inqry_end_dt) == 12
+
+
+def test_register_manual_files_leaves_query_range_none(tmp_path: Path) -> None:
+    """수동 반입 항목은 API 조회 자체가 없으므로 조회 범위 필드가 None이어야
+    한다(이슈 #47 문제 3)."""
+    manual_dir = tmp_path / "manual"
+    manual_dir.mkdir()
+    (manual_dir / "sample.hwpx").write_bytes(b"hwpx bytes")
+    manifest_path = tmp_path / "manifest.jsonl"
+
+    entries = register_manual_files(manual_dir, manifest_path)
+
+    assert len(entries) == 1
+    assert entries[0].inqry_bgn_dt is None
+    assert entries[0].inqry_end_dt is None
+
+
 def test_collect_from_api_is_idempotent_on_rerun(tmp_path: Path) -> None:
     manifest_path = tmp_path / "manifest.jsonl"
     raw_api_dir = tmp_path / "api"

@@ -11,6 +11,7 @@ from rfp_pm_agent.ingest.nara_client import (
     NaraApiClient,
     NaraApiError,
     NaraRequestError,
+    NaraSearchRangeError,
     has_attachment,
     is_sw_related,
     parse_search_response,
@@ -51,6 +52,48 @@ def test_parse_search_response_raises_on_error_code() -> None:
 
     with pytest.raises(NaraApiError):
         parse_search_response(payload)
+
+
+def test_parse_search_response_handles_nkoneps_error_structure() -> None:
+    """이슈 #47 실측: 조회 범위 초과 시 응답이 "response" 키가 아니라
+    "nkoneps.com.response.ResponseError" 키 아래 같은 모양(header.resultCode/
+    resultMsg)으로 온다. 실제 원문 그대로 재현한다."""
+    payload = {
+        "nkoneps.com.response.ResponseError": {
+            "header": {"resultCode": "07", "resultMsg": "입력범위값 초과 에러"}
+        }
+    }
+
+    with pytest.raises(NaraApiError) as exc_info:
+        parse_search_response(payload)
+
+    assert "07" in str(exc_info.value)
+    assert "입력범위값 초과 에러" in str(exc_info.value)
+
+
+def test_parse_search_response_unknown_structure_includes_payload_fragment_and_redacts_key() -> (
+    None
+):
+    """알려진 두 응답 구조(response, nkoneps 에러) 어디에도 맞지 않으면 원인
+    불명으로 조용히 사라지지 않고 payload 조각이 예외 메시지에 남아야 한다.
+    payload 안에 인증키처럼 보이는 문자열이 섞여 있어도(서버가 절대 이런 값을
+    돌려주지 않을 것으로 예상되지만 확인 없이 단정하지 않는다) 가려져야
+    한다."""
+    payload = {
+        "unexpectedTopLevelKey": {
+            "message": "이런 구조는 처음 봄",
+            "leaked": "serviceKey=SHOULD_BE_REDACTED_VALUE",
+        }
+    }
+
+    with pytest.raises(NaraApiError) as exc_info:
+        parse_search_response(payload)
+
+    message = str(exc_info.value)
+    assert "unexpectedTopLevelKey" in message
+    assert "이런 구조는 처음 봄" in message
+    assert "SHOULD_BE_REDACTED_VALUE" not in message
+    assert "serviceKey=***" in message
 
 
 def test_select_proposal_attachment_prefers_hwpx_over_pdf() -> None:
@@ -100,10 +143,29 @@ def test_search_service_bids_uses_configured_base_url_no_real_network() -> None:
     http_client = httpx.Client(base_url="https://nara.test", transport=transport)
     client = NaraApiClient(_config(), http_client=http_client)
 
-    items = client.search_service_bids(begin_date="20260801", end_date="20260901")
+    items = client.search_service_bids(begin_date="202608010000", end_date="202609010000")
 
     assert len(items) == 3
     assert str(captured_urls[0]).startswith("https://nara.test/")
+
+
+def test_search_service_bids_rejects_range_over_one_month_without_http_call() -> None:
+    """조회 범위가 MAX_SEARCH_RANGE_DAYS(31일)를 넘으면 API를 호출하지 않고
+    거절해야 한다 — 서버 왕복·일일 호출 한도 낭비를 막기 위함(이슈 #47)."""
+    call_count = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        call_count["count"] += 1
+        return httpx.Response(200, json=_load_fixture())
+
+    transport = httpx.MockTransport(handler)
+    http_client = httpx.Client(base_url="https://nara.test", transport=transport)
+    client = NaraApiClient(_config(), http_client=http_client)
+
+    with pytest.raises(NaraSearchRangeError):
+        client.search_service_bids(begin_date="202601010000", end_date="202603010000")
+
+    assert call_count["count"] == 0
 
 
 def test_download_attachment_retries_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -159,7 +221,7 @@ def test_401_response_does_not_leak_service_key_in_logs_or_exception(
     client = NaraApiClient(config, http_client=http_client)
 
     with caplog.at_level(logging.WARNING), pytest.raises(NaraRequestError) as exc_info:
-        client.search_service_bids(begin_date="20260801", end_date="20260901")
+        client.search_service_bids(begin_date="202608010000", end_date="202609010000")
 
     assert secret not in str(exc_info.value)
     assert secret not in caplog.text

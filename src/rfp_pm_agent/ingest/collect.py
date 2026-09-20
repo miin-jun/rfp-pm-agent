@@ -112,9 +112,13 @@ def collect_from_api(
 
     end = datetime.now(UTC).date()
     begin = end - timedelta(days=lookback_days)
-    items = client.search_service_bids(
-        begin_date=begin.strftime("%Y%m%d"), end_date=end.strftime("%Y%m%d")
-    )
+    # nara_client.INQRY_DATETIME_FORMAT(YYYYMMDDHHMM, 12자리) — 8자리만 보내면
+    # 서버가 부족한 HHMM을 0000(자정)으로 채워 종료일 당일 등록된 공고가 조회
+    # 범위에서 빠진다(이슈 #47 실측 확인). 시작은 0000, 끝은 2359로 하루 전체를
+    # 포함한다.
+    inqry_bgn_dt = begin.strftime("%Y%m%d") + "0000"
+    inqry_end_dt = end.strftime("%Y%m%d") + "2359"
+    items = client.search_service_bids(begin_date=inqry_bgn_dt, end_date=inqry_end_dt)
     candidates = [item for item in items if has_attachment(item) and is_sw_related(item)]
 
     for item in candidates:
@@ -158,6 +162,8 @@ def collect_from_api(
             file_size=len(data),
             sha256=sha256_hex,
             collected_at=now_iso(),
+            inqry_bgn_dt=inqry_bgn_dt,
+            inqry_end_dt=inqry_end_dt,
         )
         append_entry(manifest_path, entry)
         known.add(doc_id)

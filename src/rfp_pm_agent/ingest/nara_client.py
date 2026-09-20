@@ -7,9 +7,11 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import time
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -53,8 +55,78 @@ def _redact(text: str) -> str:
     return _SERVICE_KEY_PATTERN.sub(r"\1***", text)
 
 
+# 알려진 두 번째 응답 구조 — 정상 응답과 같은 header.resultCode/resultMsg
+# 모양을 다른 최상위 키로 감싼다. 이슈 #47 실측: 조회 범위 초과(resultCode=07)
+# 때 이 구조로 온다. 실제 응답 원문:
+#   {"nkoneps.com.response.ResponseError": {"header": {"resultCode": "07",
+#     "resultMsg": "입력범위값 초과 에러"}}}
+NKONEPS_ERROR_KEY = "nkoneps.com.response.ResponseError"
+
+# 알려진 두 응답 구조(response, NKONEPS_ERROR_KEY) 어느 쪽에도 안 맞으면
+# payload 앞부분을 이만큼 잘라 예외 메시지에 담는다 — 새 응답 구조가 와도
+# `code=None`으로 정보 없이 사라지지 않게 하는 게 이슈 #47의 핵심이다.
+PAYLOAD_TRUNCATE_LEN = 500
+
+# 나라장터 참고문서: inqryDiv=1(등록일시) 조회는 조회 범위가 최대 1개월이다
+# (이슈 #47). 정확한 "1개월" 경계(윤년·월별 일수)를 계산하는 대신, 어떤
+# 달이든 최대 31일이므로 31일을 상한으로 쓴다 — 이보다 좁게 잡을 위험은
+# 있어도(예: 2월처럼 짧은 달 기준으로는 더 엄격해야 할 수도 있음), 넓게
+# 잡아 서버가 거부할 범위를 통과시키는 일은 없다.
+MAX_SEARCH_RANGE_DAYS = 31
+
+# inqryBgnDt/inqryEndDt 형식. 참고문서 규격은 YYYYMMDDHHMM(12자리)인데,
+# 기존 코드는 YYYYMMDD(8자리)만 보내고 있었다 — 실측(2026-09-20, 같은
+# 조건에서 시각만 0000/2359/8자리로 바꿔 요청)으로 서버가 부족한 자리를
+# 0000(자정)으로 채운다는 게 확인됐다(세 결과 모두 동일 totalCount). 즉
+# 8자리만 보내면 조회 종료일 당일 등록된 공고가 조회 범위에서 빠진다 —
+# 이 파일은 형식만 검사하고, 실제로 0000/2359를 채워 보내는 건
+# collect.py의 책임이다.
+INQRY_DATETIME_FORMAT = "%Y%m%d%H%M"
+
+
+def _truncate_payload(payload: Any) -> str:
+    """예외 메시지에 담을 payload 조각. json.dumps 후 자르고 `_redact`로
+    인증키 패턴을 가린다 — payload는 서버 응답이라 인증키가 없을 것으로
+    예상되지만, 확인 없이 단정하지 않고 방어적으로 가린다(이슈 #47)."""
+    try:
+        dumped = json.dumps(payload, ensure_ascii=False)
+    except (TypeError, ValueError):
+        dumped = str(payload)
+    return _redact(dumped[:PAYLOAD_TRUNCATE_LEN])
+
+
 class NaraApiError(RuntimeError):
-    """나라장터 API가 오류 응답(header.resultCode != "00")을 반환했을 때."""
+    """나라장터 API가 오류 응답(resultCode != "00", 알려진 구조 또는 알 수
+    없는 구조 둘 다 포함)을 반환했을 때."""
+
+
+class NaraSearchRangeError(ValueError):
+    """조회 기간이 허용 범위(최대 1개월)를 넘었거나 형식이 틀렸을 때. API를
+    호출하기 전에 거절한다(이슈 #47) — 서버 왕복과 일일 호출 한도를
+    낭비하지 않기 위함."""
+
+
+def _validate_search_range(begin_date: str, end_date: str) -> None:
+    """`begin_date`/`end_date`가 `INQRY_DATETIME_FORMAT`(12자리)인지, 조회
+    범위가 `MAX_SEARCH_RANGE_DAYS`를 넘지 않는지 확인한다. 형식이 틀리거나
+    범위를 넘으면 `NaraSearchRangeError`를 낸다 — API를 부르기 전에."""
+    try:
+        # 이 문자열은 나라장터 API의 자체 조회 파라미터 형식일 뿐 실제 타임존
+        # 정보가 없다 — 여기서는 두 값의 일수 차이만 계산하므로 tzinfo를
+        # 무엇으로 붙이든 결과는 같다(DTZ007 회피용 UTC 부착).
+        begin = datetime.strptime(begin_date, INQRY_DATETIME_FORMAT).replace(tzinfo=UTC)
+        end = datetime.strptime(end_date, INQRY_DATETIME_FORMAT).replace(tzinfo=UTC)
+    except ValueError as exc:
+        raise NaraSearchRangeError(
+            f"begin_date/end_date는 {INQRY_DATETIME_FORMAT} 형식(12자리)이어야 함: "
+            f"begin={begin_date!r}, end={end_date!r}"
+        ) from exc
+
+    if (end - begin).days > MAX_SEARCH_RANGE_DAYS:
+        raise NaraSearchRangeError(
+            f"조회 범위가 허용 범위(최대 {MAX_SEARCH_RANGE_DAYS}일)를 넘음: "
+            f"begin={begin_date}, end={end_date}"
+        )
 
 
 class NaraRequestError(RuntimeError):
@@ -107,23 +179,41 @@ def _parse_item(raw: dict[str, Any]) -> NaraBidItem:
 
 
 def parse_search_response(payload: dict[str, Any]) -> list[NaraBidItem]:
-    """공공데이터포털 표준 응답 봉투를 파싱한다. resultCode가 "00"이 아니면
-    `NaraApiError`를 낸다 (실제 응답에서 확인: resultCode/resultMsg,
-    body.items/totalCount/numOfRows/pageNo)."""
-    response = payload.get("response", {})
-    header = response.get("header", {})
-    result_code = header.get("resultCode")
-    if result_code != "00":
-        raise NaraApiError(f"나라장터 API 오류: {header.get('resultMsg')} (code={result_code})")
+    """나라장터 API 응답을 파싱한다. 알려진 응답 구조는 두 가지다:
+    1) 정상/표준 오류 응답 — 최상위 "response" 키, header.resultCode/resultMsg,
+       body.items/totalCount/numOfRows/pageNo (실제 응답에서 확인)
+    2) 알려진 오류 응답 구조 — 최상위 `NKONEPS_ERROR_KEY` 키 아래 같은 모양의
+       header.resultCode/resultMsg (이슈 #47 실측: 조회 범위 초과 시 이 구조로 옴)
 
-    body = response.get("body", {})
-    items_container = body.get("items") or []
-    # XML→JSON 변환 흔적으로 {"item": [...]} 또는 {"item": {...}} 형태로 올 수 있음
-    if isinstance(items_container, dict):
-        items_container = items_container.get("item", [])
-    if isinstance(items_container, dict):
-        items_container = [items_container]
-    return [_parse_item(item) for item in items_container]
+    resultCode가 "00"이 아니면 두 구조 모두 `NaraApiError`를 낸다. 이 두 구조
+    어디에도 맞지 않는 payload가 오면(새로운/미확인 응답 구조), 원인을 알 수
+    없다고 조용히 삼키지 않고 payload 앞부분을 잘라 예외 메시지에 담아
+    `NaraApiError`를 낸다 — 인증키는 `_redact`로 가린다."""
+    if "response" in payload:
+        response = payload.get("response", {})
+        header = response.get("header", {})
+        result_code = header.get("resultCode")
+        if result_code != "00":
+            raise NaraApiError(f"나라장터 API 오류: {header.get('resultMsg')} (code={result_code})")
+
+        body = response.get("body", {})
+        items_container = body.get("items") or []
+        # XML→JSON 변환 흔적으로 {"item": [...]} 또는 {"item": {...}} 형태로 올 수 있음
+        if isinstance(items_container, dict):
+            items_container = items_container.get("item", [])
+        if isinstance(items_container, dict):
+            items_container = [items_container]
+        return [_parse_item(item) for item in items_container]
+
+    if NKONEPS_ERROR_KEY in payload:
+        header = payload.get(NKONEPS_ERROR_KEY, {}).get("header", {})
+        result_code = header.get("resultCode")
+        result_msg = header.get("resultMsg")
+        raise NaraApiError(
+            f"나라장터 API 오류({NKONEPS_ERROR_KEY}): {result_msg} (code={result_code})"
+        )
+
+    raise NaraApiError(f"나라장터 API 응답 구조를 알 수 없음: {_truncate_payload(payload)}")
 
 
 def select_proposal_attachment(item: NaraBidItem) -> NaraAttachment | None:
@@ -180,6 +270,14 @@ class NaraApiClient:
     def search_service_bids(
         self, *, begin_date: str, end_date: str, num_of_rows: int = 100, page_no: int = 1
     ) -> list[NaraBidItem]:
+        """용역 입찰공고를 조회한다. `begin_date`/`end_date`는 `INQRY_DATETIME_FORMAT`
+        형식(`YYYYMMDDHHMM`, 12자리)이어야 한다 — 8자리만 보내면 서버가 부족한
+        HHMM 자리를 0000(자정)으로 채워, 조회 종료일 당일 등록된 공고가 조회
+        범위에서 빠진다(이슈 #47 실측 확인). 조회 범위(end - begin)가
+        `MAX_SEARCH_RANGE_DAYS`(31일, inqryDiv=1의 참고문서상 최대 조회 범위인
+        1개월의 상한)를 넘으면 API를 호출하지 않고 `NaraSearchRangeError`를
+        낸다 — 서버 왕복과 일일 호출 한도를 낭비하지 않기 위함."""
+        _validate_search_range(begin_date, end_date)
         params: dict[str, str | int] = {
             "serviceKey": self._config.api_key,
             "pageNo": page_no,

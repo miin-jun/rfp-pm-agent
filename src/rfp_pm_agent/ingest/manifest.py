@@ -26,6 +26,11 @@ class ManifestEntry(BaseModel):
     file_size: int
     sha256: str
     collected_at: str
+    # API 수집 시 실제로 보낸 조회 범위(이슈 #47 문제 3) — nara_client의
+    # INQRY_DATETIME_FORMAT(YYYYMMDDHHMM) 문자열 그대로 기록한다. source_type이
+    # manual이면 조회 자체가 없으므로 None.
+    inqry_bgn_dt: str | None = None
+    inqry_end_dt: str | None = None
 
 
 def compute_hashes(data: bytes) -> tuple[str, str]:

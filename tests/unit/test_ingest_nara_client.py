@@ -10,6 +10,7 @@ from rfp_pm_agent.config import NaraApiConfig
 from rfp_pm_agent.ingest.nara_client import (
     NaraApiClient,
     NaraApiError,
+    NaraBidItem,
     NaraRequestError,
     NaraSearchRangeError,
     has_attachment,
@@ -119,9 +120,9 @@ def test_is_sw_related_filters_non_it_service_by_real_example() -> None:
     입력이 아니라 이슈에서 받은 실제 반례로 검증한다."""
     items = parse_search_response(_load_fixture())
 
-    assert is_sw_related(items[0]) is True  # infoBizYn=Y + 정보통신/소프트웨어개발 분류
-    assert is_sw_related(items[1]) is False  # 의상 제작 및 운영 용역
-    assert is_sw_related(items[2]) is False  # 시설물 유지보수
+    assert is_sw_related(items[0]) == "info_biz_yn"  # infoBizYn=Y + 정보통신/소프트웨어개발 분류
+    assert is_sw_related(items[1]) is None  # 의상 제작 및 운영 용역
+    assert is_sw_related(items[2]) is None  # 시설물 유지보수
 
 
 def test_has_attachment_and_is_sw_related_filter_correctly() -> None:
@@ -130,6 +131,65 @@ def test_has_attachment_and_is_sw_related_filter_correctly() -> None:
 
     assert len(sw_with_attachment) == 1
     assert sw_with_attachment[0].notice_no == "20260901001"
+
+
+def _bid_item(
+    *,
+    info_biz_yn: str = "N",
+    large_category: str = "기타",
+    mid_category: str = "기타",
+    notice_title: str = "일반 용역",
+) -> NaraBidItem:
+    return NaraBidItem(
+        notice_no="TEST",
+        notice_title=notice_title,
+        agency="테스트기관",
+        demand_agency="테스트수요기관",
+        detail_url="https://example.test",
+        attachments=[],
+        service_division="일반용역",
+        large_category=large_category,
+        mid_category=mid_category,
+        info_biz_yn=info_biz_yn,
+    )
+
+
+def test_is_sw_related_returns_info_biz_yn_when_only_that_condition_true() -> None:
+    """이슈 #47 문제 2 재발 방지 — 재즈 페스티벌 공고(R26BK01684655)가
+    실제로는 title_keyword로 통과했는데도 infoBizYn이 원인으로 의심됐다.
+    조건을 하나씩만 참으로 만들어 어느 조건이 통과시켰는지 구별한다."""
+    item = _bid_item(
+        info_biz_yn="Y", large_category="기타", mid_category="기타", notice_title="일반 용역"
+    )
+
+    assert is_sw_related(item) == "info_biz_yn"
+
+
+def test_is_sw_related_returns_classification_when_only_that_condition_true() -> None:
+    item = _bid_item(
+        info_biz_yn="N", large_category="정보통신", mid_category="기타", notice_title="일반 용역"
+    )
+
+    assert is_sw_related(item) == "classification"
+
+
+def test_is_sw_related_returns_title_keyword_when_only_that_condition_true() -> None:
+    item = _bid_item(
+        info_biz_yn="N",
+        large_category="기타",
+        mid_category="기타",
+        notice_title="정보시스템 구축 용역",
+    )
+
+    assert is_sw_related(item) == "title_keyword"
+
+
+def test_is_sw_related_returns_none_when_no_condition_true() -> None:
+    item = _bid_item(
+        info_biz_yn="N", large_category="기타", mid_category="기타", notice_title="일반 용역"
+    )
+
+    assert is_sw_related(item) is None
 
 
 def test_search_service_bids_uses_configured_base_url_no_real_network() -> None:

@@ -31,6 +31,13 @@ class ManifestEntry(BaseModel):
     # manual이면 조회 자체가 없으므로 None.
     inqry_bgn_dt: str | None = None
     inqry_end_dt: str | None = None
+    # nara_client.is_sw_related()가 이 공고를 통과시킨 조건 — "info_biz_yn" /
+    # "classification" / "title_keyword" 중 하나(이슈 #47 문제 2). 어느
+    # 조건이 통과시켰는지가 manifest에 안 남아 있으면, 무관 공고가 통과했을 때
+    # 원인을 사후에 규명할 수 없다(docs/learning-log.md 2026-09-21 항목).
+    # source_type이 manual이거나 기존 manifest 9건처럼 이 필드가 생기기
+    # 전에 기록된 줄은 None.
+    sw_match_reason: str | None = None
 
 
 def compute_hashes(data: bytes) -> tuple[str, str]:

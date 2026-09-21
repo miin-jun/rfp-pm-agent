@@ -12,7 +12,7 @@ import logging
 import re
 import time
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from pydantic import BaseModel
@@ -46,6 +46,15 @@ SW_TITLE_KEYWORDS = ("구축", "고도화", "시스템", "정보화")
 # 1차 기준에 쓰는 분류명 키워드 — 발주기관이 사업 등록 시 직접 붙인 값이라
 # 공고명 표현 차이(구축/고도화/개발 등 제각각)보다 신뢰도가 높다.
 SW_CLASSIFICATION_KEYWORDS = ("정보통신", "소프트웨어", "정보화")
+
+# is_sw_related가 통과시킨 조건을 나타내는 문자열. 함수 시그니처의 반환
+# 타입을 `Literal[...] | None`으로 직접 쓰지 않고 별도 별칭으로 뺀 이유:
+# 이 파일은 `from __future__ import annotations`로 어노테이션을 문자열
+# 지연 평가하는데, ruff의 따옴표 정리 자동수정이 함수 시그니처 안의
+# `Literal["a", "b"]` 리터럴 값 따옴표까지 지워버려(`Literal[a, b]`) 이름이
+# 안 정의됐다는 오류가 났다 — 별칭으로 빼서 시그니처에는 Literal 문자열
+# 리터럴이 직접 나타나지 않게 했다.
+SwMatchReason = Literal["info_biz_yn", "classification", "title_keyword"]
 
 _SERVICE_KEY_PATTERN = re.compile(r"(serviceKey=)[^&\s'\"]+", re.IGNORECASE)
 
@@ -239,8 +248,8 @@ def has_attachment(item: NaraBidItem) -> bool:
     return select_proposal_attachment(item) is not None
 
 
-def is_sw_related(item: NaraBidItem) -> bool:
-    """소프트웨어 개발/구축 용역인지 판단한다.
+def is_sw_related(item: NaraBidItem) -> SwMatchReason | None:
+    """소프트웨어 개발/구축 용역인지 판단하고, 통과시킨 조건을 반환한다.
 
     1차 기준(신뢰도 높음): `infoBizYn`(정보화사업 여부)이 "Y"이거나,
     발주기관이 직접 붙인 분류명(대/중분류)에 정보통신·소프트웨어 계열
@@ -250,13 +259,23 @@ def is_sw_related(item: NaraBidItem) -> bool:
     2차 기준(보조): 1차로 못 정하면 공고명에 "구축·고도화·시스템·정보화"
     키워드가 있는지 본다. 실제 응답 예시의 "의상 제작 및 운영 용역"처럼
     이 키워드가 전혀 없으면 걸러진다.
+
+    반환값은 조기 반환 순서(① infoBizYn → ② 분류명 → ③ 공고명)대로 어느
+    조건이 통과시켰는지를 나타낸다: `"info_biz_yn"` / `"classification"` /
+    `"title_keyword"`. 아무 조건도 만족하지 않으면 `None`이다 — 재즈
+    페스티벌 공고(R26BK01684655)가 실제로는 ③(공고명의 "시스템")만으로
+    통과했는데도 이슈 #47에서 ①(infoBizYn)이 원인으로 의심됐던 사례가 있어
+    (docs/learning-log.md), 호출하는 쪽이 어느 조건이 통과시켰는지 사후에
+    알 수 있도록 bool 대신 문자열을 반환한다.
     """
     if item.info_biz_yn.strip().upper() == "Y":
-        return True
+        return "info_biz_yn"
     classification = f"{item.large_category} {item.mid_category}"
     if any(keyword in classification for keyword in SW_CLASSIFICATION_KEYWORDS):
-        return True
-    return any(keyword in item.notice_title for keyword in SW_TITLE_KEYWORDS)
+        return "classification"
+    if any(keyword in item.notice_title for keyword in SW_TITLE_KEYWORDS):
+        return "title_keyword"
+    return None
 
 
 class NaraApiClient:

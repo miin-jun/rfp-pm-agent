@@ -35,6 +35,7 @@ from rfp_pm_agent.ingest.manifest import (
 )
 from rfp_pm_agent.ingest.nara_client import (
     NaraApiClient,
+    NaraBidItem,
     has_attachment,
     is_sw_related,
     select_proposal_attachment,
@@ -119,9 +120,19 @@ def collect_from_api(
     inqry_bgn_dt = begin.strftime("%Y%m%d") + "0000"
     inqry_end_dt = end.strftime("%Y%m%d") + "2359"
     items = client.search_service_bids(begin_date=inqry_bgn_dt, end_date=inqry_end_dt)
-    candidates = [item for item in items if has_attachment(item) and is_sw_related(item)]
+    # is_sw_related가 어느 조건으로 통과시켰는지(sw_match_reason)를 manifest에
+    # 남겨야 하므로(이슈 #47 문제 2), 필터링 시점에 (공고, 통과 조건) 쌍으로
+    # 같이 들고 간다 — bool로만 거르면 이 정보가 사라진다.
+    candidates: list[tuple[NaraBidItem, str]] = []
+    for item in items:
+        if not has_attachment(item):
+            continue
+        match_reason = is_sw_related(item)
+        if match_reason is None:
+            continue
+        candidates.append((item, match_reason))
 
-    for item in candidates:
+    for item, sw_match_reason in candidates:
         if len(new_entries) >= remaining:
             break
 
@@ -164,6 +175,7 @@ def collect_from_api(
             collected_at=now_iso(),
             inqry_bgn_dt=inqry_bgn_dt,
             inqry_end_dt=inqry_end_dt,
+            sw_match_reason=sw_match_reason,
         )
         append_entry(manifest_path, entry)
         known.add(doc_id)

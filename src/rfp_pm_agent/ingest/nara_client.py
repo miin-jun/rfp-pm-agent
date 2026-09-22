@@ -95,7 +95,7 @@ INQRY_DATETIME_FORMAT = "%Y%m%d%H%M"
 # search_all_service_bids의 기본 페이지 크기. 한 달 조회 응답이 2925건이었다
 # (PR #48 실측) — 100건씩이면 30번, 이 값이면 3번이다. 일일 호출 한도(1000건)를
 # 아끼기 위해 크게 잡는다. 서버가 허용하는 numOfRows 상한은 참고문서로
-# 확인하지 못했다 — 서버가 조용히 줄여 보내더라도 search_all_service_bids는
+# 확인하지 못했다 — 서버가 에러 없이 더 적게 보내더라도 search_all_service_bids는
 # 빈 페이지에서 멈추므로 무한 호출은 없고, 받은 건수를 total_count와 비교하면
 # 누락이 드러난다.
 SEARCH_PAGE_SIZE = 999
@@ -226,7 +226,7 @@ def parse_search_page(payload: dict[str, Any]) -> NaraSearchPage:
 
     resultCode가 "00"이 아니면 두 구조 모두 `NaraApiError`를 낸다. 이 두 구조
     어디에도 맞지 않는 payload가 오면(새로운/미확인 응답 구조), 원인을 알 수
-    없다고 조용히 삼키지 않고 payload 앞부분을 잘라 예외 메시지에 담아
+    없다고 예외 없이 빈 결과로 넘기지 않고 payload 앞부분을 잘라 예외 메시지에 담아
     `NaraApiError`를 낸다 — 인증키는 `_redact`로 가린다."""
     if "response" in payload:
         response = payload.get("response", {})
@@ -338,7 +338,7 @@ class NaraApiClient:
     ) -> NaraSearchResult:
         """`search_service_bids`와 같은 조회를 1페이지부터 반복해 전체 결과를
         받는다. 받은 누적 건수가 1페이지 응답의 `totalCount` 이상이 되거나 빈
-        페이지가 오면 멈춘다 — 빈 페이지 조건은 서버가 `numOfRows`를 조용히
+        페이지가 오면 멈춘다 — 빈 페이지 조건은 서버가 `numOfRows`를 에러 없이
         줄이거나 `totalCount`가 실제보다 클 때 무한 호출을 막는다. 이때 받은
         건수가 `total_count`보다 적으면 누락이 있다는 뜻이므로 호출부가 기록해
         비교해야 한다. 조회 범위 검증은 첫 호출 전에 한다."""

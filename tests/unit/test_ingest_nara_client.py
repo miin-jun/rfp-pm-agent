@@ -78,7 +78,7 @@ def test_parse_search_response_unknown_structure_includes_payload_fragment_and_r
     None
 ):
     """알려진 두 응답 구조(response, nkoneps 에러) 어디에도 맞지 않으면 원인
-    불명으로 조용히 사라지지 않고 payload 조각이 예외 메시지에 남아야 한다.
+    불명으로 빈 결과로 처리되어 원인이 사라지지 않고 payload 조각이 예외 메시지에 남아야 한다.
     payload 안에 인증키처럼 보이는 문자열이 섞여 있어도(서버가 절대 이런 값을
     돌려주지 않을 것으로 예상되지만 확인 없이 단정하지 않는다) 가려져야
     한다."""
@@ -350,7 +350,7 @@ def test_search_all_service_bids_fetches_until_total_count() -> None:
 
 
 def test_search_all_service_bids_stops_on_empty_page() -> None:
-    """서버가 numOfRows를 조용히 줄이거나 totalCount가 실제보다 크면, 빈
+    """서버가 numOfRows를 에러 없이 줄이거나 totalCount가 실제보다 크면, 빈
     페이지에서 멈춰야 한다 — 무한 호출로 일일 한도를 태우지 않기 위함."""
     seen: list[dict[str, str]] = []
     client = _paged_client(total_count=500, page_sizes=[100], seen_params=seen)

@@ -97,7 +97,7 @@ def test_nara_api_config_no_warning_when_key_decoded(
 
 
 # --- 이슈 #10 검증 중 발견한 결함(.env 미로딩) 재발 방지: load_dotenv 계약 자체를 검증 ---
-# config.py는 이 계약(override=False, 파일 없으면 조용히 통과)에 기대어 동작하므로,
+# config.py는 이 계약(override=False, 파일 없으면 예외 없이 통과)에 기대어 동작하므로,
 # 여기서 실제 os.environ/임시 .env 파일로 계약을 직접 확인한다. 실제 레포의 .env는
 # 절대 참조하지 않고 tmp_path에 만든 임시 파일의 dotenv_path만 명시적으로 사용한다
 # — 그래야 이 테스트가 .env 존재 여부와 무관하게 통과한다.

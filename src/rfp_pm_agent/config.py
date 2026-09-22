@@ -9,7 +9,7 @@ URL·키·모델명·타임아웃을 하드코딩하지 않는다. 이 파일은
 모든 설정이 (실제로는 `.env`에 값이 있어도) 하드코딩된 기본값으로만 동작하고
 있었다 (docs/learning-log.md 네 번째 항목). 아래 `load_dotenv(override=False)`
 한 줄로 이 모듈이 처음 import될 때 `.env`를 한 번 읽는다. 이미 설정된 환경변수
-(쉘 export, CI secrets 등)는 덮지 않고, `.env` 파일이 없어도 조용히 넘어간다
+(쉘 export, CI secrets 등)는 덮지 않고, `.env` 파일이 없어도 예외 없이 넘어간다
 (python-dotenv 기본 동작 — 예외를 던지지 않음).
 """
 
@@ -93,7 +93,7 @@ class NaraApiConfig(BaseModel):
         if "%" in api_key:
             # 공공데이터포털이 주는 "인코딩된" 키를 그대로 넣으면 httpx가 쿼리
             # 파라미터로 보낼 때 '%'를 다시 인코딩(%→%25)해 이중 인코딩이 되고,
-            # 서버가 403을 낸다 — 조용히 실패하는 것보다 경고가 낫다
+            # 서버가 403을 낸다 — 원인이 기록에 남지 않는 403보다 경고가 낫다
             # (docs/learning-log.md 다섯 번째 항목).
             logger.warning(
                 "NARA_API_KEY에 '%%' 문자가 있습니다 — 포털이 주는 인코딩된 값을 그대로 "

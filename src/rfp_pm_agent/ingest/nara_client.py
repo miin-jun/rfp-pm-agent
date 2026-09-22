@@ -92,8 +92,8 @@ MAX_SEARCH_RANGE_DAYS = 31
 # collect.py의 책임이다.
 INQRY_DATETIME_FORMAT = "%Y%m%d%H%M"
 
-# search_all_service_bids의 기본 페이지 크기. 한 달 조회 응답이 2925건이었다
-# (PR #48 실측) — 100건씩이면 30번, 이 값이면 3번이다. 일일 호출 한도(1000건)를
+# search_all_service_bids의 기본 페이지 크기. 2026-08~09 한 달 조회 응답
+# 2925건 (PR #48 실측) — 100건씩이면 30번, 이 값이면 3번이다. 일일 호출 한도(1000건)를
 # 아끼기 위해 크게 잡는다. 서버가 허용하는 numOfRows 상한은 참고문서로
 # 확인하지 못했다 — 서버가 에러 없이 더 적게 보내더라도 search_all_service_bids는
 # 빈 페이지에서 멈추므로 무한 호출은 없고, 받은 건수를 total_count와 비교하면

@@ -24,6 +24,8 @@ data/raw/manual/{파일} ──► sha256 계산 ────┘         수동 
                  data/raw/manifest.jsonl             수집 기록 (doc_id, 파일명, source_type: api|manual,
                                                       공고번호 nullable, 공고명, URL nullable, 파일 크기,
                                                       sha256, 수집 시각) — git 포함(예외)
+                 data/raw/collect_runs.jsonl         실행 기록 (조회 구간별 호출 여부, total_count, 페이지 수,
+                                                      응답·필터 통과·신규 저장 건수) — git 제외
                         │ 파싱
                         ▼
                  data/parsed/{doc_id}.json           [Silver] 공통 문서 스키마, git 제외
@@ -40,6 +42,8 @@ eval/sets/*.jsonl        평가 세트 (git 포함, 사람 검수 기록 포함)
 eval/results/**          평가 결과 요약 (git 포함)
 ```
 
+- **조회 구간 (이슈 #50)**: 기준 날짜는 KST(`+09:00`)다 — 나라장터 조회 시각이 한국 시각 기준이라는 가정이며 참고문서로는 확인하지 못했다. 구간(`--from`/`--to` 또는 `--lookback-days`)은 30일 단위로 나누고 경계는 1일 겹친다(겹친 날의 중복은 `doc_id`가 거른다). 구간마다 `totalCount`까지 모든 페이지를 받는다.
+- **실행 기록 (`collect_runs.jsonl`)**: manifest는 저장된 공고의 기록이고, 이 파일은 실행의 기록이다. `--limit` 도달로 조회하지 않은 구간도 `called=false, skip_reason=limit_reached`로 남겨 "공고가 없었다"와 "조회하지 않았다"를 구별한다. `response_count < total_count`면 페이지 누락이다.
 - **파일명 충돌 방지**: `data/raw/api/`에 저장하는 파일명은 `{doc_id}_{원본 파일명}`으로 접두해, 서로 다른 공고가 같은 첨부파일 이름(예: "제안요청서.hwp")을 쓰더라도 덮어쓰지 않는다.
 
 ### 중복 방지 vs 목표치 유지 — 서로 다른 두 가지 멱등성 (2026-09-15 실측으로 드러남, learning-log.md 여섯 번째 항목)

@@ -92,6 +92,14 @@ MAX_SEARCH_RANGE_DAYS = 31
 # collect.py의 책임이다.
 INQRY_DATETIME_FORMAT = "%Y%m%d%H%M"
 
+# search_all_service_bids의 기본 페이지 크기. 한 달 조회 응답이 2925건이었다
+# (PR #48 실측) — 100건씩이면 30번, 이 값이면 3번이다. 일일 호출 한도(1000건)를
+# 아끼기 위해 크게 잡는다. 서버가 허용하는 numOfRows 상한은 참고문서로
+# 확인하지 못했다 — 서버가 조용히 줄여 보내더라도 search_all_service_bids는
+# 빈 페이지에서 멈추므로 무한 호출은 없고, 받은 건수를 total_count와 비교하면
+# 누락이 드러난다.
+SEARCH_PAGE_SIZE = 999
+
 
 def _truncate_payload(payload: Any) -> str:
     """예외 메시지에 담을 payload 조각. json.dumps 후 자르고 `_redact`로
@@ -187,7 +195,29 @@ def _parse_item(raw: dict[str, Any]) -> NaraBidItem:
     )
 
 
+class NaraSearchPage(BaseModel):
+    """검색 응답 한 페이지. `total_count`는 응답 body의 `totalCount` — 이
+    페이지 건수가 아니라 조회 조건 전체의 건수다."""
+
+    items: list[NaraBidItem]
+    total_count: int
+
+
+class NaraSearchResult(BaseModel):
+    """`search_all_service_bids`의 결과. `pages_fetched`는 실제로 호출한
+    페이지 수(빈 페이지 포함)."""
+
+    items: list[NaraBidItem]
+    total_count: int
+    pages_fetched: int
+
+
 def parse_search_response(payload: dict[str, Any]) -> list[NaraBidItem]:
+    """`parse_search_page`의 items만 돌려준다 (기존 호출부 호환)."""
+    return parse_search_page(payload).items
+
+
+def parse_search_page(payload: dict[str, Any]) -> NaraSearchPage:
     """나라장터 API 응답을 파싱한다. 알려진 응답 구조는 두 가지다:
     1) 정상/표준 오류 응답 — 최상위 "response" 키, header.resultCode/resultMsg,
        body.items/totalCount/numOfRows/pageNo (실제 응답에서 확인)
@@ -212,7 +242,10 @@ def parse_search_response(payload: dict[str, Any]) -> list[NaraBidItem]:
             items_container = items_container.get("item", [])
         if isinstance(items_container, dict):
             items_container = [items_container]
-        return [_parse_item(item) for item in items_container]
+        return NaraSearchPage(
+            items=[_parse_item(item) for item in items_container],
+            total_count=int(body.get("totalCount") or 0),
+        )
 
     if NKONEPS_ERROR_KEY in payload:
         header = payload.get(NKONEPS_ERROR_KEY, {}).get("header", {})
@@ -296,6 +329,38 @@ class NaraApiClient:
         `MAX_SEARCH_RANGE_DAYS`(31일, inqryDiv=1의 참고문서상 최대 조회 범위인
         1개월의 상한)를 넘으면 API를 호출하지 않고 `NaraSearchRangeError`를
         낸다 — 서버 왕복과 일일 호출 한도를 낭비하지 않기 위함."""
+        return self._search_page(
+            begin_date=begin_date, end_date=end_date, num_of_rows=num_of_rows, page_no=page_no
+        ).items
+
+    def search_all_service_bids(
+        self, *, begin_date: str, end_date: str, num_of_rows: int = SEARCH_PAGE_SIZE
+    ) -> NaraSearchResult:
+        """`search_service_bids`와 같은 조회를 1페이지부터 반복해 전체 결과를
+        받는다. 받은 누적 건수가 1페이지 응답의 `totalCount` 이상이 되거나 빈
+        페이지가 오면 멈춘다 — 빈 페이지 조건은 서버가 `numOfRows`를 조용히
+        줄이거나 `totalCount`가 실제보다 클 때 무한 호출을 막는다. 이때 받은
+        건수가 `total_count`보다 적으면 누락이 있다는 뜻이므로 호출부가 기록해
+        비교해야 한다. 조회 범위 검증은 첫 호출 전에 한다."""
+        _validate_search_range(begin_date, end_date)
+        items: list[NaraBidItem] = []
+        total_count = 0
+        page_no = 0
+        while True:
+            page_no += 1
+            page = self._search_page(
+                begin_date=begin_date, end_date=end_date, num_of_rows=num_of_rows, page_no=page_no
+            )
+            if page_no == 1:
+                total_count = page.total_count
+            items.extend(page.items)
+            if not page.items or len(items) >= total_count:
+                break
+        return NaraSearchResult(items=items, total_count=total_count, pages_fetched=page_no)
+
+    def _search_page(
+        self, *, begin_date: str, end_date: str, num_of_rows: int, page_no: int
+    ) -> NaraSearchPage:
         _validate_search_range(begin_date, end_date)
         params: dict[str, str | int] = {
             "serviceKey": self._config.api_key,
@@ -308,7 +373,7 @@ class NaraApiClient:
         }
         context = f"search(begin={begin_date}, end={end_date}, page={page_no})"
         response = self._get_with_retry(f"/{SEARCH_OPERATION}", params=params, context=context)
-        return parse_search_response(response.json())
+        return parse_search_page(response.json())
 
     def download_attachment(self, url: str, *, context: str) -> bytes:
         response = self._get_with_retry(url, params=None, context=context)

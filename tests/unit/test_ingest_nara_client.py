@@ -8,6 +8,7 @@ import pytest
 
 from rfp_pm_agent.config import NaraApiConfig
 from rfp_pm_agent.ingest.nara_client import (
+    SEARCH_PAGE_SIZE,
     NaraApiClient,
     NaraApiError,
     NaraBidItem,
@@ -15,6 +16,7 @@ from rfp_pm_agent.ingest.nara_client import (
     NaraSearchRangeError,
     has_attachment,
     is_sw_related,
+    parse_search_page,
     parse_search_response,
     select_proposal_attachment,
 )
@@ -286,3 +288,110 @@ def test_401_response_does_not_leak_service_key_in_logs_or_exception(
     assert secret not in str(exc_info.value)
     assert secret not in caplog.text
     assert "***" in str(exc_info.value)
+
+
+# --- 페이지네이션 (이슈 #50) ---
+
+
+def _page_payload(page_no: int, page_items: int, total_count: int) -> dict[str, Any]:
+    items = [
+        {"bidNtceNo": f"P{page_no:03d}{i:04d}", "bidNtceNm": "테스트 공고"}
+        for i in range(page_items)
+    ]
+    return {
+        "response": {
+            "header": {"resultCode": "00", "resultMsg": "정상"},
+            "body": {
+                "items": items,
+                "numOfRows": page_items,
+                "pageNo": page_no,
+                "totalCount": total_count,
+            },
+        }
+    }
+
+
+def _paged_client(
+    total_count: int, page_sizes: list[int], seen_params: list[dict[str, str]]
+) -> NaraApiClient:
+    """page_sizes[i] = (i+1)페이지 응답 건수. 범위를 넘는 페이지는 0건."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        params = dict(request.url.params)
+        seen_params.append(params)
+        page_no = int(params["pageNo"])
+        size = page_sizes[page_no - 1] if page_no <= len(page_sizes) else 0
+        return httpx.Response(200, json=_page_payload(page_no, size, total_count))
+
+    transport = httpx.MockTransport(handler)
+    http_client = httpx.Client(base_url="https://nara.test", transport=transport)
+    return NaraApiClient(_config(), http_client=http_client)
+
+
+def test_parse_search_page_reads_total_count() -> None:
+    page = parse_search_page(_load_fixture())
+
+    assert page.total_count == 3
+    assert len(page.items) == 3
+
+
+def test_search_all_service_bids_fetches_until_total_count() -> None:
+    seen: list[dict[str, str]] = []
+    client = _paged_client(total_count=250, page_sizes=[100, 100, 50], seen_params=seen)
+
+    result = client.search_all_service_bids(
+        begin_date="202608010000", end_date="202608302359", num_of_rows=100
+    )
+
+    assert [p["pageNo"] for p in seen] == ["1", "2", "3"]
+    assert len(result.items) == 250
+    assert result.total_count == 250
+    assert result.pages_fetched == 3
+
+
+def test_search_all_service_bids_stops_on_empty_page() -> None:
+    """서버가 numOfRows를 조용히 줄이거나 totalCount가 실제보다 크면, 빈
+    페이지에서 멈춰야 한다 — 무한 호출로 일일 한도를 태우지 않기 위함."""
+    seen: list[dict[str, str]] = []
+    client = _paged_client(total_count=500, page_sizes=[100], seen_params=seen)
+
+    result = client.search_all_service_bids(
+        begin_date="202608010000", end_date="202608302359", num_of_rows=100
+    )
+
+    assert len(seen) == 2  # 1페이지 100건, 2페이지 0건에서 멈춤
+    assert len(result.items) == 100
+    assert result.total_count == 500
+    assert result.pages_fetched == 2
+
+
+def test_search_all_service_bids_zero_results_calls_once() -> None:
+    seen: list[dict[str, str]] = []
+    client = _paged_client(total_count=0, page_sizes=[], seen_params=seen)
+
+    result = client.search_all_service_bids(begin_date="202608010000", end_date="202608302359")
+
+    assert len(seen) == 1
+    assert result.items == []
+    assert result.total_count == 0
+    assert result.pages_fetched == 1
+
+
+def test_search_all_service_bids_uses_large_page_size_by_default() -> None:
+    seen: list[dict[str, str]] = []
+    client = _paged_client(total_count=1, page_sizes=[1], seen_params=seen)
+
+    client.search_all_service_bids(begin_date="202608010000", end_date="202608302359")
+
+    assert int(seen[0]["numOfRows"]) == SEARCH_PAGE_SIZE
+    assert SEARCH_PAGE_SIZE > 100
+
+
+def test_search_all_service_bids_rejects_range_before_any_call() -> None:
+    seen: list[dict[str, str]] = []
+    client = _paged_client(total_count=1, page_sizes=[1], seen_params=seen)
+
+    with pytest.raises(NaraSearchRangeError):
+        client.search_all_service_bids(begin_date="202601010000", end_date="202603010000")
+
+    assert seen == []

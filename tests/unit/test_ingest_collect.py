@@ -1,4 +1,6 @@
 import json
+from datetime import UTC, date, datetime
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -7,9 +9,18 @@ import pytest
 
 from rfp_pm_agent.config import NaraApiConfig
 from rfp_pm_agent.ingest import collect as collect_module
-from rfp_pm_agent.ingest.collect import collect_from_api, main, register_manual_files
+from rfp_pm_agent.ingest.collect import (
+    collect_from_api,
+    main,
+    register_manual_files,
+    split_query_range,
+    to_inqry_begin,
+    to_inqry_end,
+    today_kst,
+)
+from rfp_pm_agent.ingest.collect_runs import read_runs
 from rfp_pm_agent.ingest.manifest import ManifestEntry, append_entry, now_iso, read_manifest
-from rfp_pm_agent.ingest.nara_client import NaraApiClient
+from rfp_pm_agent.ingest.nara_client import NaraApiClient, _validate_search_range
 
 FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "nara_search_response.json"
 
@@ -272,3 +283,295 @@ def test_main_defaults_limit_5_and_lookback_days_30(monkeypatch: pytest.MonkeyPa
 
     assert calls["limit"] == 5
     assert calls["lookback_days"] == 30
+
+
+# --- 조회 기준 날짜 KST 고정 (이슈 #50) ---
+
+
+def test_today_kst_uses_korean_date_before_9am_kst() -> None:
+    """UTC 2026-09-21 23:00 = KST 2026-09-22 08:00. 나라장터 조회 시각은 KST
+    기준이므로 종료일은 09-22여야 한다 — UTC 날짜(09-21)를 쓰면 당일 공고가 빠진다."""
+    now = datetime(2026, 9, 21, 23, 0, tzinfo=UTC)
+
+    assert today_kst(now) == date(2026, 9, 22)
+
+
+def test_today_kst_same_day_after_9am_kst() -> None:
+    now = datetime(2026, 9, 22, 1, 0, tzinfo=UTC)  # KST 10:00
+
+    assert today_kst(now) == date(2026, 9, 22)
+
+
+def test_collect_from_api_default_range_ends_on_kst_today(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(collect_module, "today_kst", lambda now=None: date(2026, 9, 22))
+
+    entries = collect_from_api(
+        client=_make_client(),
+        manifest_path=tmp_path / "manifest.jsonl",
+        raw_api_dir=tmp_path / "api",
+        lookback_days=30,
+    )
+
+    assert entries[0].inqry_end_dt == "202609222359"
+    assert entries[0].inqry_bgn_dt == "202608230000"
+
+
+# --- 조회 구간 분할과 --from/--to (이슈 #50) ---
+
+
+def test_split_query_range_single_day() -> None:
+    assert split_query_range(date(2026, 6, 1), date(2026, 6, 1)) == [
+        (date(2026, 6, 1), date(2026, 6, 1))
+    ]
+
+
+def test_split_query_range_within_30_days_is_one_chunk() -> None:
+    assert split_query_range(date(2026, 6, 1), date(2026, 7, 1)) == [
+        (date(2026, 6, 1), date(2026, 7, 1))
+    ]
+
+
+def test_split_query_range_overlaps_one_day_at_boundaries() -> None:
+    chunks = split_query_range(date(2026, 6, 1), date(2026, 8, 31))
+
+    assert chunks == [
+        (date(2026, 6, 1), date(2026, 7, 1)),
+        (date(2026, 7, 1), date(2026, 7, 31)),
+        (date(2026, 7, 31), date(2026, 8, 30)),
+        (date(2026, 8, 30), date(2026, 8, 31)),
+    ]
+    # 다음 구간의 시작일 = 이전 구간의 종료일 (1일 겹침, 틈 없음)
+    for (_, prev_end), (next_begin, _) in pairwise(chunks):
+        assert next_begin == prev_end
+
+
+def test_split_query_range_chunks_pass_client_range_validation() -> None:
+    """분할된 모든 구간이 0000~2359로 바꿨을 때 클라이언트의 조회 범위
+    검증(최대 31일)을 통과해야 한다."""
+    for begin, end in split_query_range(date(2026, 1, 1), date(2026, 12, 31)):
+        _validate_search_range(to_inqry_begin(begin), to_inqry_end(end))
+
+
+def test_split_query_range_rejects_reversed_range() -> None:
+    with pytest.raises(ValueError):
+        split_query_range(date(2026, 8, 31), date(2026, 6, 1))
+
+
+def test_to_inqry_formats_are_12_digits() -> None:
+    assert to_inqry_begin(date(2026, 6, 1)) == "202606010000"
+    assert to_inqry_end(date(2026, 6, 1)) == "202606012359"
+
+
+def test_collect_from_api_calls_search_once_per_chunk(tmp_path: Path) -> None:
+    searched: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "getBidPblancListInfoServcPPSSrch" in str(request.url):
+            params = request.url.params
+            searched.append((params["inqryBgnDt"], params["inqryEndDt"]))
+            return httpx.Response(200, json=_load_fixture())
+        return httpx.Response(200, content=b"fake rfp bytes")
+
+    http_client = httpx.Client(base_url="https://nara.test", transport=httpx.MockTransport(handler))
+    config = NaraApiConfig(api_key="test-key", base_url="https://nara.test", timeout_s=5.0)
+
+    entries = collect_from_api(
+        client=NaraApiClient(config, http_client=http_client),
+        manifest_path=tmp_path / "manifest.jsonl",
+        raw_api_dir=tmp_path / "api",
+        limit=5,
+        begin_date=date(2026, 6, 1),
+        end_date=date(2026, 8, 31),
+    )
+
+    assert searched == [
+        ("202606010000", "202607012359"),
+        ("202607010000", "202607312359"),
+        ("202607310000", "202608302359"),
+        ("202608300000", "202608312359"),
+    ]
+    assert len(entries) == 1  # 구간마다 같은 공고가 와도 doc_id로 한 번만 저장
+    assert entries[0].inqry_bgn_dt == "202606010000"
+    assert entries[0].inqry_end_dt == "202607012359"
+
+
+def _patch_main_deps(monkeypatch: pytest.MonkeyPatch, calls: dict[str, Any]) -> None:
+    def fake_collect_from_api(**kwargs: Any) -> list[Any]:
+        calls.update(kwargs)
+        return []
+
+    monkeypatch.setattr(collect_module, "register_manual_files", lambda *a, **k: [])
+    monkeypatch.setattr(collect_module, "collect_from_api", fake_collect_from_api)
+    monkeypatch.setattr(
+        NaraApiConfig,
+        "from_env",
+        classmethod(
+            lambda cls: NaraApiConfig(
+                api_key="test-key", base_url="https://nara.test", timeout_s=5.0
+            )
+        ),
+    )
+
+
+def test_main_passes_from_to_as_dates(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: dict[str, Any] = {}
+    _patch_main_deps(monkeypatch, calls)
+
+    main(["--from", "20260601", "--to", "20260831"])
+
+    assert calls["begin_date"] == date(2026, 6, 1)
+    assert calls["end_date"] == date(2026, 8, 31)
+
+
+def test_main_without_from_to_passes_none_dates(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: dict[str, Any] = {}
+    _patch_main_deps(monkeypatch, calls)
+
+    main([])
+
+    assert calls["begin_date"] is None
+    assert calls["end_date"] is None
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--from", "20260601", "--to", "20260831", "--lookback-days", "10"],
+        ["--from", "20260601"],
+        ["--to", "20260831"],
+        ["--from", "2026-06-01", "--to", "20260831"],
+        ["--from", "20260831", "--to", "20260601"],
+    ],
+)
+def test_main_rejects_invalid_range_args(argv: list[str], monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: dict[str, Any] = {}
+    _patch_main_deps(monkeypatch, calls)
+
+    with pytest.raises(SystemExit):
+        main(argv)
+
+    assert calls == {}  # 수집을 시작하지 않음
+
+
+# --- 구간별 실행 기록 collect_runs.jsonl (이슈 #50) ---
+
+
+def _counting_client(search_calls: list[str]) -> NaraApiClient:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "getBidPblancListInfoServcPPSSrch" in str(request.url):
+            search_calls.append(request.url.params["inqryBgnDt"])
+            return httpx.Response(200, json=_load_fixture())
+        return httpx.Response(200, content=b"fake rfp bytes")
+
+    http_client = httpx.Client(base_url="https://nara.test", transport=httpx.MockTransport(handler))
+    config = NaraApiConfig(api_key="test-key", base_url="https://nara.test", timeout_s=5.0)
+    return NaraApiClient(config, http_client=http_client)
+
+
+def test_collect_runs_records_every_chunk_as_not_called_when_limit_already_met(
+    tmp_path: Path,
+) -> None:
+    """--limit 도달로 API를 안 부른 구간도 기록해야 한다 — 기록이 없으면
+    '공고가 없었다'와 '조회하지 않았다'가 구별되지 않는다."""
+    manifest_path = tmp_path / "manifest.jsonl"
+    runs_path = tmp_path / "collect_runs.jsonl"
+    _seed_api_entries(manifest_path, count=5)
+    search_calls: list[str] = []
+
+    collect_from_api(
+        client=_counting_client(search_calls),
+        manifest_path=manifest_path,
+        raw_api_dir=tmp_path / "api",
+        limit=5,
+        begin_date=date(2026, 6, 1),
+        end_date=date(2026, 8, 31),
+        runs_path=runs_path,
+    )
+
+    runs = read_runs(runs_path)
+    assert search_calls == []
+    assert len(runs) == 4  # 구간 4개 모두 기록
+    for run in runs:
+        assert run.called is False
+        assert run.skip_reason == "limit_reached"
+        assert run.total_count is None
+        assert run.pages_fetched == 0
+        assert run.response_count == 0
+        assert run.filter_passed == 0
+        assert run.new_saved == 0
+
+
+def test_collect_runs_records_called_chunk_counts_and_later_skips(tmp_path: Path) -> None:
+    runs_path = tmp_path / "collect_runs.jsonl"
+    search_calls: list[str] = []
+
+    collect_from_api(
+        client=_counting_client(search_calls),
+        manifest_path=tmp_path / "manifest.jsonl",
+        raw_api_dir=tmp_path / "api",
+        limit=1,
+        begin_date=date(2026, 6, 1),
+        end_date=date(2026, 8, 31),
+        runs_path=runs_path,
+    )
+
+    runs = read_runs(runs_path)
+    assert search_calls == ["202606010000"]  # 1번째 구간에서 목표치 도달
+    assert [(r.inqry_bgn_dt, r.inqry_end_dt) for r in runs] == [
+        ("202606010000", "202607012359"),
+        ("202607010000", "202607312359"),
+        ("202607310000", "202608302359"),
+        ("202608300000", "202608312359"),
+    ]
+    first = runs[0]
+    assert first.called is True
+    assert first.skip_reason is None
+    assert first.total_count == 3
+    assert first.pages_fetched == 1
+    assert first.response_count == 3
+    assert first.filter_passed == 1  # 픽스처 3건 중 SW 관련 + 첨부 있는 공고
+    assert first.new_saved == 1
+    assert all(r.called is False and r.skip_reason == "limit_reached" for r in runs[1:])
+    assert len({r.run_id for r in runs}) == 1  # 같은 실행은 같은 run_id
+
+
+def test_collect_runs_counts_duplicates_as_not_new(tmp_path: Path) -> None:
+    """겹치는 구간에서 같은 공고가 다시 오면 필터는 통과하지만 신규 저장은 0이다."""
+    runs_path = tmp_path / "collect_runs.jsonl"
+
+    collect_from_api(
+        client=_counting_client([]),
+        manifest_path=tmp_path / "manifest.jsonl",
+        raw_api_dir=tmp_path / "api",
+        limit=5,
+        begin_date=date(2026, 6, 1),
+        end_date=date(2026, 7, 31),
+        runs_path=runs_path,
+    )
+
+    runs = read_runs(runs_path)
+    assert [(r.called, r.filter_passed, r.new_saved) for r in runs] == [
+        (True, 1, 1),
+        (True, 1, 0),
+    ]
+
+
+def test_collect_from_api_without_runs_path_writes_nothing(tmp_path: Path) -> None:
+    collect_from_api(
+        client=_make_client(),
+        manifest_path=tmp_path / "manifest.jsonl",
+        raw_api_dir=tmp_path / "api",
+    )
+
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["api", "manifest.jsonl"]
+
+
+def test_main_passes_collect_runs_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: dict[str, Any] = {}
+    _patch_main_deps(monkeypatch, calls)
+
+    main([])
+
+    assert str(calls["runs_path"]) == "data/raw/collect_runs.jsonl"

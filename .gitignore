@@ -8,6 +8,8 @@ data/*
 !data/raw/
 data/raw/*
 !data/raw/manifest.jsonl
+# eval/은 예외: 평가 질문 세트는 사람이 검수한 데이터라 레포에 남긴다
+!data/eval/
 
 # claude code local state
 .claude/logs/
@@ -20,4 +22,3 @@ __pycache__/
 
 # uv
 .python-version.local
-data/

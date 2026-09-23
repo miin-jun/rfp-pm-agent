@@ -38,8 +38,9 @@ data/raw/manual/{파일} ──► sha256 계산 ────┘         수동 
 
 RFP 요구사항 ──► PostgreSQL requirements  ──► 합성 WBS·Risk·Issue·산출물
 
-eval/sets/*.jsonl        평가 세트 (git 포함, 사람 검수 기록 포함)
-eval/results/**          평가 결과 요약 (git 포함)
+data/eval/*.jsonl        평가 세트 (git 포함, 사람 검수 기록 포함)
+data/eval/runs.jsonl     평가 실행 기록 (git 포함, 실행마다 한 줄 추가)
+data/eval/failures/**    틀린 질문의 상위 검색 결과 (git 포함, run_id로 runs.jsonl과 연결)
 ```
 
 - **조회 구간 (이슈 #50)**: 기준 날짜는 KST(`+09:00`)다 — 나라장터 조회 시각이 한국 시각 기준이라는 가정이며 참고문서로는 확인하지 못했다. 구간(`--from`/`--to` 또는 `--lookback-days`)은 30일 단위로 나누고 경계는 1일 겹친다(겹친 날의 중복은 `doc_id`가 거른다). 구간마다 `totalCount`까지 모든 페이지를 받는다.
@@ -294,7 +295,7 @@ projects ─┬─< project_members >── users
 | 3. 일정 배치 | **코드가** 프로젝트 기간 안에 날짜 배치 (고정 seed) | ✅ |
 | 4. 상태 주입 | **코드가** 기준일 기준으로 업무 약 15%를 지연, Risk 5~10개, Issue 5~10개 생성 | ✅ |
 | 5. 검증 | 아래 규칙 전부 통과해야 DB 적재 | ✅ |
-| 6. 정답 기록 | 주입한 지연 업무·Risk 목록을 `eval/sets/pms_truth_v1.json`에 저장 | ✅ |
+| 6. 정답 기록 | 주입한 지연 업무·Risk 목록을 `data/eval/pms_truth_v1.json`에 저장 | ✅ |
 | 대량 생성 | 여러 RFP × Batch API | Phase 2 |
 
 ### 검증 규칙
@@ -322,7 +323,7 @@ projects ─┬─< project_members >── users
 
 ## 9. 평가 세트 스키마
 
-### `eval/sets/retrieval_v1.jsonl` — 검색 평가 (#15)
+### `data/eval/retrieval_v1.jsonl` — 검색 평가 (#15)
 
 ```json
 {"qid": "r001", "question": "사용자 로그인 시 필요한 인증 방식은?", "query_type": "semantic",
@@ -332,7 +333,7 @@ projects ─┬─< project_members >── users
 
 `query_type`: `exact`(ID·고유명사) / `semantic`(다른 표현) / `table`(표 안의 수치)
 
-### `eval/sets/agent_v1.jsonl` — 에이전트 평가 (#25)
+### `data/eval/agent_v1.jsonl` — 에이전트 평가 (#25)
 
 ```json
 {"qid": "a001", "question": "이번 주 지연된 업무랑 관련 요구사항 알려줘",
@@ -345,8 +346,10 @@ projects ─┬─< project_members >── users
 - `expected_facts`는 **7절 6단계의 정답 기록에서 자동 생성** → 사람은 질문 문장만 검수
 - `should_refuse: true` 문항 포함 (문서에 없는 내용 질문 → 거절해야 정답)
 
-- **평가 실행 진입점**: `eval/run_retrieval.py`, `eval/run_agent.py`
-- **기준선**: `eval/results/baseline.json` (이슈 #17에서 생성)
+- **평가 실행 진입점**: `rfp_pm_agent.eval` 패키지 안의 모듈 — 청킹 비교는
+  `uv run python -m rfp_pm_agent.eval.run_chunk_eval` (#13). 검색·에이전트 평가는
+  `run_retrieval`, `run_agent`로 같은 자리에 추가한다
+- **기준선**: `data/eval/baseline.json` (이슈 #17에서 생성)
 
 ---
 

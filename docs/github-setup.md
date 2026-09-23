@@ -81,7 +81,7 @@ labels: "type:experiment, area:eval"
 <!-- 예: Recall@10 최고. 1위와 1%p 이내면 더 가벼운 모델 -->
 
 ## 산출물
-- [ ] `eval/results/...`
+- [ ] `data/eval/results/...`
 - [ ] `docs/adr/NNNN-*.md`
 ```
 
@@ -130,7 +130,7 @@ Closes #
 | 12 | [exp] HWP 변환 — LibreOffice + H2Orestart (**반나절 타임박스**) | experiment, ingest | PDF·HWP 샘플이 없으면 샘플 확보 후 진행. 성공 시 파서에 연결 / 실패 시 결과 기록 후 M2로 이동 | #10, #11 |
 | 13 | [ingest] 구조 기반 청킹 — 요구사항 ID 단위 + 메타데이터 | feature, ingest, mvp | 요구사항 ID 누락률 측정·기록 | #11 |
 | 14 | [search] TEI 구동 — 로컬(4050) + RunPod 실행 스크립트, 임베딩·리랭커 클라이언트 연결 | chore, search, mvp | 같은 문장의 벡터가 로컬·RunPod에서 동일 | #9 |
-| 15 | [eval] 모델 선정용 평가 세트 — 질문 50~80개, 정답 청크 전수 검수 | feature, eval, mvp | `eval/sets/retrieval_v1.jsonl`, 검수 기록 | #13 |
+| 15 | [eval] 모델 선정용 평가 세트 — 질문 50~80개, 정답 청크 전수 검수 | feature, eval, mvp | `data/eval/retrieval_v1.jsonl`, 검수 기록 | #13 |
 | 16 | [exp] 임베딩·리랭커 선정 — KURE-v1 / bge-m3 / e5, 리랭커 3조건 | experiment, eval, mvp | ADR-0001·0002 작성, 결정 규칙대로 선택 후 `.env.example`(`EMBED_MODEL_ID`·`RERANK_MODEL_ID`)·OpenSearch 인덱스 별칭(`docs/data-design.md` 5절)·ADR을 함께 갱신 | #14, #15 |
 | 17 | [search] OpenSearch 색인 — nori + k-NN 매핑, 증분 색인 | feature, search, mvp | 재실행 시 변경분만 색인 | #4, #13, #16 |
 | 18 | [search] 하이브리드 검색 — BM25 + 벡터 + RRF + 리랭킹 (`search_documents`) | feature, search, mvp | 평가 세트에서 Recall@10 기록, 단일 방식 대비 비교 | #17 |
@@ -142,7 +142,7 @@ Closes #
 | 24 | [agent] MCP 서버 — stdio, 읽기 전용 툴, Claude Desktop 연동 | feature, agent, mvp | Claude Desktop에서 툴 호출 화면 캡처 | #21 |
 | 25 | [eval] 평가 게이트 — 에이전트 골든셋(툴 순서) + 답변 근거성 채점 + CI 연결 | feature, eval, mvp | 기준선보다 떨어지는 PR이 CI에서 실패 | #8, #20, #22 |
 | 26 | [docs] MVP 마감 — 데모 녹화, README 정리 | docs, mvp | 데모 영상·README 정리 완료 | #22, #23, #24, #25 |
-| 39 | [agent] RTM 생성 — 요구사항↔작업↔산출물 추적 매트릭스 | feature, agent, mvp | `data/out/rtm_*.md`·`rtm_*.csv` 생성, `eval/pms_truth_v1.json` 대조 정확도 기록, 미매핑 요구사항 최소 1건 검출, 단위 테스트 네트워크 없이 통과 | #18, #20, #21 |
+| 39 | [agent] RTM 생성 — 요구사항↔작업↔산출물 추적 매트릭스 | feature, agent, mvp | `data/out/rtm_*.md`·`rtm_*.csv` 생성, `data/eval/pms_truth_v1.json` 대조 정확도 기록, 미매핑 요구사항 최소 1건 검출, 단위 테스트 네트워크 없이 통과 | #18, #20, #21 |
 | 40 | [agent] Streamlit 데모 화면 — 질의응답·RTM·검색 비교 | feature, agent | `streamlit run`으로 세 탭 동작, 가짜 클라이언트로 API 키 없이 화면 확인, 데모 녹화 가능 | #39, #22 |
 
 ### 밀릴 때 자르는 순서 (컷 라인)

@@ -28,7 +28,8 @@
 - src/rfp_pm_agent/agent/     LangGraph 에이전트
 - src/rfp_pm_agent/api/       FastAPI
 - src/rfp_pm_agent/mcp_server/ MCP 서버 (읽기 전용 툴만)
-- eval/                        평가 세트(sets/), 결과(results/), 실행 스크립트
+- src/rfp_pm_agent/eval/       평가 실행 (청킹 비교: `run_chunk_eval`)
+- data/eval/                   평가 세트(qa_*.jsonl), 실행 기록(runs.jsonl), 틀린 질문(failures/) — git 포함
 - data/                        수집·파싱 산출물 (git 제외)
 
 ## 작업 방식
@@ -72,7 +73,7 @@ Claude는 구현하지 말고, 설계 논의·테스트 작성·리뷰·리팩�
 ## 데이터·평가 규칙
 - data/raw/의 원본은 수정·삭제 금지. 파서를 바꾸면 parsed/부터 다시 만든다
 - doc_id는 파일 내용 해시. 임베딩 모델이 다른 벡터를 같은 인덱스에 섞지 않는다 (인덱스는 모델별, 코드는 별칭만 사용)
-- eval/sets/의 정답은 사람이 검수한 데이터다. 수정이 필요하면 이유를 적고 사용자 승인을 받는다
+- data/eval/의 정답은 사람이 검수한 데이터다. 수정이 필요하면 이유를 적고 사용자 승인을 받는다
 - 평가 점수를 올리려고 평가 세트나 판정 기준을 바꾸지 않는다
 
 ## 보안

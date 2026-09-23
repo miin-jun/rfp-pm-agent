@@ -135,7 +135,7 @@
 
 - 골든셋: JSONL (질문, 정답 문서/청크, 기대 툴 순서, 허용 역할)
 - 지표: Recall@k·MRR·NDCG(검색) / Faithfulness·Citation 정확도(답변, LLM-as-Judge) / 툴 선택 정확도·단계 수·지연·비용(에이전트)
-- 결과는 `eval/results/`에 버전별 저장 → 기준선 대비 하락 시 CI 실패
+- 결과는 `data/eval/results/`에 버전별 저장 → 기준선 대비 하락 시 CI 실패
 - Phase 2: **Langfuse**로 요청별 트레이스
 
 ## 11. 개발 환경 — ✅ WSL2 + uv 확정
@@ -202,7 +202,7 @@
    - 1순위: Recall@10 (RAG는 상위 후보에 정답이 들어오는 게 먼저)
    - 1위와 **1%p 이내**면 더 빠르고 가벼운 모델 선택
    - 리랭커는 NDCG@10 개선폭 대비 지연 증가를 함께 판단 (f1-ragops 리랭커 3종 비교와 같은 틀)
-5. **산출물**: `docs/adr/0001-embedding-model.md`, `docs/adr/0002-reranker.md`, `eval/results/model_selection/`
+5. **산출물**: `docs/adr/0001-embedding-model.md`, `docs/adr/0002-reranker.md`, `data/eval/results/model_selection/`
 
 **서빙 근거 보강(선택)**: 청크 1,000개 색인을 TEI vs sentence-transformers 직접 호출로 비교해 처리량 측정
 

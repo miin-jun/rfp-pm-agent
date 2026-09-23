@@ -13,6 +13,7 @@ dependencies = [
     "pyhwp>=0.1b15",
     "pymupdf>=1.28.2",
     "python-dotenv>=1.2.3",
+    "rank-bm25>=0.2.2",
     "six>=1.17.0",
 ]
 
@@ -35,6 +36,12 @@ known-first-party = ["rfp_pm_agent"]
 python_version = "3.12"
 strict = true
 files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+# rank_bm25 0.2.2는 타입 정보를 담고 있지 않다 (py.typed 없음, 별도 스텁 없음).
+# 감싸는 쪽(search/bm25.py)에서 인자와 반환값에 타입을 붙여 경계를 막는다.
+module = "rank_bm25.*"
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "tests.*"

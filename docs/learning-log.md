@@ -206,3 +206,36 @@
 **원인**: 파일 맨 아래에 `data/` 한 줄이 따로 있었다. 디렉터리 자체가 제외되면 git은 그 안쪽을 읽지 않으므로, 위에 적은 예외가 모두 무효가 된다.
 
 **배운 것**: 제외 규칙은 적는 것으로 끝나지 않는다. `git status`로 의도한 파일이 나타나는지 확인한다. 나타나지 않으면 `git check-ignore -v <경로>`로 어느 줄이 걸었는지 본다. 맨 아래 `data/`를 지우고 `!data/eval/`을 추가해 `data/eval/qa_v1.jsonl`과 `data/raw/manifest.jsonl` 두 개만 나타나는 것을 확인했다. 이 항목도 2026-09-13 gitleaks 항목과 같은 종류다 — 설정을 적었다는 것과 그 설정이 동작한다는 것은 별개다.
+
+---
+
+## 2026-09-24 — 이슈 #14: TEI 서버 두 개를 동시에 띄우자 한쪽이 RAM 부족으로 종료됐다
+
+**무슨 일**: `docker compose up -d tei-embed tei-rerank`로 두 서버를 동시에 띄우자 임베딩 컨테이너가 종료 코드 137로 끝났다. `docker inspect`의 `OOMKilled=true`였다. GPU VRAM이 아니라 WSL 호스트 RAM(7.5GiB)이 부족했다. 첫 관측(리랭커 컨테이너만 남은 상태): 종료 시점에 리랭커 컨테이너가 RAM 4.17GiB(`docker stats`)를 쓰고 있었고, 리랭커가 기동을 마친 뒤 리랭커 TEI 프로세스의 VmRSS는 4.84GB(RssAnon 4.70GB), VRAM은 1260MiB였다.
+
+**원인**: 확인한 사실은 다음과 같다. 로그에 `Starting 19 tokenization workers`가 찍혔다(`nproc`=20, `TOKENIZATION_WORKERS` 미지정). 리랭커를 `TOKENIZATION_WORKERS=2`로 다시 띄우자 리랭커 VmRSS가 1.33GB로 줄었고, 이후 두 서버가 함께 기동됐다(RAM: 임베딩 1.15GiB, 리랭커 1.13GiB, VRAM 합계 2511MiB). 이때 `AUTO_TRUNCATE=false`도 같이 바꿨기 때문에 원인 분리 실험을 따로 했다.
+
+**원인 분리 실험**: 조건은 `AUTO_TRUNCATE=false` 유지, `TOKENIZATION_WORKERS`만 미지정, 임베딩 서버(KURE-v1)만 다시 띄움, 리랭커는 워커 2로 떠 있는 상태였다.
+
+| 워커 수 | VmRSS (임베딩, 기동 후 안정) | 결과 |
+|---|---|---|
+| 19 (미지정, 로그 `tokenization_workers: None` → `Starting 19 tokenization workers`) | 5.09GB (RssAnon 5.17GB, `docker stats` 5.04GiB). 기동 중 1초 간격 측정 최댓값 4.17GB, health 200 뒤 5.26GB까지 올랐다가 5.09GB에서 유지 | OOM 없음. WSL RAM available 636MiB까지 내려감 |
+| 2 (compose 기본) | 1.29GB | 정상 |
+
+→ `AUTO_TRUNCATE`는 그대로 두고 워커 수만 바꿨을 때 RAM이 약 3.8GB 차이 났다. **확인됨**: RAM 증가는 워커 수와 함께 움직였고, `AUTO_TRUNCATE` 변경 때문이 아니다.
+
+**여전히 미확인**
+- 워커가 왜 RAM을 쓰는지(워커별로 무엇을 들고 있는지)는 확인하지 않았다. 워커 19개와 2개를 한 번씩만 쟀으므로 워커 하나당 사용량이 일정한지도 모른다.
+- 처음 동시 기동에서 임베딩 쪽이 종료된 이유(어느 할당이 한도를 넘겼는지)는 확인하지 않았다. 실험에서는 리랭커가 워커 2(약 1GB)로 떠 있어서 종료되지 않았다. 처음처럼 두 서버 모두 워커 19였던 조건은 재현하지 않았다.
+
+**배운 것**: GPU 서버라도 모델 로드와 CPU 쪽 작업자가 호스트 RAM을 쓴다. VRAM만 재서는 동시 기동이 가능한지 알 수 없다. compose에 `TOKENIZATION_WORKERS: ${TEI_TOKENIZATION_WORKERS:-2}`를 두었다. 워커 수를 줄이면 토크나이즈 처리량이 줄 수 있으므로, #16에서 색인 시간을 잴 때 이 값을 함께 기록한다.
+
+---
+
+## 2026-09-24 — 이슈 #14: TEI 1.9.4는 auto-truncate가 기본으로 켜져 있었다
+
+**무슨 일**: 계획 단계에서 "auto-truncate는 기본으로 꺼져 있다"고 적었는데, 실제 기동 로그의 `Args`에는 옵션을 주지 않았는데도 `auto_truncate: true`가 찍혀 있었다. 이 상태에서는 모델 최대 길이를 넘는 입력이 에러 없이 앞부분만 남아 임베딩된다.
+
+**원인**: 계획 때 기본값을 문서나 로그로 확인하지 않고 적었다. 버전 사이에 기본값이 바뀌었는지는 미확인이다.
+
+**배운 것**: 서버 옵션의 기본값은 기억으로 적지 말고 기동 로그(`Args`)나 `/info`로 확인한다. compose에 `AUTO_TRUNCATE: "false"`를 명시했고, `/info`의 `auto_truncate: false`를 `-m tei` 테스트가 확인한다. multilingual-e5-large(최대 512 토큰)를 비교하는 #16에서 특히 중요하다 — 켜져 있으면 긴 청크가 잘린 채로 비교된다.

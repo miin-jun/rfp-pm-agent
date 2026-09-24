@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from dotenv import load_dotenv
+from pydantic import ValidationError
 
 from rfp_pm_agent.config import ClientsConfig, NaraApiConfig
 
@@ -134,3 +135,20 @@ def test_load_dotenv_missing_file_does_not_raise(tmp_path: Path) -> None:
     result = load_dotenv(dotenv_path=missing_path, override=False)
 
     assert result is False
+
+
+def test_from_env_reads_tei_max_client_batch_size(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TEI_MAX_CLIENT_BATCH_SIZE", "64")
+
+    assert ClientsConfig.from_env().tei_max_client_batch_size == 64
+
+
+@pytest.mark.parametrize("value", ["0", "-1"])
+def test_from_env_rejects_non_positive_tei_max_client_batch_size(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    # 0이면 range()가 에러, 음수면 요청 없이 빈 결과가 나오므로 설정 단계에서 막는다
+    monkeypatch.setenv("TEI_MAX_CLIENT_BATCH_SIZE", value)
+
+    with pytest.raises(ValidationError):
+        ClientsConfig.from_env()

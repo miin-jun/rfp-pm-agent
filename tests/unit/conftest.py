@@ -22,6 +22,7 @@ def make_clients_config(**overrides: Any) -> ClientsConfig:
         "rerank_api_key": None,
         "rerank_model_id": "test-rerank-model",
         "rerank_timeout_s": 5.0,
+        "tei_max_client_batch_size": 32,
         "cost_log_path": "unused.jsonl",
     }
     defaults.update(overrides)

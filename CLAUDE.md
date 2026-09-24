@@ -13,6 +13,7 @@
 - 의존성 설치: `uv sync`
 - 테스트(단위): `uv run pytest tests/unit -q`
 - 테스트(통합, Docker 필요): `uv run pytest tests/integration -q -m integration`
+- 테스트(TEI 실호출, `docker compose up -d tei-embed tei-rerank` 필요): `uv run pytest tests/integration -m tei -q` — TEI가 꺼져 있으면 실패한다(skip 아님). 인자 없는 `uv run pytest`도 이 테스트를 포함한다
 - 린트·포맷: `uv run ruff check --fix . && uv run ruff format .`
 - 타입 검사: `uv run mypy src tests`
 - 인프라: `docker compose up -d` / `docker compose ps` / `docker compose logs <서비스>`
@@ -115,3 +116,6 @@ Claude는 구현하지 말고, 설계 논의·테스트 작성·리뷰·리팩�
 - pre-commit 훅의 `rev`가 오래되면 검사는 "Passed"로 통과하지만 규칙이 없어 실제로는 아무것도 못 잡는다 (예: gitleaks `v8.0.0`엔 `openai-api-key` 규칙이 없어 가짜 키를 넣어도 통과했음). 훅을 추가하거나 바꿀 때는 `autoupdate` 후 반드시 실제로 차단되는지 시험한다
 - 검사 도구를 여러 층(Claude Code 훅/pre-commit/CI)에 걸 때는 검사 대상 범위를 동일하게 유지한다. 한 층에서만 잡히면 통과가 안전을 뜻하지 않게 된다 (예: 훅은 `tests/`도 검사했지만 pre-commit·CI는 `mypy src`만 실행해 같은 오류를 못 잡았음)
 - 설정 파일(`.env.example`, `config.py`)을 만들었다고 그 값이 읽히는 것은 아니다. `.env`를 `os.environ`에 올리는 코드(`load_dotenv` 등)가 없으면 전부 하드코딩된 기본값으로 에러 없이 동작한다 — 새 설정값을 추가하면 실제로 그 값이 코드에 도달하는지 새 프로세스로 한 번은 직접 실행해서 확인한다 (이슈 #10에서 `NARA_API_KEY`가 계속 빈 값으로 동작하다가 발견됨)
+- TEI(1.9.4)를 두 개 동시에 띄우면 WSL RAM(7.5GiB) 부족으로 한쪽이 137(`OOMKilled=true`)로 종료됐다. `TOKENIZATION_WORKERS` 미지정 시 토크나이저 워커가 19개 떴고(`nproc`=20), `AUTO_TRUNCATE`를 고정하고 워커 수만 바꿔 쟀더니 서버 1개 VmRSS가 워커 19개일 때 5.09GB, 2개일 때 1.29GB였다(워커가 왜 RAM을 쓰는지는 미확인). VRAM만 보고 동시 기동 가능 여부를 판단하지 않는다 (docs/learning-log.md 2026-09-24)
+- TEI 1.9.4는 `auto_truncate` 기본값이 **true**다 — 모델 최대 길이를 넘는 입력이 에러 없이 앞부분만 임베딩된다. compose에서 `AUTO_TRUNCATE: "false"`로 끄고, 서버 옵션 기본값은 기동 로그 `Args`나 `/info`로 확인한다
+- `docker-compose.yml`의 TEI 서비스는 `${EMBED_MODEL_ID:?}`·`${RERANK_MODEL_ID:?}`를 쓴다. compose는 profile과 상관없이 파일 전체를 먼저 변수 치환하므로, `.env`에 두 키가 없으면 postgres·opensearch만 띄우는 `docker compose up -d`도 실패한다

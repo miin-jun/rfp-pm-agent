@@ -19,7 +19,7 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,11 @@ load_dotenv(override=False)
 def _get_float(name: str, default: float) -> float:
     raw = os.environ.get(name)
     return default if raw is None or raw == "" else float(raw)
+
+
+def _get_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    return default if raw is None or raw == "" else int(raw)
 
 
 class ClientsConfig(BaseModel):
@@ -55,6 +60,12 @@ class ClientsConfig(BaseModel):
     rerank_api_key: str | None
     rerank_model_id: str
     rerank_timeout_s: float
+    # TEI는 요청 1건에 넣을 수 있는 입력 수를 서버 옵션 `--max-client-batch-size`
+    # (기본 32)로 제한하고, 넘으면 422를 낸다. 클라이언트는 이 값씩 나눠 보낸다.
+    # docker-compose.yml도 같은 환경변수로 서버의 `MAX_CLIENT_BATCH_SIZE`를 정하므로
+    # `.env` 한 곳만 바꾸면 서버·클라이언트가 함께 바뀐다. 0 이하는 거부한다 — 0이면
+    # range()가 에러를 내고, 음수면 요청을 하나도 보내지 않고 빈 결과를 돌려준다.
+    tei_max_client_batch_size: int = Field(gt=0)
 
     cost_log_path: str
 
@@ -76,6 +87,7 @@ class ClientsConfig(BaseModel):
             rerank_api_key=os.environ.get("TEI_API_KEY") or None,
             rerank_model_id=os.environ.get("RERANK_MODEL_ID", ""),
             rerank_timeout_s=_get_float("RERANK_TIMEOUT_S", 30.0),
+            tei_max_client_batch_size=_get_int("TEI_MAX_CLIENT_BATCH_SIZE", 32),
             cost_log_path=os.environ.get("COST_LOG_PATH", "data/cost_log.jsonl"),
         )
 

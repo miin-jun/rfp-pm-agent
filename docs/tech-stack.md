@@ -76,6 +76,19 @@
 - **같은 TEI를 로컬(4050 또는 CPU)에서도 실행 가능** → 파드가 꺼지면 설정(base_url)만 바꿔 대체
 - RunPod 주소는 외부 공개 → **인증 토큰 필수**, 주소·토큰은 `.env`에만
 
+### 로컬 구동 (이슈 #14, RTX 4050 6GB, 실측 2026-09-24)
+
+- 이미지: `ghcr.io/huggingface/text-embeddings-inference:89-1.9.4` — `89-`는 Ada Lovelace(RTX 40xx, compute capability 8.9)용 태그 ([README 지원 하드웨어 표](https://github.com/huggingface/text-embeddings-inference/blob/main/README.md))
+- `docker-compose.yml`의 `tei-embed`(8080)·`tei-rerank`(8081). profile `tei`라서 `docker compose up -d`로는 뜨지 않고 `docker compose up -d tei-embed tei-rerank`로 띄운다. 모델 캐시는 `tei_models` 볼륨(두 서버 공유)
+- 모델 교체: `.env`의 `EMBED_MODEL_ID`·`RERANK_MODEL_ID`를 서버(compose)와 클라이언트(`config.py`)가 함께 읽는다. 값을 바꾸고 `docker compose up -d tei-embed`로 컨테이너를 다시 만든 뒤 `/info`의 `model_id`로 확인. 코드 수정 없음
+- 실측: 두 서버 동시 기동 시 VRAM 합계 2511MiB(리랭커 단독 1260MiB), fp16, 요청 1회 후 변화 없음. RAM 서버당 약 1.1GiB(`TOKENIZATION_WORKERS=2`)
+- 서버 옵션
+  - `AUTO_TRUNCATE=false`: 1.9.4 기본값은 true(긴 입력을 앞부분만 임베딩). 끄면 413 에러로 드러난다 — #16에서 multilingual-e5-large(최대 512 토큰) 비교 시 특히 중요
+  - `TOKENIZATION_WORKERS=2`: 미지정(워커 19개, `nproc`=20)으로는 WSL RAM 부족으로 종료됐다 (docs/learning-log.md 2026-09-24)
+  - 요청 1건의 입력 수 제한 `max_client_batch_size`=32(기본값). 넘으면 422 — 클라이언트(`TEIEmbeddingClient`·`TEIRerankerClient`)가 `TEI_MAX_CLIENT_BATCH_SIZE`씩 나눠 보낸다
+- #16 후보 메모: bge-m3는 `pytorch_model.bin`만 있고 safetensors가 없어 TEI 로드 가능 여부를 착수 시 확인. multilingual-e5-large는 `query: `/`passage: ` 접두어 필요
+- RunPod 구동과 로컬·RunPod 벡터 일치 확인은 #56
+
 ## 5. LLM
 
 - MVP: **OpenAI mini급** — 정확한 모델명·가격은 착수 시 OpenAI 공식 가격표로 확정

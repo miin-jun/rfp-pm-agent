@@ -51,6 +51,7 @@ disallow_untyped_defs = false
 testpaths = ["tests"]
 markers = [
     "integration: requires local Docker services (opensearch, postgres) — run with `-m integration`",
+    "tei: requires local TEI servers (docker compose up -d tei-embed tei-rerank, GPU) — run with `-m tei`",
 ]
 
 [dependency-groups]

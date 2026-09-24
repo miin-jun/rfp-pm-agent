@@ -38,6 +38,65 @@ services:
       timeout: 5s
       retries: 10
 
+  # TEI(임베딩·리랭커 서버). profile "tei"라서 `docker compose up -d`로는 뜨지 않고,
+  # `docker compose up -d tei-embed tei-rerank`처럼 이름을 지정해야 뜬다 (GPU 필요).
+  # 주의: compose는 profile과 상관없이 파일 전체를 먼저 변수 치환한다. `.env`에
+  # EMBED_MODEL_ID·RERANK_MODEL_ID가 없으면 아래 `:?` 때문에 postgres·opensearch만 띄우는
+  # `docker compose up -d`도 실패한다.
+  # 89-* 태그는 Ada Lovelace(RTX 40xx, compute capability 8.9)용 — docs/tech-stack.md 4절
+  tei-embed:
+    image: ghcr.io/huggingface/text-embeddings-inference:89-1.9.4
+    container_name: rfp-pm-agent-tei-embed
+    profiles: ["tei"]
+    environment:
+      MODEL_ID: ${EMBED_MODEL_ID:?EMBED_MODEL_ID를 .env에 설정하세요}
+      # 1.9.4 기본값은 true(모델 최대 길이를 넘는 입력을 앞부분만 남기고 잘라 임베딩).
+      # 끄면 413 에러가 나서 잘림이 드러난다 — #16 모델 비교 공정성 (docs/tech-stack.md 4절)
+      AUTO_TRUNCATE: "false"
+      # 미지정 시 워커 19개(nproc=20). 원인 분리 실험에서 VmRSS 5.09GB(워커 19) vs 1.29GB(워커 2).
+      # 첫 동시 기동은 WSL RAM 7.5GiB 부족으로 종료됐다 (docs/learning-log.md 2026-09-24)
+      TOKENIZATION_WORKERS: ${TEI_TOKENIZATION_WORKERS:-2}
+      # 요청 1건의 최대 입력 수. 클라이언트(config.py)도 같은 키로 이 크기씩 나눠 보낸다
+      MAX_CLIENT_BATCH_SIZE: ${TEI_MAX_CLIENT_BATCH_SIZE:-32}
+    ports:
+      - "8080:80"
+    volumes:
+      - tei_models:/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  tei-rerank:
+    image: ghcr.io/huggingface/text-embeddings-inference:89-1.9.4
+    container_name: rfp-pm-agent-tei-rerank
+    profiles: ["tei"]
+    environment:
+      MODEL_ID: ${RERANK_MODEL_ID:?RERANK_MODEL_ID를 .env에 설정하세요}
+      # 1.9.4 기본값은 true(모델 최대 길이를 넘는 입력을 앞부분만 남기고 잘라 임베딩).
+      # 끄면 413 에러가 나서 잘림이 드러난다 — #16 모델 비교 공정성 (docs/tech-stack.md 4절)
+      AUTO_TRUNCATE: "false"
+      # 미지정 시 워커 19개(nproc=20). 원인 분리 실험에서 VmRSS 5.09GB(워커 19) vs 1.29GB(워커 2).
+      # 첫 동시 기동은 WSL RAM 7.5GiB 부족으로 종료됐다 (docs/learning-log.md 2026-09-24)
+      TOKENIZATION_WORKERS: ${TEI_TOKENIZATION_WORKERS:-2}
+      # 요청 1건의 최대 입력 수. 클라이언트(config.py)도 같은 키로 이 크기씩 나눠 보낸다
+      MAX_CLIENT_BATCH_SIZE: ${TEI_MAX_CLIENT_BATCH_SIZE:-32}
+    ports:
+      - "8081:80"
+    volumes:
+      - tei_models:/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
 volumes:
   postgres_data:
   opensearch_data:
+  tei_models:

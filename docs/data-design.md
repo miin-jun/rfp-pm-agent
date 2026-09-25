@@ -335,7 +335,7 @@ projects ─┬─< project_members >── users
 - `gold_chunk_ids`는 청크 파일에서 코드로 뽑은 파생값이다. 청킹·파서가 바뀌면 다시
   뽑는다. 키는 청킹 방식, 값은 evidence 순서에 맞춘 "그 evidence를 담은 청크 ID 목록"의
   목록이다 (evidence 하나를 청크 여럿이 담을 수 있음 — 예: q021)
-- `tags`: `paraphrase`(문서와 다른 표현) / `multi_chunk`(서로 다른 블록 2개 이상 필요)
+- `tags`: `paraphrase`(문서와 다른 표현) / `multi_chunk`(서로 다른 원문 단위(블록·요구사항) 2개 이상 필요)
   / `table`(2×2 이상 자료 표의 셀 정보, 요구사항 정의표 제외) / `no_answer`(문서에 답 없음)
   / `exact`(요구사항 ID·고유명사 그대로) / `doc_unspecified`(질문만으로 사업 특정 불가)
   / `false_premise`(문서에 없는 전제를 깔고 묻지만, 문서의 제약으로 답할 수 있는 질문 — 예: q038)

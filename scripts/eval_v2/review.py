@@ -14,6 +14,7 @@ from rfp_pm_agent.eval.qa_v2 import (
     shared_bigrams,
 )
 from rfp_pm_agent.eval.retrieval import normalize
+from rfp_pm_agent.schemas.document import Document
 
 S = Path(sys.argv[1])
 drafts = {d["question_id"]: d for d in json.loads((S / "drafts.json").read_text())}
@@ -26,7 +27,7 @@ def one_line(text: str, width: int = 140) -> str:
     return t if len(t) <= width else t[:width] + "…"
 
 
-def context(doc, unit_id: str, evidence: str) -> tuple[str, str]:
+def context(doc: Document, unit_id: str, evidence: str) -> tuple[str, str]:
     """블록이면 앞뒤 블록, 요구사항이면 요구사항 text 안의 앞뒤 줄."""
     req = next((r for r in doc.requirements if r.requirement_id == unit_id), None)
     if req is not None:
@@ -67,7 +68,7 @@ def context(doc, unit_id: str, evidence: str) -> tuple[str, str]:
     return before, after
 
 
-def absence_counts(doc, terms: list[str]) -> list[str]:
+def absence_counts(doc: Document, terms: list[str]) -> list[str]:
     units = [b.text for b in doc.blocks] + [
         r.text + "\n" + "\n".join(r.raw_fields.values()) for r in doc.requirements
     ]

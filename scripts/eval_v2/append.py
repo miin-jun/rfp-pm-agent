@@ -5,8 +5,6 @@ import sys
 from pathlib import Path
 
 from rfp_pm_agent.eval.qa_v2 import (
-    DEFAULT_CHUNKS_DIR,
-    DEFAULT_PARSED_DIR,
     DEFAULT_QA_V2,
     evidence_source_ids,
     load_all_chunks,
@@ -15,7 +13,8 @@ from rfp_pm_agent.eval.qa_v2 import (
     with_gold,
     write_questions_v2,
 )
-from rfp_pm_agent.schemas.eval import EvalQuestionV2
+from rfp_pm_agent.ingest.chunking import DEFAULT_CHUNKS_DIR, DEFAULT_PARSED_DIR
+from rfp_pm_agent.schemas.eval import EvalQuestionV2, QuestionType
 
 DRAFT_NOTE = "초안(Claude 작성), 사람 검수 전"
 
@@ -28,6 +27,7 @@ docs = load_documents(DEFAULT_PARSED_DIR, [d["doc_id"] for d in drafts])
 chunks = load_all_chunks(DEFAULT_CHUNKS_DIR)
 new = []
 for d in drafts:
+    qtype: QuestionType | None
     doc = docs[d["doc_id"]]
     if d["evidence"]:
         req_ids = {r.requirement_id for r in doc.requirements}

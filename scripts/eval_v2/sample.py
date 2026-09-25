@@ -6,6 +6,7 @@ import re
 import sys
 from collections import Counter
 from pathlib import Path
+from typing import Any
 
 SEED = 15
 rng = random.Random(SEED)
@@ -55,7 +56,7 @@ REQ_TABLE = re.compile(r"요구사항\s*(고유\s*번호|분류|명칭)")
 TOC = re.compile(r"(·{3,}|\.{5,}|…{2,})")
 
 
-def units(doc: dict, kind: str) -> list[tuple[str, str]]:
+def units(doc: dict[str, Any], kind: str) -> list[tuple[str, str]]:
     out = []
     skip = v1_sources.get(doc["doc_id"], set())
     if kind == "table":

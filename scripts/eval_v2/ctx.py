@@ -4,9 +4,10 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import Any
 
 
-def ordered(doc: dict) -> list[tuple[int, str, str, str]]:
+def ordered(doc: dict[str, Any]) -> list[tuple[int, str, str, str]]:
     items = [(b["source_order"], b["block_id"], b["type"], b["text"]) for b in doc["blocks"]]
     items += [
         (r["source_order"], r["requirement_id"], "req", r["text"]) for r in doc["requirements"]

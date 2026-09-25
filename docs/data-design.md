@@ -323,15 +323,34 @@ projects ─┬─< project_members >── users
 
 ## 9. 평가 세트 스키마
 
-### `data/eval/retrieval_v1.jsonl` — 검색 평가 (#15)
+### 검색 평가 세트 — `data/eval/qa_v1.jsonl`(#13, 동결) · `data/eval/qa_v2.jsonl`(#15)
+
+- qa_v1은 #13 BM25 기준선의 정답이다. 수정하지 않는다. qa_v2는 v1 30문항을 같은
+  `question_id`로 포함하므로, v1 부분만 떼어 기준선과 비교할 수 있다
+- 스키마는 `schemas/eval.py`의 `EvalQuestionV2`다. qa_v1 줄도 그대로 읽힌다
+  (문자열 `evidence`는 길이 1 목록으로 바뀐다)
+- 원천 정답은 `evidence`(원문 문자열 목록)다. 판정: 청크 `doc_id`가 같고, 공백을 지운
+  evidence가 청크 text에 들어 있으면 그 청크가 그 evidence를 담은 것이다. evidence 하나는
+  블록 하나 또는 요구사항 하나 안에서만 가져온다
+- `gold_chunk_ids`는 청크 파일에서 코드로 뽑은 파생값이다. 청킹·파서가 바뀌면 다시
+  뽑는다. 키는 청킹 방식, 값은 evidence 순서에 맞춘 "그 evidence를 담은 청크 ID 목록"의
+  목록이다 (evidence 하나를 청크 여럿이 담을 수 있음 — 예: q021)
+- `tags`: `paraphrase`(문서와 다른 표현) / `multi_chunk`(서로 다른 블록 2개 이상 필요)
+  / `table`(2×2 이상 자료 표의 셀 정보, 요구사항 정의표 제외) / `no_answer`(문서에 답 없음)
+  / `exact`(요구사항 ID·고유명사 그대로) / `doc_unspecified`(질문만으로 사업 특정 불가)
+- `no_answer` ⇔ `evidence == []` ⇔ `answer`가 null. `note`에 부재 확인 기록을 남긴다.
+  검색 지표에서 제외하고 #19 거절 평가에 쓴다
+- qa_v1에서 옮긴 30문항은 사람 검수 기록이 없어 `verified_by`·`verified_at`이 null이다
+- 만들기·검증: `uv run python -m rfp_pm_agent.eval.qa_v2 check`
+  (원문 일치·`gold_chunk_ids` 일치·방식별 최고 점수). `fill-gold`는 `gold_chunk_ids`를 다시 뽑는다
 
 ```json
-{"qid": "r001", "question": "사용자 로그인 시 필요한 인증 방식은?", "query_type": "semantic",
- "gold_chunk_ids": ["a1b2...:s003-b012:0"], "gold_requirement_ids": ["SFR-003"],
- "doc_id": "a1b2c3d4e5f6a7b8", "verified_by": "minjurry", "verified_at": "2026-09-19", "note": ""}
+{"question_id": "q031", "question": "...", "answer": "...", "evidence": ["...", "..."],
+ "doc_id": "a1b2c3d4e5f6a7b8", "page": null, "type": "일반", "tags": ["multi_chunk"],
+ "gold_chunk_ids": {"block_requirement": [["a1b2c3d4e5f6a7b8:block_requirement:b0012"],
+                                          ["a1b2c3d4e5f6a7b8:block_requirement:b0140"]]},
+ "verified_by": "minjurry", "verified_at": "2026-09-..", "note": ""}
 ```
-
-`query_type`: `exact`(ID·고유명사) / `semantic`(다른 표현) / `table`(표 안의 수치)
 
 ### `data/eval/agent_v1.jsonl` — 에이전트 평가 (#25)
 

@@ -21,7 +21,15 @@ QuestionType = Literal["요구사항", "일반"]
 TokenizerName = Literal["bigram", "whitespace"]
 
 # v2 문항 유형 태그 (docs/data-design.md 9절). 한 문항에 여러 개가 붙을 수 있다
-QuestionTag = Literal["paraphrase", "multi_chunk", "table", "no_answer", "exact", "doc_unspecified"]
+QuestionTag = Literal[
+    "paraphrase",
+    "multi_chunk",
+    "table",
+    "no_answer",
+    "exact",
+    "doc_unspecified",
+    "false_premise",  # 문서에 없는 전제를 깔고 묻지만, 문서의 제약으로 답할 수 있는 질문
+]
 
 
 class EvalQuestion(BaseModel):

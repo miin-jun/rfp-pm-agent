@@ -44,6 +44,9 @@ ws = re.compile(r"\s+")
 v1_sources: dict[str, set[str]] = {}
 for line in Path("data/eval/qa_v2.jsonl").read_text().splitlines():
     q = json.loads(line)
+    # 초안을 뽑을 때 qa_v2에는 v1 30문항만 있었다. 같은 조건이어야 시드 15로 같은 후보가 나온다
+    if q["question_id"] > "q030":
+        continue
     for per in q["gold_chunk_ids"]["block_requirement"]:
         for cid in per:
             v1_sources.setdefault(q["doc_id"], set()).add(cid.split(":")[2])

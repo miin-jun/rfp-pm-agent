@@ -130,7 +130,7 @@ Closes #
 | 12 | [exp] HWP 변환 — LibreOffice + H2Orestart (**반나절 타임박스**) | experiment, ingest | PDF·HWP 샘플이 없으면 샘플 확보 후 진행. 성공 시 파서에 연결 / 실패 시 결과 기록 후 M2로 이동 | #10, #11 |
 | 13 | [ingest] 구조 기반 청킹 — 요구사항 ID 단위 + 메타데이터 | feature, ingest, mvp | 요구사항 ID 누락률 측정·기록 | #11 |
 | 14 | [search] TEI 구동 — 로컬(4050) + RunPod 실행 스크립트, 임베딩·리랭커 클라이언트 연결 | chore, search, mvp | 같은 문장의 벡터가 로컬·RunPod에서 동일 | #9 |
-| 15 | [eval] 검색 평가 세트 v2 — qa_v1 30문항 + 유형별 추가 26문항, 전수 검수 | feature, eval, mvp | `data/eval/qa_v2.jsonl` 56문항, 검수 기록 | #13 |
+| 15 | [eval] 검색 평가 세트 v2 — qa_v1 30문항 + 유형별 추가 26문항, 전수 검수 | feature, eval, mvp | `data/eval/qa_v2.jsonl` 57문항, 검수 기록 | #13 |
 | 16 | [exp] 임베딩·리랭커 선정 — KURE-v1 / bge-m3 / e5, 리랭커 3조건 | experiment, eval, mvp | ADR-0001·0002 작성, 결정 규칙대로 선택 후 `.env.example`(`EMBED_MODEL_ID`·`RERANK_MODEL_ID`)·OpenSearch 인덱스 별칭(`docs/data-design.md` 5절)·ADR을 함께 갱신 | #14, #15 |
 | 17 | [search] OpenSearch 색인 — nori + k-NN 매핑, 증분 색인 | feature, search, mvp | 재실행 시 변경분만 색인 | #4, #13, #16 |
 | 18 | [search] 하이브리드 검색 — BM25 + 벡터 + RRF + 리랭킹 (`search_documents`) | feature, search, mvp | 평가 세트에서 Recall@10 기록, 단일 방식 대비 비교 | #17 |

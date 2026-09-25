@@ -338,6 +338,8 @@ projects ─┬─< project_members >── users
 - `tags`: `paraphrase`(문서와 다른 표현) / `multi_chunk`(서로 다른 블록 2개 이상 필요)
   / `table`(2×2 이상 자료 표의 셀 정보, 요구사항 정의표 제외) / `no_answer`(문서에 답 없음)
   / `exact`(요구사항 ID·고유명사 그대로) / `doc_unspecified`(질문만으로 사업 특정 불가)
+  / `false_premise`(문서에 없는 전제를 깔고 묻지만, 문서의 제약으로 답할 수 있는 질문 — 예: q038)
+- 답 있음/없음 판단 기준: 원문이 질문이 묻는 대상(기능·조건)을 직접 규정하면 답 있음, 주변 정보만 있으면 답 없음
 - `no_answer` ⇔ `evidence == []` ⇔ `answer`가 null. `note`에 부재 확인 기록을 남긴다.
   검색 지표에서 제외하고 #19 거절 평가에 쓴다
 - qa_v1에서 옮긴 30문항은 사람 검수 기록이 없어 `verified_by`·`verified_at`이 null이다

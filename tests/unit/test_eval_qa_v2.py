@@ -130,6 +130,11 @@ def test_gold_chunk_ids_길이가_evidence_개수와_다르면_거부한다():
         _q(evidence=["가", "나"], gold_chunk_ids={"block_requirement": [["c1"]]})
 
 
+def test_false_premise_태그는_답_있는_문항에_붙일_수_있다():
+    q = _q(tags=["false_premise"])
+    assert q.tags == ["false_premise"]
+
+
 def test_알_수_없는_태그는_거부한다():
     with pytest.raises(ValidationError):
         _q(tags=["semantic"])

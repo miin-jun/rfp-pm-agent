@@ -4,11 +4,12 @@ qa_v2.jsonl의 원천 정답은 evidence(원문 문자열 목록)이고, gold_ch
 청크 파일에서 코드로 뽑은 파생값이다. 이 모듈은 세 가지를 한다.
 
 - build-from-v1: qa_v1 30문항을 같은 question_id로 v2 형식에 옮긴다. qa_v1은
-  읽기만 한다. 태그는 코드로 판정할 수 있는 table만 붙이고, 사람 판정이 필요한
-  태그(exact·doc_unspecified·paraphrase)는 비워 둔다. 출력 파일이 이미 있으면
+  읽기만 한다. 태그는 코드로 판정할 수 있는 table과 paraphrase(겹침률 기준)만
+  붙이고, 사람 판정이 필요한 태그(exact·doc_unspecified)는 비워 둔다. 출력 파일이 이미 있으면
   덮어쓰지 않고 멈춘다 — 뒤에 추가한 문항이 지워지지 않게 하기 위해서다.
 - fill-gold: 모든 문항의 gold_chunk_ids를 현재 청크 파일로 다시 뽑아 쓴다.
-- check: 형식·원문 일치·gold_chunk_ids 일치·태그 일관성을 확인하고, 청킹
+- check: 형식·원문 일치·gold_chunk_ids 일치·태그 일관성(table 코드 판정,
+  paraphrase 겹침률 ≤ PARAPHRASE_MAX_OVERLAP)을 확인하고, 청킹
   방식별 최고 점수를 낸다. 하나라도 어긋나면 종료 코드 1로 끝난다.
 
 정답은 원문 대조로만 정한다. 검색 결과는 어디에서도 쓰지 않는다 — 검색
@@ -25,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 import sys
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
@@ -51,6 +53,13 @@ V1_NOTE = "사람 검수 기록 없음 — #13에서 코드 대조만"
 # 정보를 묻는 문항이 아니다
 MIN_TABLE_ROWS = 2
 MIN_TABLE_COLS = 2
+
+# paraphrase 태그의 겹침률 상한. 추가 문항 초안을 쓰기 전에 qa_v1 분포(0.00~0.36,
+# 중앙값 0.114)를 보고 고정했다. 초안이 넘으면 이 값이 아니라 문항을 고친다
+PARAPHRASE_MAX_OVERLAP = 0.10
+PARAPHRASE_NOTE = "paraphrase: 코드 판정"
+
+_NON_WORD = re.compile(r"[^가-힣A-Za-z0-9]")
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +129,28 @@ def evidence_source_ids(doc: Document, evidence: str) -> list[str]:
     return [unit_id for unit_id, text in source_units(doc) if evidence_in_text(evidence, text)]
 
 
+def _char_bigrams(text: str) -> set[str]:
+    cleaned = _NON_WORD.sub("", text)
+    return {cleaned[i : i + 2] for i in range(len(cleaned) - 1)}
+
+
+def shared_bigrams(question: str, evidence: Sequence[str]) -> list[str]:
+    """질문의 글자 bigram 중 evidence 어느 하나에라도 들어 있는 것 (정렬).
+
+    한글·영문·숫자만 남기고 bigram을 만든다. 불용어는 빼지 않는다 — 뺄 단어
+    목록이 기준값을 움직이기 때문이다. evidence가 여럿이면 각각 따로 본다
+    (이어 붙이면 경계에서 원문에 없는 bigram이 생긴다).
+    """
+    cleaned = [_NON_WORD.sub("", e) for e in evidence]
+    return sorted(b for b in _char_bigrams(question) if any(b in e for e in cleaned))
+
+
+def overlap_ratio(question: str, evidence: Sequence[str]) -> float:
+    """질문 글자 bigram 중 evidence와 겹치는 비율. 질문에 bigram이 없으면 0."""
+    total = len(_char_bigrams(question))
+    return len(shared_bigrams(question, evidence)) / total if total else 0.0
+
+
 def _is_data_table(block: Block | None) -> bool:
     if block is None or block.type != "table" or not block.table:
         return False
@@ -165,10 +196,14 @@ def build_from_v1(
     migrated: list[EvalQuestionV2] = []
     for question in v1_questions:
         tags: list[QuestionTag] = []
+        note = V1_NOTE
         if is_table_question(question, docs[question.doc_id], reference):
             tags.append("table")
+        if overlap_ratio(question.question, question.evidence) <= PARAPHRASE_MAX_OVERLAP:
+            tags.append("paraphrase")
+            note = f"{V1_NOTE}; {PARAPHRASE_NOTE}"
         base = question.model_copy(
-            update={"tags": tags, "verified_by": None, "verified_at": None, "note": V1_NOTE}
+            update={"tags": tags, "verified_by": None, "verified_at": None, "note": note}
         )
         migrated.append(with_gold(base, chunks_by_method))
     return migrated
@@ -215,6 +250,13 @@ def check(
             )
         if "table" not in q.tags and table_only:
             report.warnings.append(f"{q.question_id}: 정답 청크가 모두 표인데 table 태그가 없다")
+
+        ratio = overlap_ratio(q.question, q.evidence)
+        if "paraphrase" in q.tags and ratio > PARAPHRASE_MAX_OVERLAP:
+            report.errors.append(
+                f"{q.question_id}: paraphrase 태그인데 겹침률 {ratio:.3f}가 "
+                f"기준 {PARAPHRASE_MAX_OVERLAP}를 넘는다"
+            )
 
     for method, chunks in chunks_by_method.items():
         report.ceilings[method] = (sum(reachable(chunks, q) for q in answerable), len(answerable))

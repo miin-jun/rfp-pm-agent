@@ -341,6 +341,12 @@ projects ─┬─< project_members >── users
 - `no_answer` ⇔ `evidence == []` ⇔ `answer`가 null. `note`에 부재 확인 기록을 남긴다.
   검색 지표에서 제외하고 #19 거절 평가에 쓴다
 - qa_v1에서 옮긴 30문항은 사람 검수 기록이 없어 `verified_by`·`verified_at`이 null이다
+- `paraphrase` 판정: 질문과 evidence에서 한글·영문·숫자만 남긴 글자 bigram 중 evidence에도
+  있는 것의 비율(겹침률)이 **0.10 이하**. 불용어는 빼지 않는다. 추가 문항 초안을 쓰기 전에
+  qa_v1 분포(0.00~0.36, 중앙값 0.114)를 보고 고정했다. 비율이 기준 이하여도 핵심 용어
+  (요구사항 명칭, 법령·제도 이름 등)가 그대로 겹치면 paraphrase로 보지 않는다(사람 검수).
+  qa_v1 30문항의 paraphrase 태그는 이 기준으로 코드가 붙였다 (`note`에 표시). `exact` 문항은
+  이 기준을 적용하지 않는다
 - 만들기·검증: `uv run python -m rfp_pm_agent.eval.qa_v2 check`
   (원문 일치·`gold_chunk_ids` 일치·방식별 최고 점수). `fill-gold`는 `gold_chunk_ids`를 다시 뽑는다
 

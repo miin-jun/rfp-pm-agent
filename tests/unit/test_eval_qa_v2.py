@@ -14,6 +14,8 @@ import pytest
 from pydantic import ValidationError
 
 from rfp_pm_agent.eval.qa_v2 import (
+    PARAPHRASE_MAX_OVERLAP,
+    PARAPHRASE_NOTE,
     V1_NOTE,
     build_from_v1,
     check,
@@ -21,6 +23,8 @@ from rfp_pm_agent.eval.qa_v2 import (
     is_table_question,
     load_questions_v2,
     main,
+    overlap_ratio,
+    shared_bigrams,
     with_gold,
 )
 from rfp_pm_agent.eval.retrieval import gold_chunk_ids, reachable
@@ -202,15 +206,22 @@ def test_build_from_v1은_파생값과_검수_기록_없음만_붙이고_원문�
     doc = _doc([_table("b1", [["구분", "배점"], ["기술", "90"]]), _paragraph("b2", "예산 1억")])
     chunks = {"block_requirement": [_chunk(b.block_id, b.text) for b in doc.blocks]}
     v1 = [
-        _q(question_id="q001", evidence=["기술 | 90"], verified_by="누군가"),
-        _q(question_id="q002", evidence=["예산 1억"]),
+        # 겹침: 기술 1/4 = 0.25 > 0.10
+        _q(
+            question_id="q001",
+            question="기술 점수는?",
+            evidence=["기술 | 90"],
+            verified_by="누군가",
+        ),
+        # 겹침 0/4
+        _q(question_id="q002", question="돈은 얼마?", evidence=["예산 1억"]),
     ]
 
     out = build_from_v1(v1, {"doc_a": doc}, chunks)
 
-    assert [q.tags for q in out] == [["table"], []]
+    assert [q.tags for q in out] == [["table"], ["paraphrase"]]
     assert all(q.verified_by is None and q.verified_at is None for q in out)
-    assert all(q.note == V1_NOTE for q in out)
+    assert [q.note for q in out] == [V1_NOTE, f"{V1_NOTE}; {PARAPHRASE_NOTE}"]
     assert [(q.question, q.answer, q.evidence) for q in out] == [
         (q.question, q.answer, q.evidence) for q in v1
     ]
@@ -273,3 +284,59 @@ def test_build_from_v1은_출력_파일이_이미_있으면_덮어쓰지_않는�
 
     assert code == 1
     assert out.read_text(encoding="utf-8") == "기존 내용\n"
+
+
+# --- 겹침률 (paraphrase 기준) ---
+
+
+def test_겹침률은_기호와_공백을_지운_글자_bigram으로_잰다():
+    # 질문 bigram: 사업, 업예, 예산, 산은 → evidence "사업예산1억"과 겹치는 것: 사업, 업예, 예산
+    assert shared_bigrams("사업 예산은?", ["□ 사업예산: 1억"]) == ["사업", "업예", "예산"]
+    assert overlap_ratio("사업 예산은?", ["□ 사업예산: 1억"]) == 0.75
+
+
+def test_evidence가_여럿이면_각각_따로_보고_이어_붙인_경계는_세지_않는다():
+    # "가나" + "다라"를 이어 붙이면 "나다"가 생기지만 원문 어디에도 없다
+    assert shared_bigrams("나다", ["가나", "다라"]) == []
+    assert shared_bigrams("가나 다라", ["가나", "다라"]) == ["가나", "다라"]
+
+
+def test_qa_v1의_paraphrase_판정은_E_보고의_분포와_같다():
+    """기준값 0.10은 이 분포를 보고 고정했다. 측정 방식이 바뀌면 여기서 드러난다."""
+    below = {
+        q.question_id
+        for q in load_questions_v2(QA_V1)
+        if overlap_ratio(q.question, q.evidence) <= PARAPHRASE_MAX_OVERLAP
+    }
+    assert below == {
+        "q004", "q006", "q007", "q014", "q017", "q018",
+        "q020", "q021", "q022", "q025", "q026", "q030",
+    }  # fmt: skip
+
+
+def test_check는_paraphrase_태그인데_기준을_넘으면_실패한다():
+    doc = _doc([_paragraph("b1", "사업기간 3개월")])
+    chunks = {"block_requirement": [_chunk("b1", "사업기간 3개월")]}
+    over = with_gold(
+        _q(
+            question_id="q001",
+            question="사업기간은?",
+            evidence=["사업기간 3개월"],
+            tags=["paraphrase"],
+        ),
+        chunks,
+    )
+    under = with_gold(
+        _q(
+            question_id="q002",
+            question="언제 끝나?",
+            evidence=["사업기간 3개월"],
+            tags=["paraphrase"],
+        ),
+        chunks,
+    )
+
+    report = check([over, under], {"doc_a": doc}, chunks)
+
+    assert len(report.errors) == 1
+    assert report.errors[0].startswith("q001: paraphrase 태그인데 겹침률")

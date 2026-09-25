@@ -18,7 +18,13 @@ import re
 from collections.abc import Callable, Iterable, Sequence
 
 from rfp_pm_agent.schemas.chunk import Chunk
-from rfp_pm_agent.schemas.eval import EvalQuestion, RunScore, SearchHit, TypeScore
+from rfp_pm_agent.schemas.eval import (
+    EvalQuestion,
+    EvalQuestionV2,
+    RunScore,
+    SearchHit,
+    TypeScore,
+)
 
 _WHITESPACE = re.compile(r"\s+")
 
@@ -35,10 +41,15 @@ def normalize(text: str) -> str:
     return _WHITESPACE.sub("", text)
 
 
+def evidence_in_text(evidence: str, text: str) -> bool:
+    """공백을 모두 지운 evidence가 공백을 모두 지운 text에 들어 있으면 참."""
+    return normalize(evidence) in normalize(text)
+
+
 def _matches(*, chunk_doc_id: str, chunk_text: str, question: EvalQuestion) -> bool:
     if chunk_doc_id != question.doc_id:
         return False
-    return normalize(question.evidence) in normalize(chunk_text)
+    return evidence_in_text(question.evidence, chunk_text)
 
 
 def is_correct(chunk: Chunk, question: EvalQuestion) -> bool:
@@ -62,6 +73,36 @@ def ceiling(chunks: Iterable[Chunk], question: EvalQuestion) -> bool:
     이 값이 거짓인 질문은 그 청킹 방식이 검색을 아무리 잘해도 맞힐 수 없다.
     """
     return any(is_correct(chunk, question) for chunk in chunks)
+
+
+# --- v2 (이슈 #15): evidence 목록 판정 ---
+
+
+def gold_chunk_ids(chunks: Iterable[Chunk], question: EvalQuestionV2) -> list[list[str]]:
+    """evidence마다 그 evidence를 담은 청크 ID 목록을 evidence 순서대로 돌려준다.
+
+    판정은 v1과 같다 — doc_id가 같고, 공백을 지운 evidence가 청크 text에 들어
+    있으면 그 청크가 그 evidence를 담은 것이다. 검색 결과는 쓰지 않는다.
+    답 없음 문항은 evidence가 없으므로 빈 목록이다.
+    """
+    same_doc = [c for c in chunks if c.doc_id == question.doc_id]
+    return [
+        [c.chunk_id for c in same_doc if evidence_in_text(evidence, c.text)]
+        for evidence in question.evidence
+    ]
+
+
+def reachable(chunks: Iterable[Chunk], question: EvalQuestionV2) -> bool:
+    """모든 evidence가 청크 하나 이상에 담겨 있으면 참 (v2의 최고 점수 판정).
+
+    evidence가 하나라도 어느 청크에도 없으면, 그 청킹 방식으로는 검색을 아무리
+    잘해도 문항 전체를 맞힐 수 없다. 답 없음 문항은 도달할 정답이 없어 이 판정의
+    대상이 아니므로 ValueError를 낸다 — 호출하는 쪽이 먼저 걸러야 최고 점수의
+    분모에 섞이지 않는다.
+    """
+    if not question.evidence:
+        raise ValueError(f"{question.question_id}: 답 없음 문항은 최고 점수 판정 대상이 아니다")
+    return all(gold_chunk_ids(chunks, question))
 
 
 def _tally(results: list[tuple[EvalQuestion, list[SearchHit], bool]]) -> TypeScore:

@@ -1,0 +1,60 @@
+{
+  "description": "run_retrieval 실행 중 `nvidia-smi --query-gpu=timestamp,memory.used --format=csv,noheader -lms 500` 기록의 요약 (이슈 #16). 원본 CSV는 data/tmp/(git 제외)에 있다. 모든 실행의 기동 전 GPU 메모리는 0 MiB. min은 서버 로드 직후 값(임베딩 1251 / 임베딩+리랭커 2502)과 같다",
+  "gpu": "NVIDIA GeForce RTX 4050 Laptop GPU, 드라이버 591.74",
+  "runs": [
+    {
+      "run_id": "20260926T143013Z-dense-KURE-v1",
+      "condition": "임베딩 서버만, 색인+검색",
+      "source_file": "data/tmp/vram_kure.csv",
+      "samples": 48,
+      "interval_ms": 500,
+      "memory_used_mib_min": 1251,
+      "memory_used_mib_max": 1539
+    },
+    {
+      "run_id": "20260926T143104Z-dense-KURE-v1+rerank-bge-reranker-v2-m3",
+      "condition": "임베딩+리랭커 서버, 캐시 읽기+검색+리랭크",
+      "source_file": "data/tmp/vram_kure_rerank.csv",
+      "samples": 95,
+      "interval_ms": 500,
+      "memory_used_mib_min": 2502,
+      "memory_used_mib_max": 2726
+    },
+    {
+      "run_id": "20260926T145235Z-dense-bge-m3",
+      "condition": "임베딩 서버만, 색인+검색",
+      "source_file": "data/tmp/vram_bgem3.csv",
+      "samples": 46,
+      "interval_ms": 500,
+      "memory_used_mib_min": 1251,
+      "memory_used_mib_max": 1699
+    },
+    {
+      "run_id": "20260926T145324Z-dense-bge-m3+rerank-bge-reranker-v2-m3",
+      "condition": "임베딩+리랭커 서버, 캐시 읽기+검색+리랭크",
+      "source_file": "data/tmp/vram_bgem3_rerank.csv",
+      "samples": 115,
+      "interval_ms": 500,
+      "memory_used_mib_min": 2502,
+      "memory_used_mib_max": 2790
+    },
+    {
+      "run_id": "20260926T145553Z-dense-multilingual-e5-large",
+      "condition": "임베딩 서버만, 색인+검색",
+      "source_file": "data/tmp/vram_e5.csv",
+      "samples": 41,
+      "interval_ms": 500,
+      "memory_used_mib_min": 1251,
+      "memory_used_mib_max": 1475
+    },
+    {
+      "run_id": "20260926T145638Z-dense-multilingual-e5-large+rerank-bge-reranker-v2-m3",
+      "condition": "임베딩+리랭커 서버, 캐시 읽기+검색+리랭크",
+      "source_file": "data/tmp/vram_e5_rerank.csv",
+      "samples": 133,
+      "interval_ms": 500,
+      "memory_used_mib_min": 2502,
+      "memory_used_mib_max": 2918
+    }
+  ]
+}

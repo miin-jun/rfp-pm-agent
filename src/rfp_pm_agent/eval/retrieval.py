@@ -243,6 +243,8 @@ def ndcg_at_k(
       조합 수 n에 대해 순서 수가 n!/(n−k)!로 늘어나므로 조합이 많은 문항에서는 느려진다
       (qa_v2 답 있는 51문항은 문항당 조합 2개 이하, 2026-09-26 확인).
     - 도달 불가 문항: 어떤 evidence도 청크에 담기지 않아 IDCG가 0이면 0을 돌려준다.
+    - 일부 묶음만 도달 불가면 그 묶음은 IDCG에서 빠지므로, Recall 전부 적중이 0이어도 NDCG가
+      1일 수 있다. 도달 불가 여부는 Recall이 드러낸다.
     gold_groups가 비면(답 없음 문항) ValueError를 낸다.
 
     소유자가 직접 구현했다 (학습 대상, 이슈 #16). 테스트: tests/unit/test_eval_rank_metrics.py

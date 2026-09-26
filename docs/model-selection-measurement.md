@@ -76,10 +76,10 @@ docker compose stop tei-embed tei-rerank
 
 | 항목 | 방법 | 기록 위치 |
 |---|---|---|
-| Recall@5·@10(전부 적중·비율), MRR, NDCG@10 | `run_retrieval`이 문항별로 채점 (MRR·NDCG는 함수 구현 후) | `runs.jsonl`, `<run_id>.questions.jsonl` |
-| 색인 시간 | 청크 3,514개를 배치 32로 임베딩한 전체 시간(1회) | `runs.jsonl`의 `index_seconds` |
+| Recall@5·@10(전부 적중·비율), MRR, NDCG@10 | `run_retrieval`이 문항별로 채점 | `runs.jsonl`, `<run_id>.questions.jsonl` |
+| 색인 시간 | 청크 3,514개 중 빈 청크 4개를 뺀 3,510개를 배치 32로 임베딩한 전체 시간(1회) | `runs.jsonl`의 `index_seconds` |
 | 지연 | 워밍업 5문항 뒤 57문항 × 3회, 질의 1건씩. 검색(질의 임베딩 + 코사인)과 리랭크(상위 20개)를 따로 | `search_latency`, `rerank_latency` (p50·p95) |
-| VRAM | 색인 중 `nvidia-smi -lms 500` 기록의 최댓값 − 기동 전 값 | `data/tmp/vram_<모델>.csv`에서 읽어 ADR에 적음 |
+| VRAM | 색인 중 `nvidia-smi -lms 500` 기록의 최댓값 − 기동 전 값 | `data/tmp/vram_<모델>.csv`(git 제외) → 요약 `data/eval/results/model_selection/vram_summary.json` |
 | 환경 | GPU 이름·드라이버, TEI 버전(`/info`), 이미지 태그(docker-compose.yml), 모델 revision(볼륨 스냅샷 해시) | `runs.jsonl` |
 
 - WSL의 `nvidia-smi`가 `memory.used`를 0으로 보고한 적이 있다(2026-09-26, TEI를 띄우지 않은 상태).

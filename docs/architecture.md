@@ -316,7 +316,7 @@
 ## 7. 다음 단계에서 확정할 것
 
 - [ ] 검색 엔진: Elasticsearch vs OpenSearch vs PostgreSQL+pgvector 조합
-- [ ] 임베딩 모델: multilingual-e5 계열(로컬) vs OpenAI 임베딩(API)
+- [x] 임베딩 모델: **KURE-v1** (TEI 자체 서빙) + 리랭커 bge-reranker-v2-m3 N=20 — #16, [ADR-0001](adr/0001-embedding-model.md)·[ADR-0002](adr/0002-reranker.md) (2026-09-27)
 - [ ] LLM: 답변·에이전트용 / 평가 채점용
 - [ ] HWP 파싱 도구 (실제 RFP 샘플로 검증 후 결정)
 - [ ] PMS 스키마 (테이블·관계)
@@ -340,6 +340,7 @@
 | 09-11 | **레포 이름 `rfp-pm-agent`**, 패키지 `rfp_pm_agent`, GitHub 비공개로 시작 → 공개 전 민감 정보 점검 | RFP(문서) + PM(프로젝트 관리) + 에이전트가 이름에 드러남 |
 | 09-11 | 평가 채점 LLM은 API 유지 | 채점자가 약하면 평가 자체를 신뢰할 수 없음 |
 | 09-11 | 장비: **RunPod** = 모델 서버(임베딩·리랭커 → Phase 2에 LLM까지) / **RTX 4050(로컬)** = 개발, RunPod 꺼졌을 때 대체, 작은 LLM 시험 | 노트북 4050은 VRAM 약 6GB(`nvidia-smi`로 확인) |
+| 09-27 | **임베딩 KURE-v1, 리랭커 bge-reranker-v2-m3(후보 N=20)** 채택 (#16) | qa_v2 51문항에서 세 임베딩 모델이 McNemar로 동률 → 규칙을 기계적으로 적용하면 e5였으나, 소유자가 결과를 본 뒤 잘림 없음(8192토큰)·리랭크 지연 최소를 근거로 선택. 리랭커는 NDCG@10 0.380 → 0.506, 추가 p95 483ms ([ADR-0001](adr/0001-embedding-model.md), [ADR-0002](adr/0002-reranker.md)) |
 
 ## 참고
 

@@ -5,6 +5,7 @@ MRR·NDCG 계산 함수 자체의 테스트는 tests/unit/test_eval_rank_metrics
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import pytest
@@ -152,3 +153,36 @@ def test_문항이_없는_태그는_행을_만들지_않는다() -> None:
     scores = aggregate_v2([], [])
     assert [s.label for s in scores.slices] == ["전체", "v1", "추가"]
     assert scores.slices[0].total == 0
+
+
+def test_행_단위_mrr·ndcg는_문항별_값의_평균이다() -> None:
+    chunks = [_chunk("b1", "사업기간 3개월"), _chunk("b2", "예산 1억"), _chunk("b3", "무관")]
+    questions = [
+        _q("q001", ["사업기간 3개월"]),  # v1
+        _q("q031", ["예산 1억"], tags=["paraphrase"]),  # 추가
+        _q("q032", []),  # 답 없음 — 평균에서 빠진다
+    ]
+    rankings = {
+        "q001": _hits("b1", "b3"),  # 정답 1위 → RR 1, NDCG 1
+        "q031": _hits("b3", "b2"),  # 정답 2위 → RR 1/2, NDCG = (1/log2 3)/1 ≈ 0.630930
+        "q032": _hits("b3"),
+    }
+
+    scores, _ = score_run_v2(questions, chunks, rankings)
+
+    by_label = {s.label: s for s in scores.slices}
+    # 전체: MRR = (1 + 0.5) / 2 = 0.75, NDCG = (1 + 0.630930) / 2 ≈ 0.815465
+    assert by_label["전체"].mrr == pytest.approx(0.75)
+    assert by_label["전체"].ndcg_at_10 == pytest.approx((1 + 1 / math.log2(3)) / 2)
+    # v1은 q001만: 1.0 / 1.0
+    assert by_label["v1"].mrr == pytest.approx(1.0)
+    assert by_label["v1"].ndcg_at_10 == pytest.approx(1.0)
+    # 추가·tag:paraphrase는 q031만: 0.5 / ≈ 0.630930
+    assert by_label["추가"].mrr == pytest.approx(0.5)
+    assert by_label["tag:paraphrase"].ndcg_at_10 == pytest.approx(1 / math.log2(3))
+
+
+def test_문항이_0개인_행의_mrr·ndcg는_None이다() -> None:
+    scores = aggregate_v2([], [])
+    assert scores.slices[0].mrr is None
+    assert scores.slices[0].ndcg_at_10 is None

@@ -14,6 +14,7 @@ evidence가 두 청크에 걸쳐 잘리면 어느 청크도 정답이 아니다.
 
 from __future__ import annotations
 
+import itertools
 import math
 import re
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
@@ -212,7 +213,7 @@ def reciprocal_rank(
     gold_groups가 비면(답 없음 문항) ValueError를 낸다.
     MRR은 호출하는 쪽에서 문항별 값을 평균한다.
 
-    소유자 구현 대기 (학습 대상, 이슈 #16). 테스트: tests/unit/test_eval_rank_metrics.py
+    소유자가 직접 구현했다 (학습 대상, 이슈 #16). 테스트: tests/unit/test_eval_rank_metrics.py
     """
     if not gold_groups:
         raise ValueError("gold_groups가 비어 있다 (답 없음 문항)")
@@ -235,10 +236,16 @@ def ndcg_at_k(
       이미 덮은 묶음의 중복 청크(q021의 나머지 청크 등)는 gain 0이다. 청크 하나가
       두 묶음을 함께 덮으면(q038형) gain 2다.
     - DCG = Σ gain_r / log2(r + 1) (r = 1부터)
-    - IDCG: 같은 gain 정의로 계산한 이상적 순서의 DCG.
+    - IDCG: 같은 gain 정의로 계산한 이상적 순서의 DCG. 정답 청크를 "덮는 묶음 번호의
+      조합"으로 줄이고(같은 조합의 청크는 하나로 친다), 조합들의 가능한 순서를 상위 k개까지
+      모두 탐색해 가장 큰 DCG를 쓴다. 묶음이 청크를 겹쳐 가질 때 탐욕법(매번 가장 많이
+      덮는 청크)은 최적이 아닐 수 있어 NDCG가 1을 넘을 수 있었다 — 그래서 전체 탐색을 한다.
+      조합 수 n에 대해 순서 수가 n!/(n−k)!로 늘어나므로 조합이 많은 문항에서는 느려진다
+      (qa_v2 답 있는 51문항은 문항당 조합 2개 이하, 2026-09-26 확인).
+    - 도달 불가 문항: 어떤 evidence도 청크에 담기지 않아 IDCG가 0이면 0을 돌려준다.
     gold_groups가 비면(답 없음 문항) ValueError를 낸다.
 
-    소유자 구현 대기 (학습 대상, 이슈 #16). 테스트: tests/unit/test_eval_rank_metrics.py
+    소유자가 직접 구현했다 (학습 대상, 이슈 #16). 테스트: tests/unit/test_eval_rank_metrics.py
     """
     if not gold_groups:
         raise ValueError("gold_groups가 비어 있다 (답 없음 문항)")
@@ -253,19 +260,26 @@ def ndcg_at_k(
         found |= new
         dcg += len(new) / math.log2(rank + 1)
 
-    # 3단계: 만점(IDCG) - 매번 새 묶음을 가장 많이 찾는 청크를 고른다
-    all_chunks = set().union(*groups)
-    left = set(range(len(groups)))
+    # 3단계: 만점(IDCG)
+    # 청크를 "덮는 묶음 번호 조합"으로 줄인다. 같은 조합의 청크는 하나로 친다.
+    signatures = {
+        frozenset(i for i, group in enumerate(groups) if chunk_id in group)
+        for group in groups
+        for chunk_id in group
+    }
     idcg = 0.0
-    for rank in range(1, k + 1):
-        if not left:
-            break
-        best = max(len({i for i in left if c in groups[i]}) for c in all_chunks)
-        best_chunk = next(c for c in all_chunks if len({i for i in left if c in groups[i]}) == best)
-        left -= {i for i in left if best_chunk in groups[i]}
-        idcg += best / math.log2(rank + 1)
+    for order in itertools.permutations(signatures, min(k, len(signatures))):
+        covered: set[int] = set()
+        score = 0.0
+        for rank, sig in enumerate(order, start=1):
+            added = sig - covered
+            covered |= added
+            score += len(added) / math.log2(rank + 1)
+        idcg = max(idcg, score)
 
     # 4단계
+    if idcg == 0:
+        return 0.0  # 도달할 수 있는 묶음이 없는 문항
     return dcg / idcg
 
 

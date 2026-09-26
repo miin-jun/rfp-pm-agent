@@ -98,3 +98,15 @@ def test_10_k가_10이면_11위_적중은_무시한다() -> None:
     assert ndcg_at_k(ranked, groups, 10) == pytest.approx(0.0)
     # k=None이면 전체를 본다
     assert reciprocal_rank(ranked, groups) == pytest.approx(1 / 11)
+
+
+def test_11_묶음이_겹쳐도_ndcg는_1을_넘지_않는다() -> None:
+    # p가 0·2번, q가 1·3번 묶음을 덮는다 → [p, q]가 최적 순서
+    groups = [{"x", "p"}, {"x", "q"}, {"p"}, {"q"}]
+    ranked = ["p", "q"]
+    assert ndcg_at_k(ranked, groups, 10) == pytest.approx(1.0)
+
+
+def test_12_모든_묶음이_비면_0() -> None:
+    # 어떤 evidence도 청크에 담기지 않은 문항 (도달 불가)
+    assert ndcg_at_k(["a"], [set()], 10) == pytest.approx(0.0)

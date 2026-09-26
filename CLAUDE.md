@@ -29,7 +29,7 @@
 - src/rfp_pm_agent/agent/     LangGraph 에이전트
 - src/rfp_pm_agent/api/       FastAPI
 - src/rfp_pm_agent/mcp_server/ MCP 서버 (읽기 전용 툴만)
-- src/rfp_pm_agent/eval/       평가 실행 (청킹 비교: `run_chunk_eval`)
+- src/rfp_pm_agent/eval/       평가 실행 (청킹 비교: `run_chunk_eval`, 모델 선정: `run_retrieval`)
 - data/eval/                   평가 세트(qa_*.jsonl), 실행 기록(runs.jsonl), 틀린 질문(failures/) — git 포함
 - data/                        수집·파싱 산출물 (git 제외)
 
@@ -120,3 +120,4 @@ Claude는 구현하지 말고, 설계 논의·테스트 작성·리뷰·리팩�
 - TEI(1.9.4)를 두 개 동시에 띄우면 WSL RAM(7.5GiB) 부족으로 한쪽이 137(`OOMKilled=true`)로 종료됐다. `TOKENIZATION_WORKERS` 미지정 시 토크나이저 워커가 19개 떴고(`nproc`=20), `AUTO_TRUNCATE`를 고정하고 워커 수만 바꿔 쟀더니 서버 1개 VmRSS가 워커 19개일 때 5.09GB, 2개일 때 1.29GB였다(워커가 왜 RAM을 쓰는지는 미확인). VRAM만 보고 동시 기동 가능 여부를 판단하지 않는다 (docs/learning-log.md 2026-09-24)
 - TEI 1.9.4는 `auto_truncate` 기본값이 **true**다 — 모델 최대 길이를 넘는 입력이 에러 없이 앞부분만 임베딩된다. compose에서 `AUTO_TRUNCATE: "false"`로 끄고, 서버 옵션 기본값은 기동 로그 `Args`나 `/info`로 확인한다
 - `docker-compose.yml`의 TEI 서비스는 `${EMBED_MODEL_ID:?}`·`${RERANK_MODEL_ID:?}`를 쓴다. compose는 profile과 상관없이 파일 전체를 먼저 변수 치환하므로, `.env`에 두 키가 없으면 postgres·opensearch만 띄우는 `docker compose up -d`도 실패한다
+- `gh pr edit`·`gh issue edit`가 GitHub Projects(classic) 지원 중단 GraphQL 오류로 실패할 수 있다. 그때는 REST API를 쓴다: `gh api -X PATCH repos/<owner>/<repo>/pulls/<번호> -F body=@<파일>` (이슈는 `issues/<번호>`). 바뀐 본문은 다시 조회해 확인한다

@@ -1,7 +1,7 @@
-"""reciprocal_rank·ndcg_at_k 테스트 (이슈 #16) — 소유자 구현 대기.
+"""reciprocal_rank·ndcg_at_k 테스트 (이슈 #16).
 
-함수 본문은 소유자가 직접 구현한다(학습 대상). 구현하면서 각 테스트의 skip을 지운다.
-기대값은 docstring의 정의로 손으로 계산한 값이다. 구현 결과에 맞춰 바꾸지 않는다.
+함수 본문은 소유자가 직접 구현했다(학습 대상, 2026-09-26). 기대값은 구현 전에
+docstring의 정의로 손으로 계산해 둔 값이다. 구현 결과에 맞춰 바꾸지 않는다.
 
 정의 요약 (retrieval.py docstring):
 - gold_groups: evidence별 정답 청크 ID 집합의 목록
@@ -18,13 +18,10 @@ import pytest
 
 from rfp_pm_agent.eval.retrieval import ndcg_at_k, reciprocal_rank
 
-SKIP = pytest.mark.skip(reason="소유자 구현 대기")
-
 # 묶음 2개일 때의 IDCG = 1/log2(2) + 1/log2(3)
 IDCG_TWO = 1.0 + 1.0 / math.log2(3)  # 1.6309297535714575
 
 
-@SKIP
 def test_1_묶음_1개_1위_적중() -> None:
     groups = [{"a"}]
     ranked = ["a", "x", "y"]
@@ -32,7 +29,6 @@ def test_1_묶음_1개_1위_적중() -> None:
     assert ndcg_at_k(ranked, groups, 10) == pytest.approx(1.0)
 
 
-@SKIP
 def test_2_묶음_1개_3위_적중() -> None:
     groups = [{"a"}]
     ranked = ["x", "y", "a"]
@@ -41,7 +37,6 @@ def test_2_묶음_1개_3위_적중() -> None:
     assert ndcg_at_k(ranked, groups, 10) == pytest.approx(0.5)
 
 
-@SKIP
 def test_3_k_안에_적중_없음() -> None:
     groups = [{"a"}]
     ranked = ["x", "y", "z"]
@@ -49,7 +44,6 @@ def test_3_k_안에_적중_없음() -> None:
     assert ndcg_at_k(ranked, groups, 10) == pytest.approx(0.0)
 
 
-@SKIP
 def test_4_q021형_같은_묶음의_청크가_1_2위여도_ndcg는_1을_넘지_않는다() -> None:
     groups = [{"a", "b", "c", "d", "e"}]
     ranked = ["a", "b", "x"]
@@ -58,7 +52,6 @@ def test_4_q021형_같은_묶음의_청크가_1_2위여도_ndcg는_1을_넘지_�
     assert ndcg_at_k(ranked, groups, 10) == pytest.approx(1.0)
 
 
-@SKIP
 def test_5_묶음_2개가_1위와_3위() -> None:
     groups = [{"a"}, {"b"}]
     ranked = ["a", "x", "b"]
@@ -67,7 +60,6 @@ def test_5_묶음_2개가_1위와_3위() -> None:
     assert ndcg_at_k(ranked, groups, 10) == pytest.approx(1.5 / IDCG_TWO)  # ≈ 0.919721
 
 
-@SKIP
 def test_6_묶음_2개_중_1개만_1위() -> None:
     groups = [{"a"}, {"b"}]
     ranked = ["a", "x", "y"]
@@ -75,7 +67,6 @@ def test_6_묶음_2개_중_1개만_1위() -> None:
     assert ndcg_at_k(ranked, groups, 10) == pytest.approx(1.0 / IDCG_TWO)  # ≈ 0.613147
 
 
-@SKIP
 def test_7_q038형_청크_하나가_두_묶음을_함께_덮는다() -> None:
     # evidence 2개가 같은 청크 s에 있다
     groups = [{"s"}, {"s"}]
@@ -86,7 +77,6 @@ def test_7_q038형_청크_하나가_두_묶음을_함께_덮는다() -> None:
     assert ndcg_at_k(ranked, groups, 10) == pytest.approx((2 / math.log2(3)) / 2)  # ≈ 0.630930
 
 
-@SKIP
 def test_8_결과가_k개보다_적어도_계산된다() -> None:
     groups = [{"a"}]
     ranked = ["x", "a"]
@@ -94,7 +84,6 @@ def test_8_결과가_k개보다_적어도_계산된다() -> None:
     assert ndcg_at_k(ranked, groups, 10) == pytest.approx(1 / math.log2(3))  # ≈ 0.630930
 
 
-@SKIP
 def test_9_gold_groups가_비면_ValueError() -> None:
     with pytest.raises(ValueError):
         reciprocal_rank(["a"], [])
@@ -102,7 +91,6 @@ def test_9_gold_groups가_비면_ValueError() -> None:
         ndcg_at_k(["a"], [], 10)
 
 
-@SKIP
 def test_10_k가_10이면_11위_적중은_무시한다() -> None:
     groups = [{"a"}]
     ranked = [f"x{i}" for i in range(10)] + ["a"]  # a는 11위

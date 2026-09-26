@@ -1,6 +1,6 @@
 """v2 검색 지표(묶음 기반 Recall, McNemar, 집계) 단위 테스트 (이슈 #16).
 
-MRR·NDCG 계산 함수는 소유자 구현 대기라, 집계에서 그 칸이 None으로 남는지만 본다.
+MRR·NDCG 계산 함수 자체의 테스트는 tests/unit/test_eval_rank_metrics.py에 있다.
 """
 
 from __future__ import annotations
@@ -146,15 +146,6 @@ def test_score_run_v2는_답_없음을_빼고_1위_점수를_기록한다() -> N
     assert na.top1_chunk_id == "d:block_requirement:b2"
     assert na.top1_score == pytest.approx(1.0)
     assert na.top5_scores == pytest.approx([1.0, 0.99])
-
-
-def test_mrr·ndcg_함수가_없으면_그_칸만_None이고_나머지는_계산된다() -> None:
-    chunks = [_chunk("b1", "사업기간 3개월")]
-    scores, results = score_run_v2([_q("q001", ["사업기간 3개월"])], chunks, {"q001": _hits("b1")})
-    assert results[0].reciprocal_rank is None
-    assert results[0].ndcg_at_10 is None
-    assert scores.slices[0].mrr is None
-    assert scores.slices[0].recall_all_at_5 == 1
 
 
 def test_문항이_없는_태그는_행을_만들지_않는다() -> None:

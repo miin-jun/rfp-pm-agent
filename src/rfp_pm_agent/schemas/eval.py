@@ -154,7 +154,8 @@ class SliceScore(BaseModel):
 
     recall_all_at_k: 모든 evidence 묶음을 상위 k 안에서 찾은 문항 수 (주 지표, 0/1)
     recall_frac_at_k: 문항별 "찾은 묶음 비율"의 합 (참고용). 평균은 이 값 / total
-    mrr·ndcg_at_10: 문항 평균. 계산 함수가 아직 없으면(NotImplementedError) None
+    mrr·ndcg_at_10: 문항 평균. 문항이 0개인 행이나, MRR·NDCG 구현 전에 남긴 기록
+    (예: 20260926T051314Z-bm25-bigram)이면 None
     """
 
     label: str

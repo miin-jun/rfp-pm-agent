@@ -15,7 +15,7 @@ qa_v2(57문항, 답 있음 51)를 block_requirement 청크로 검색해 채점�
 가장 많은 실행과 나머지를 McNemar 정확검정(양측)으로 비교하고, p ≥ 0.05면 동률로 표시한다.
 동률일 때 가벼운 모델 고르기(VRAM → 색인 시간 → 지연)는 사람이 기록을 보고 한다.
 
-MRR·NDCG 함수가 아직 없으면(소유자 구현 대기) 그 칸은 비우고 나머지를 계산한다.
+MRR·NDCG 함수는 소유자가 구현했다(retrieval.py). 그 전에 남긴 기록은 그 칸이 비어 있다.
 LLM을 부르지 않으므로 비용은 $0이다.
 
 CLI: `uv run python -m rfp_pm_agent.eval.run_retrieval --bm25`

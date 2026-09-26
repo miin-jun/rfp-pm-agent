@@ -104,7 +104,9 @@ def test_bm25_실행은_기록·문항별_결과·실패_파일을_남긴다(tmp
     ]
     assert [r.question_id for r in results] == ["q001", "q031"]
     assert results[0].recall_all_at_10 is True
-    assert results[0].reciprocal_rank is None  # 소유자 구현 대기
+    # 정답 b1이 1위 → RR = 1/1, NDCG = (1/log2 2) / (1/log2 2) = 1.0 (손계산)
+    assert results[0].reciprocal_rank == pytest.approx(1.0)
+    assert results[0].ndcg_at_10 == pytest.approx(1.0)
     assert Path(record.failures_file).exists()
 
 

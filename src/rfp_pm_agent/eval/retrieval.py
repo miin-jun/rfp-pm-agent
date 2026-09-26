@@ -214,7 +214,16 @@ def reciprocal_rank(
 
     소유자 구현 대기 (학습 대상, 이슈 #16). 테스트: tests/unit/test_eval_rank_metrics.py
     """
-    raise NotImplementedError("소유자 구현 대기")
+    if not gold_groups:
+        raise ValueError("gold_groups가 비어 있다 (답 없음 문항)")
+
+    gold = {chunk_id for group in gold_groups for chunk_id in group}
+    candidates = ranked_ids if k is None else ranked_ids[:k]
+
+    for rank, chunk_id in enumerate(candidates, start=1):
+        if chunk_id in gold:
+            return 1.0 / rank
+    return 0.0
 
 
 def ndcg_at_k(
@@ -231,7 +240,33 @@ def ndcg_at_k(
 
     소유자 구현 대기 (학습 대상, 이슈 #16). 테스트: tests/unit/test_eval_rank_metrics.py
     """
-    raise NotImplementedError("소유자 구현 대기")
+    if not gold_groups:
+        raise ValueError("gold_groups가 비어 있다 (답 없음 문항)")
+
+    groups = [set(group) for group in gold_groups]
+
+    # 1~2단계: 실제 점수(DCG)
+    found: set[int] = set()
+    dcg = 0.0
+    for rank, chunk_id in enumerate(ranked_ids[:k], start=1):
+        new = {i for i, group in enumerate(groups) if i not in found and chunk_id in group}
+        found |= new
+        dcg += len(new) / math.log2(rank + 1)
+
+    # 3단계: 만점(IDCG) - 매번 새 묶음을 가장 많이 찾는 청크를 고른다
+    all_chunks = set().union(*groups)
+    left = set(range(len(groups)))
+    idcg = 0.0
+    for rank in range(1, k + 1):
+        if not left:
+            break
+        best = max(len({i for i in left if c in groups[i]}) for c in all_chunks)
+        best_chunk = next(c for c in all_chunks if len({i for i in left if c in groups[i]}) == best)
+        left -= {i for i in left if best_chunk in groups[i]}
+        idcg += best / math.log2(rank + 1)
+
+    # 4단계
+    return dcg / idcg
 
 
 def mcnemar_exact_p(b: int, c: int) -> float:
@@ -251,17 +286,10 @@ def mcnemar_exact_p(b: int, c: int) -> float:
     return min(1.0, 2 * tail)
 
 
-def _try_metric(fn: Callable[[], float]) -> float | None:
-    try:
-        return fn()
-    except NotImplementedError:
-        return None
-
-
 def score_question_v2(
     question: EvalQuestionV2, hits: Sequence[SearchHit], groups: Sequence[Collection[str]]
 ) -> QuestionResult:
-    """답 있는 문항 하나를 채점한다. MRR·NDCG 함수가 아직 없으면 그 칸은 None."""
+    """답 있는 문항 하나를 채점한다."""
     ranked = [hit.chunk_id for hit in hits]
     return QuestionResult(
         question_id=question.question_id,
@@ -270,14 +298,14 @@ def score_question_v2(
         recall_all_at_10=recall_all_at_k(ranked, groups, 10),
         recall_frac_at_5=recall_fraction_at_k(ranked, groups, 5),
         recall_frac_at_10=recall_fraction_at_k(ranked, groups, 10),
-        reciprocal_rank=_try_metric(lambda: reciprocal_rank(ranked, groups, 10)),
-        ndcg_at_10=_try_metric(lambda: ndcg_at_k(ranked, groups, 10)),
+        reciprocal_rank=reciprocal_rank(ranked, groups, 10),
+        ndcg_at_10=ndcg_at_k(ranked, groups, 10),
         top10_chunk_ids=ranked[:10],
     )
 
 
 def _mean_or_none(values: Sequence[float | None]) -> float | None:
-    """하나라도 None(계산 함수 없음)이거나 비어 있으면 None, 아니면 평균."""
+    """비어 있거나(문항 0개) 하나라도 None(MRR·NDCG 구현 전 기록)이면 None, 아니면 평균."""
     present = [v for v in values if v is not None]
     if not values or len(present) != len(values):
         return None

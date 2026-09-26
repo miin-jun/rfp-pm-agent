@@ -6,7 +6,8 @@ TEI(Text Embeddings Inference)의 `/embed` HTTP API를 부른다. `config.embed_
 
 from __future__ import annotations
 
-from typing import Protocol
+from dataclasses import dataclass, field
+from typing import Any, Literal, Protocol
 
 import httpx
 
@@ -17,8 +18,27 @@ from rfp_pm_agent.config import ClientsConfig
 EMBEDDING_DIM = 1024
 
 
+# 검색 질의("query")와 색인할 문서("passage")를 구분한다. 접두어가 필요한 모델
+# (multilingual-e5)은 종류마다 다른 접두어를 붙인다 — config의 embed_*_prefix
+InputType = Literal["query", "passage"]
+
+
 class EmbeddingClient(Protocol):
-    def embed(self, texts: list[str]) -> list[list[float]]: ...
+    def embed(
+        self, texts: list[str], *, input_type: InputType = "passage"
+    ) -> list[list[float]]: ...
+
+
+@dataclass
+class EmbedReport:
+    """`embed_with_report`의 결과. truncated는 모델 최대 길이를 넘어 잘린 입력의 위치(0부터)다.
+
+    `embed_truncate`가 꺼져 있으면 길이를 세지 않으므로 truncated는 항상 비어 있다
+    (그때는 긴 입력이 잘리지 않고 서버가 413으로 거절한다).
+    """
+
+    vectors: list[list[float]]
+    truncated: list[int] = field(default_factory=list)
 
 
 class TEIEmbeddingClient:
@@ -58,20 +78,58 @@ class TEIEmbeddingClient:
             return False
         return response.status_code == 200
 
-    def embed(self, texts: list[str]) -> list[list[float]]:
-        """문장 목록을 같은 순서의 벡터 목록으로 바꾼다.
+    def info(self) -> dict[str, Any]:
+        """TEI `/info` — model_id, model_sha(revision), max_input_length, version 등."""
+        response = self._http.get("/info")
+        response.raise_for_status()
+        info: dict[str, Any] = response.json()
+        return info
 
-        TEI는 요청 1건의 입력 수를 제한하므로(`tei_max_client_batch_size`, 기본 32)
-        그 크기씩 나눠 순서대로 보내고 결과를 이어 붙인다. 모델 최대 길이를 넘는
-        입력은 서버가 413으로 거절하고 `httpx.HTTPStatusError`가 난다 — 서버의
-        `--auto-truncate`를 꺼 두었으므로 잘린 채 임베딩되는 일은 없다. 서버가 돌려준
-        벡터 수가 보낸 문장 수와 다르면 문장과 벡터의 대응이 어긋나므로 `ValueError`를 낸다.
+    def embed(self, texts: list[str], *, input_type: InputType = "passage") -> list[list[float]]:
+        """문장 목록을 같은 순서의 벡터 목록으로 바꾼다. 자세한 동작은 `embed_with_report`."""
+        return self.embed_with_report(texts, input_type=input_type).vectors
+
+    def embed_with_report(
+        self, texts: list[str], *, input_type: InputType = "passage"
+    ) -> EmbedReport:
+        """문장 목록을 같은 순서의 벡터 목록으로 바꾸고, 잘린 입력의 위치를 함께 돌려준다.
+
+        - 접두어: input_type에 맞는 config 접두어(`embed_query_prefix`·`embed_passage_prefix`)를
+          각 문장 앞에 붙여 보낸다. 빈 문자열이면 그대로 보낸다.
+        - 나눠 보내기: TEI는 요청 1건의 입력 수를 제한하므로(`tei_max_client_batch_size`,
+          기본 32) 그 크기씩 나눠 순서대로 보내고 결과를 이어 붙인다.
+        - 자르기: `embed_truncate`가 False면 `truncate: false`로 보낸다. 모델 최대 길이를
+          넘는 입력은 서버가 413으로 거절하고 `httpx.HTTPStatusError`가 난다. True면
+          먼저 `/tokenize`로 입력별 토큰 수(특수 토큰 포함)를 세어 `/info`의
+          `max_input_length`를 넘는 입력의 위치를 기록한 뒤, `truncate: true`로 보내
+          서버가 뒤쪽을 잘라 임베딩하게 한다.
+        - 정규화: `normalize: true`를 명시해 보낸다(TEI 스펙의 기본값도 true지만 버전마다
+          같은지 확인하지 않았으므로 명시한다).
+
+        서버가 돌려준 벡터 수가 보낸 문장 수와 다르면 문장과 벡터의 대응이 어긋나므로
+        `ValueError`를 낸다.
         """
+        prefix = (
+            self._config.embed_query_prefix
+            if input_type == "query"
+            else self._config.embed_passage_prefix
+        )
+        truncate = self._config.embed_truncate
+        max_len = int(self.info()["max_input_length"]) if truncate and texts else 0
         batch_size = self._config.tei_max_client_batch_size
         vectors: list[list[float]] = []
+        truncated: list[int] = []
         for start in range(0, len(texts), batch_size):
-            batch = texts[start : start + batch_size]
-            response = self._http.post("/embed", json={"inputs": batch})
+            batch = [prefix + text for text in texts[start : start + batch_size]]
+            if truncate:
+                truncated.extend(
+                    start + i
+                    for i, n_tokens in enumerate(self._count_tokens(batch))
+                    if n_tokens > max_len
+                )
+            response = self._http.post(
+                "/embed", json={"inputs": batch, "normalize": True, "truncate": truncate}
+            )
             response.raise_for_status()
             batch_vectors: list[list[float]] = response.json()
             if len(batch_vectors) != len(batch):
@@ -80,4 +138,15 @@ class TEIEmbeddingClient:
                     f"보낸 문장 수({len(batch)})와 다릅니다"
                 )
             vectors.extend(batch_vectors)
-        return vectors
+        return EmbedReport(vectors=vectors, truncated=truncated)
+
+    def _count_tokens(self, batch: list[str]) -> list[int]:
+        """TEI `/tokenize`로 입력별 토큰 수(특수 토큰 포함)를 센다."""
+        response = self._http.post("/tokenize", json={"inputs": batch, "add_special_tokens": True})
+        response.raise_for_status()
+        tokens: list[list[dict[str, Any]]] = response.json()
+        if len(tokens) != len(batch):
+            raise ValueError(
+                f"TEI /tokenize 응답의 입력 수({len(tokens)})가 보낸 문장 수({len(batch)})와 다릅니다"
+            )
+        return [len(t) for t in tokens]

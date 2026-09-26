@@ -31,6 +31,17 @@ def _get_float(name: str, default: float) -> float:
     return default if raw is None or raw == "" else float(raw)
 
 
+def _get_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    if raw.strip().lower() in {"1", "true", "yes"}:
+        return True
+    if raw.strip().lower() in {"0", "false", "no"}:
+        return False
+    raise ValueError(f"{name}은 true/false 중 하나여야 합니다: {raw!r}")
+
+
 def _get_int(name: str, default: int) -> int:
     raw = os.environ.get(name)
     return default if raw is None or raw == "" else int(raw)
@@ -55,6 +66,14 @@ class ClientsConfig(BaseModel):
     embed_api_key: str | None
     embed_model_id: str
     embed_timeout_s: float
+    # 모델마다 학습 때 쓴 입력 접두어가 다르다. multilingual-e5는 "query: "/"passage: "가
+    # 필요하고(모델 카드: 없으면 성능 저하), KURE-v1·bge-m3는 필요 없다(모델 카드 확인,
+    # 2026-09-26). 끝의 공백까지 값이다 — .env에서는 따옴표로 감싼다 (EMBED_QUERY_PREFIX="query: ")
+    embed_query_prefix: str = ""
+    embed_passage_prefix: str = ""
+    # 모델 최대 길이를 넘는 입력을 잘라서 임베딩할지. 기본은 False(서버가 413으로 거절).
+    # #16에서 e5(최대 512토큰)만 True로 켜고, 자른 입력 수를 기록한다
+    embed_truncate: bool = False
 
     rerank_base_url: str
     rerank_api_key: str | None
@@ -83,6 +102,9 @@ class ClientsConfig(BaseModel):
             embed_api_key=os.environ.get("TEI_API_KEY") or None,
             embed_model_id=os.environ.get("EMBED_MODEL_ID", ""),
             embed_timeout_s=_get_float("EMBED_TIMEOUT_S", 30.0),
+            embed_query_prefix=os.environ.get("EMBED_QUERY_PREFIX", ""),
+            embed_passage_prefix=os.environ.get("EMBED_PASSAGE_PREFIX", ""),
+            embed_truncate=_get_bool("EMBED_TRUNCATE", False),
             rerank_base_url=os.environ.get("RERANK_BASE_URL", "http://localhost:8081"),
             rerank_api_key=os.environ.get("TEI_API_KEY") or None,
             rerank_model_id=os.environ.get("RERANK_MODEL_ID", ""),

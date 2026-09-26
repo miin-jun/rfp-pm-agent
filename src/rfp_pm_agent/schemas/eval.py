@@ -140,3 +140,114 @@ class RunRecord(BaseModel):
     chunk_count: int
     scores: RunScore
     failures_file: str | None = None
+
+
+# --- 검색 평가 v2 (이슈 #16) — qa_v2 × 임베딩·리랭커 조합 ---
+#
+# #13의 RunScore·RunRecord는 그대로 둔다. data/eval/runs.jsonl의 기존 줄과
+# run_chunk_eval이 그 모양에 기대고 있어서, 필드를 바꾸면 #13 기록을 다시 읽을 수
+# 없게 된다. v2 실행 기록은 data/eval/results/model_selection/ 아래에 따로 쌓는다.
+
+
+class SliceScore(BaseModel):
+    """문항 묶음 하나(전체·v1·추가·태그별)의 집계. 개수로 담아 "적중/전체"로 적는다.
+
+    recall_all_at_k: 모든 evidence 묶음을 상위 k 안에서 찾은 문항 수 (주 지표, 0/1)
+    recall_frac_at_k: 문항별 "찾은 묶음 비율"의 합 (참고용). 평균은 이 값 / total
+    mrr·ndcg_at_10: 문항 평균. 계산 함수가 아직 없으면(NotImplementedError) None
+    """
+
+    label: str
+    total: int
+    recall_all_at_5: int
+    recall_all_at_10: int
+    recall_frac_at_5: float
+    recall_frac_at_10: float
+    mrr: float | None = None
+    ndcg_at_10: float | None = None
+
+
+class NoAnswerRecord(BaseModel):
+    """답 없음 문항의 검색 결과. 검색 지표에서 빼고 #19 거절 임계값의 근거로 남긴다."""
+
+    question_id: str
+    top1_chunk_id: str | None
+    top1_score: float | None
+    top5_scores: list[float]
+
+
+class QuestionResult(BaseModel):
+    """답 있는 문항 하나의 결과. 실행 간 McNemar 비교(문항별 적중 대조)에 쓴다."""
+
+    question_id: str
+    tags: list[str]
+    recall_all_at_5: bool
+    recall_all_at_10: bool
+    recall_frac_at_5: float
+    recall_frac_at_10: float
+    reciprocal_rank: float | None = None
+    ndcg_at_10: float | None = None
+    top10_chunk_ids: list[str]
+
+
+class RetrievalRunScore(BaseModel):
+    """한 실행의 집계. slices[0]이 전체(답 있는 문항)다."""
+
+    answerable: int
+    excluded_no_answer: int
+    slices: list[SliceScore]
+    no_answer: list[NoAnswerRecord]
+
+
+class ServerInfo(BaseModel):
+    """TEI `/info`에서 옮겨 적는 값. 모델이 바뀌었는지 실행 기록만 보고 알 수 있게 한다."""
+
+    model_id: str
+    model_sha: str | None = None
+    tei_version: str | None = None
+    max_input_length: int | None = None
+
+
+class LatencyStats(BaseModel):
+    """쿼리 1건 처리 시간(ms). 워밍업을 뺀 측정값의 p50·p95와 표본 수."""
+
+    p50_ms: float
+    p95_ms: float
+    samples: int
+
+
+class RetrievalRunRecord(BaseModel):
+    """model_selection/runs.jsonl 한 줄. 결과가 달라졌을 때 원인을 찾을 조건을 모두 적는다."""
+
+    run_id: str
+    ran_at: str  # ISO 8601 (UTC)
+    qa_file: str
+    chunks_file: str
+    chunk_count: int
+    retriever: Literal["bm25", "dense"]
+    top_k: int  # 1차 검색에서 가져온 개수 (리랭크하면 rerank_n)
+    # BM25
+    tokenizer: TokenizerName | None = None
+    # 임베딩
+    embed: ServerInfo | None = None
+    query_prefix: str | None = None
+    passage_prefix: str | None = None
+    truncate: bool | None = None
+    truncated_chunks: int | None = None
+    index_seconds: float | None = None
+    vector_cache: str | None = None
+    # 리랭커
+    rerank: ServerInfo | None = None
+    rerank_n: int | None = None
+    # 환경
+    tei_image: str | None = None
+    gpu: str | None = None
+    gpu_driver: str | None = None
+    gpu_memory_used_mib_before: int | None = None
+    gpu_memory_used_mib_after: int | None = None
+    seed: int
+    search_latency: LatencyStats | None = None
+    rerank_latency: LatencyStats | None = None
+    scores: RetrievalRunScore
+    questions_file: str
+    failures_file: str

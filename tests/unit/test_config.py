@@ -152,3 +152,22 @@ def test_from_env_rejects_non_positive_tei_max_client_batch_size(
 
     with pytest.raises(ValidationError):
         ClientsConfig.from_env()
+
+
+def test_from_env_reads_embed_prefix_and_truncate(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("EMBED_QUERY_PREFIX", "query: ")
+    monkeypatch.setenv("EMBED_PASSAGE_PREFIX", "passage: ")
+    monkeypatch.setenv("EMBED_TRUNCATE", "true")
+
+    config = ClientsConfig.from_env()
+
+    assert config.embed_query_prefix == "query: "
+    assert config.embed_passage_prefix == "passage: "
+    assert config.embed_truncate is True
+
+
+def test_from_env_embed_truncate_rejects_unknown_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("EMBED_TRUNCATE", "maybe")
+
+    with pytest.raises(ValueError, match="EMBED_TRUNCATE"):
+        ClientsConfig.from_env()

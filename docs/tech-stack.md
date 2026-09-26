@@ -12,8 +12,8 @@
 |---|---|---|---|
 | 문서 검색 엔진 | **OpenSearch** (BM25-nori + k-NN + 하이브리드) ✅확정 | 확정 | — |
 | 정형 DB | **PostgreSQL 16** + SQLAlchemy 2 + Alembic | 확정 | — |
-| 임베딩 모델 | **KURE-v1** (RunPod) — 기본값, **Phase 1 선정 실험으로 최종 확정** (12-1) | 기본값(#16 실험 대기) | — |
-| 리랭커 | **bge-reranker-v2-m3** (RunPod) — 기본값, **Phase 1 선정 실험으로 최종 확정** (12-1) | 기본값(#16 실험 대기) | — |
+| 임베딩 모델 | **KURE-v1** (RunPod) — #16 선정 실험 후 채택 ([ADR-0001](adr/0001-embedding-model.md)) | 확정 (2026-09-27) | — |
+| 리랭커 | **bge-reranker-v2-m3** (RunPod), 후보 N=20 — #16 선정 실험 후 채택 ([ADR-0002](adr/0002-reranker.md)) | 확정 (2026-09-27) | — |
 | 임베딩·리랭커 서빙 | **Hugging Face TEI** (RunPod, 로컬 대체 가능) | 확정 | — |
 | 답변·에이전트 LLM | **OpenAI mini급** | 기본값(모델명 미확정, 착수 시 가격표로 확정) | **vLLM on RunPod** (Private LLM) |
 | 평가 채점 LLM | OpenAI mini급 | 기본값(모델명 미확정) | — |
@@ -59,14 +59,16 @@
 | 라이선스 | MIT | MIT | MIT |
 | 한국어 검색 (공개 벤치마크 Recall@10) | 0.797 | 0.792 | 0.759 |
 
-- 공개 벤치마크 차이는 작음 → **우리 RFP 평가 세트로 bge-m3와 직접 비교**하는 걸 Phase 2 실험으로
+- 공개 벤치마크 차이는 작음 → 우리 RFP 평가 세트로 세 모델을 직접 비교했다(#16). **KURE-v1 채택** — [ADR-0001](adr/0001-embedding-model.md)
+  - Recall@10(모든 evidence 적중) KURE-v1 30/51, e5 28/51, bge-m3 25/51. McNemar로는 셋 다 동률이었고, 동률 규칙을 기계적으로 적용하면 e5였지만 잘림 없음(8192토큰)·리랭크 지연을 근거로 소유자가 KURE-v1을 골랐다
 - RFP는 긴 요구사항 표가 많아 **512 토큰 제한이 없는 모델**이 유리
 - 한국어 검색 순위 1위는 KURE-v2지만 **Late-interaction(ColBERT 계열)** 이라 서빙·인덱싱 구조가 달라짐 → MVP에서는 제외
 
 ## 3. 리랭커 — bge-reranker-v2-m3
 
 - 다국어 크로스인코더, XLM-RoBERTa 기반 → TEI로 서빙 가능
-- 한국어 파인튜닝 변형은 **후보로만** 두고 평가 세트로 결정 (f1-ragops 리랭커 3종 비교 방식 재사용)
+- **채택, 후보 N=20** (#16, [ADR-0002](adr/0002-reranker.md)): KURE-v1 기준 MRR 0.317 → 0.474, NDCG@10 0.380 → 0.506, 추가 지연 p95 483ms
+- 한국어 파인튜닝 변형은 이번 비교에서 빠졌다 — ADR-0002 후속 후보
 
 ## 4. 임베딩·리랭커 서빙 — TEI (Text Embeddings Inference)
 
@@ -227,11 +229,15 @@
 
 공개 벤치마크로 KURE-v1·bge-m3·e5를 후보로 좁혔고, 공공 RFP 청크로 만든 평가 세트 57문항(답 있음 51)에서 Recall@10을 측정해 결정한다. 1위와의 차이가 McNemar 정확검정으로 유의하지 않으면(p ≥ 0.05) 가벼운 모델을 고른다는 규칙을 측정 전에 정해 둔다.
 
+**결과 (2026-09-27)**: 세 모델 모두 1위(KURE-v1)와 동률이었다. 동률 규칙(VRAM → 색인 시간 → 지연)은 세 모델의 로드 VRAM이 같아(1251 MiB) 구별하지 못했고, 기계적으로 적용하면 e5였다. 소유자가 결과를 본 뒤 KURE-v1 + bge-reranker-v2-m3(N=20)를 채택했다 — 근거와 규칙의 빈틈은 [ADR-0001](adr/0001-embedding-model.md)·[ADR-0002](adr/0002-reranker.md).
+
 ## 13. 확정 내역
 
 - [x] 검색 엔진: **OpenSearch** (2026-09-11)
 - [x] 개발 환경: **WSL2 Ubuntu** (2026-09-11)
 - [x] 패키지 관리: **uv** (2026-09-11)
+- [x] 임베딩 모델: **KURE-v1** (2026-09-27, #16, [ADR-0001](adr/0001-embedding-model.md))
+- [x] 리랭커: **bge-reranker-v2-m3**, 후보 N=20 (2026-09-27, #16, [ADR-0002](adr/0002-reranker.md))
 
 ## 14. 다음 단계
 

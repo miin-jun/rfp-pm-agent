@@ -6,7 +6,7 @@ TEI의 `/rerank` HTTP API를 부른다. `config.rerank_base_url`만 바꾸면 Ru
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Any, Protocol
 
 import httpx
 
@@ -53,6 +53,13 @@ class TEIRerankerClient:
         except httpx.TransportError:
             return False
         return response.status_code == 200
+
+    def info(self) -> dict[str, Any]:
+        """TEI `/info` — model_id, model_sha(revision), version 등."""
+        response = self._http.get("/info")
+        response.raise_for_status()
+        info: dict[str, Any] = response.json()
+        return info
 
     def rerank(self, query: str, documents: list[str]) -> list[float]:
         """문서마다 질의와의 관련도 점수를 매겨 입력과 같은 순서로 돌려준다.

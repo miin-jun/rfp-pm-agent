@@ -9,11 +9,13 @@ from __future__ import annotations
 import hashlib
 import random
 
-from rfp_pm_agent.clients.embedding import EMBEDDING_DIM
+from rfp_pm_agent.clients.embedding import EMBEDDING_DIM, InputType
 
 
 class FakeEmbeddingClient:
-    def embed(self, texts: list[str]) -> list[list[float]]:
+    """input_type은 받기만 하고 벡터에 반영하지 않는다(접두어 없는 모델처럼 동작)."""
+
+    def embed(self, texts: list[str], *, input_type: InputType = "passage") -> list[list[float]]:
         return [self._embed_one(text) for text in texts]
 
     @staticmethod

@@ -231,7 +231,9 @@ Document
 }
 ```
 
-- **별칭(alias) 운영**: 코드는 항상 `rfp_chunks`(별칭)만 부르고, 실제 인덱스는 `rfp_chunks_v1_kure`, `rfp_chunks_v1_bgem3`처럼 **모델별로 분리** → 모델 선정 실험(#16)과 모델 교체를 **검색 중단 없이 별칭 전환만으로** 처리
+- **별칭(alias) 운영**: 코드는 항상 `rfp_chunks`(별칭)만 부르고, 실제 인덱스는 `rfp_chunks_v1_kure`, `rfp_chunks_v1_bgem3`처럼 **모델별로 분리** → 이후 모델 교체를 **검색 중단 없이 별칭 전환만으로** 처리
+- **채택 모델 (#16, 2026-09-27)**: 임베딩 **KURE-v1**([ADR-0001](adr/0001-embedding-model.md)), 리랭커 bge-reranker-v2-m3 N=20([ADR-0002](adr/0002-reranker.md)). 별칭 `rfp_chunks` → `rfp_chunks_v1_kure`로 시작한다. 인덱스·별칭 생성과 색인은 **#17**에서 한다
+  - #16 모델 선정은 OpenSearch가 아니라 **메모리 내 코사인 검색**(`search/dense.py`, #17에서 대체되는 임시 구현)으로 측정했다. 모델별 벡터는 `data/cache/embeddings/`(git 제외)에 따로 두었다 — 별칭 전환 방식은 아직 쓰이지 않았다
 - `engine: lucene` — 소규모 데이터에 충분하고, 필터를 k-NN 탐색 안에서 적용하는 방식을 지원 (RBAC 사전 필터에 사용). 세부 옵션은 구현 시 공식 문서로 확인
 - **요구사항 ID 정확 일치 질문**("SFR-012가 뭐야?")은 `requirement_id` keyword 필드 직접 조회를 우선
 - 하이브리드: OpenSearch 검색 파이프라인의 **RRF**(2.19+) 사용 + 비교용으로 **앱 코드 RRF**도 구현 (f1-ragops 경험 재사용)

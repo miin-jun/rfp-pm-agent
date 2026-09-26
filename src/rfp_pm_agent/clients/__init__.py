@@ -1,5 +1,11 @@
 from rfp_pm_agent.clients.cost import CostLogEntry, CostLogger
-from rfp_pm_agent.clients.embedding import EMBEDDING_DIM, EmbeddingClient, TEIEmbeddingClient
+from rfp_pm_agent.clients.embedding import (
+    EMBEDDING_DIM,
+    EmbeddingClient,
+    EmbedReport,
+    InputType,
+    TEIEmbeddingClient,
+)
 from rfp_pm_agent.clients.llm import ChatMessage, LLMClient, LLMResponse, OpenAICompatLLMClient
 from rfp_pm_agent.clients.logged import (
     LoggingEmbeddingClient,
@@ -13,7 +19,9 @@ __all__ = [
     "ChatMessage",
     "CostLogEntry",
     "CostLogger",
+    "EmbedReport",
     "EmbeddingClient",
+    "InputType",
     "LLMClient",
     "LLMResponse",
     "LoggingEmbeddingClient",

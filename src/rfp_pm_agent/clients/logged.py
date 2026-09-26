@@ -9,7 +9,7 @@ from __future__ import annotations
 import time
 
 from rfp_pm_agent.clients.cost import CostLogEntry, CostLogger, compute_llm_cost, now_iso
-from rfp_pm_agent.clients.embedding import EmbeddingClient
+from rfp_pm_agent.clients.embedding import EmbeddingClient, InputType
 from rfp_pm_agent.clients.llm import ChatMessage, LLMClient, LLMResponse
 from rfp_pm_agent.clients.reranker import RerankerClient
 from rfp_pm_agent.config import ClientsConfig
@@ -54,9 +54,9 @@ class LoggingEmbeddingClient:
         self._config = config
         self._cost_logger = cost_logger
 
-    def embed(self, texts: list[str]) -> list[list[float]]:
+    def embed(self, texts: list[str], *, input_type: InputType = "passage") -> list[list[float]]:
         start = time.monotonic()
-        vectors = self._inner.embed(texts)
+        vectors = self._inner.embed(texts, input_type=input_type)
         latency_ms = (time.monotonic() - start) * 1000
         self._cost_logger.log(
             CostLogEntry(

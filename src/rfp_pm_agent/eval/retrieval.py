@@ -14,15 +14,21 @@ evidence가 두 청크에 걸쳐 잘리면 어느 청크도 정답이 아니다.
 
 from __future__ import annotations
 
+import itertools
+import math
 import re
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 
 from rfp_pm_agent.schemas.chunk import Chunk
 from rfp_pm_agent.schemas.eval import (
     EvalQuestion,
     EvalQuestionV2,
+    NoAnswerRecord,
+    QuestionResult,
+    RetrievalRunScore,
     RunScore,
     SearchHit,
+    SliceScore,
     TypeScore,
 )
 
@@ -156,3 +162,232 @@ def ceiling_only(questions: Sequence[EvalQuestion], chunks: Sequence[Chunk]) -> 
         general=_tally([r for r in results if r[0].type == "일반"]),
         missed_question_ids=[],
     )
+
+
+# --- v2 검색 지표 (이슈 #16) — 정답을 evidence 묶음으로 본다 ---
+#
+# 문항의 정답은 gold_groups = [evidence i를 담은 청크 ID 집합 for i in evidence]다.
+# q021처럼 evidence 하나를 청크 여럿이 담으면 묶음 하나에 청크가 여럿 들어가고,
+# multi_chunk 문항은 묶음이 2개 이상이다. 결정 규칙(이슈 #16)의 주 지표는
+# recall_all_at_k(모든 묶음을 찾아야 적중)이다.
+
+# 이슈 #16 주 지표의 k와 참고 지표의 k
+V2_K_VALUES = (5, 10)
+V2_TOP_K = max(V2_K_VALUES)
+
+
+def gold_groups(chunks: Iterable[Chunk], question: EvalQuestionV2) -> list[set[str]]:
+    """evidence마다 그 evidence를 담은 청크 ID 집합. 답 없음 문항은 빈 목록."""
+    return [set(ids) for ids in gold_chunk_ids(chunks, question)]
+
+
+def _covered(ranked_ids: Sequence[str], groups: Sequence[Collection[str]], k: int) -> int:
+    top = set(ranked_ids[:k])
+    return sum(1 for group in groups if top & set(group))
+
+
+def recall_all_at_k(ranked_ids: Sequence[str], groups: Sequence[Collection[str]], k: int) -> bool:
+    """상위 k 안에 모든 묶음의 청크가 하나 이상 있으면 참. groups가 비면 ValueError."""
+    if not groups:
+        raise ValueError("gold_groups가 비어 있다 — 답 없음 문항은 검색 지표 대상이 아니다")
+    return _covered(ranked_ids, groups, k) == len(groups)
+
+
+def recall_fraction_at_k(
+    ranked_ids: Sequence[str], groups: Sequence[Collection[str]], k: int
+) -> float:
+    """상위 k 안에서 찾은 묶음의 비율(0~1). groups가 비면 ValueError."""
+    if not groups:
+        raise ValueError("gold_groups가 비어 있다 — 답 없음 문항은 검색 지표 대상이 아니다")
+    return _covered(ranked_ids, groups, k) / len(groups)
+
+
+def reciprocal_rank(
+    ranked_ids: Sequence[str], gold_groups: Sequence[Collection[str]], k: int | None = None
+) -> float:
+    """처음으로 어느 묶음이든 적중한 순위의 역수. 상위 k 안에 없으면 0.
+
+    - ranked_ids: 검색 결과 청크 ID (1위부터)
+    - gold_groups: evidence별 정답 청크 ID 집합의 목록
+    - k: None이면 ranked_ids 전체를 본다
+    gold_groups가 비면(답 없음 문항) ValueError를 낸다.
+    MRR은 호출하는 쪽에서 문항별 값을 평균한다.
+
+    소유자가 직접 구현했다 (학습 대상, 이슈 #16). 테스트: tests/unit/test_eval_rank_metrics.py
+    """
+    if not gold_groups:
+        raise ValueError("gold_groups가 비어 있다 (답 없음 문항)")
+
+    gold = {chunk_id for group in gold_groups for chunk_id in group}
+    candidates = ranked_ids if k is None else ranked_ids[:k]
+
+    for rank, chunk_id in enumerate(candidates, start=1):
+        if chunk_id in gold:
+            return 1.0 / rank
+    return 0.0
+
+
+def ndcg_at_k(
+    ranked_ids: Sequence[str], gold_groups: Sequence[Collection[str]], k: int = 10
+) -> float:
+    """상위 k의 NDCG. relevance는 evidence 묶음 단위로 준다.
+
+    - gain: 청크가 아직 덮지 않은 묶음을 새로 덮을 때 "새로 덮은 묶음 수"만큼 준다.
+      이미 덮은 묶음의 중복 청크(q021의 나머지 청크 등)는 gain 0이다. 청크 하나가
+      두 묶음을 함께 덮으면(q038형) gain 2다.
+    - DCG = Σ gain_r / log2(r + 1) (r = 1부터)
+    - IDCG: 같은 gain 정의로 계산한 이상적 순서의 DCG. 정답 청크를 "덮는 묶음 번호의
+      조합"으로 줄이고(같은 조합의 청크는 하나로 친다), 조합들의 가능한 순서를 상위 k개까지
+      모두 탐색해 가장 큰 DCG를 쓴다. 묶음이 청크를 겹쳐 가질 때 탐욕법(매번 가장 많이
+      덮는 청크)은 최적이 아닐 수 있어 NDCG가 1을 넘을 수 있었다 — 그래서 전체 탐색을 한다.
+      조합 수 n에 대해 순서 수가 n!/(n−k)!로 늘어나므로 조합이 많은 문항에서는 느려진다
+      (qa_v2 답 있는 51문항은 문항당 조합 2개 이하, 2026-09-26 확인).
+    - 도달 불가 문항: 어떤 evidence도 청크에 담기지 않아 IDCG가 0이면 0을 돌려준다.
+    - 일부 묶음만 도달 불가면 그 묶음은 IDCG에서 빠지므로, Recall 전부 적중이 0이어도 NDCG가
+      1일 수 있다. 도달 불가 여부는 Recall이 드러낸다.
+    gold_groups가 비면(답 없음 문항) ValueError를 낸다.
+
+    소유자가 직접 구현했다 (학습 대상, 이슈 #16). 테스트: tests/unit/test_eval_rank_metrics.py
+    """
+    if not gold_groups:
+        raise ValueError("gold_groups가 비어 있다 (답 없음 문항)")
+
+    groups = [set(group) for group in gold_groups]
+
+    # 1~2단계: 실제 점수(DCG)
+    found: set[int] = set()
+    dcg = 0.0
+    for rank, chunk_id in enumerate(ranked_ids[:k], start=1):
+        new = {i for i, group in enumerate(groups) if i not in found and chunk_id in group}
+        found |= new
+        dcg += len(new) / math.log2(rank + 1)
+
+    # 3단계: 만점(IDCG)
+    # 청크를 "덮는 묶음 번호 조합"으로 줄인다. 같은 조합의 청크는 하나로 친다.
+    signatures = {
+        frozenset(i for i, group in enumerate(groups) if chunk_id in group)
+        for group in groups
+        for chunk_id in group
+    }
+    idcg = 0.0
+    for order in itertools.permutations(signatures, min(k, len(signatures))):
+        covered: set[int] = set()
+        score = 0.0
+        for rank, sig in enumerate(order, start=1):
+            added = sig - covered
+            covered |= added
+            score += len(added) / math.log2(rank + 1)
+        idcg = max(idcg, score)
+
+    # 4단계
+    if idcg == 0:
+        return 0.0  # 도달할 수 있는 묶음이 없는 문항
+    return dcg / idcg
+
+
+def mcnemar_exact_p(b: int, c: int) -> float:
+    """McNemar 정확검정(양측)의 p값. 이슈 #16 결정 규칙에 쓴다.
+
+    b = 모델 A만 맞힌 문항 수, c = 모델 B만 맞힌 문항 수. 둘 다 맞히거나 둘 다 틀린
+    문항은 검정에 들어가지 않는다. 귀무가설(두 모델의 적중 확률이 같다)에서 b는
+    이항분포 B(b + c, 0.5)를 따르므로 p = min(1, 2 × P(X ≤ min(b, c)))다.
+    b + c = 0이면 두 모델이 문항별로 같으므로 1.0이다.
+    """
+    if b < 0 or c < 0:
+        raise ValueError(f"b와 c는 0 이상이어야 한다: b={b}, c={c}")
+    n = b + c
+    if n == 0:
+        return 1.0
+    tail: float = sum(math.comb(n, i) for i in range(min(b, c) + 1)) / 2**n
+    return min(1.0, 2 * tail)
+
+
+def score_question_v2(
+    question: EvalQuestionV2, hits: Sequence[SearchHit], groups: Sequence[Collection[str]]
+) -> QuestionResult:
+    """답 있는 문항 하나를 채점한다."""
+    ranked = [hit.chunk_id for hit in hits]
+    return QuestionResult(
+        question_id=question.question_id,
+        tags=list(question.tags),
+        recall_all_at_5=recall_all_at_k(ranked, groups, 5),
+        recall_all_at_10=recall_all_at_k(ranked, groups, 10),
+        recall_frac_at_5=recall_fraction_at_k(ranked, groups, 5),
+        recall_frac_at_10=recall_fraction_at_k(ranked, groups, 10),
+        reciprocal_rank=reciprocal_rank(ranked, groups, 10),
+        ndcg_at_10=ndcg_at_k(ranked, groups, 10),
+        top10_chunk_ids=ranked[:10],
+    )
+
+
+def _mean_or_none(values: Sequence[float | None]) -> float | None:
+    """비어 있거나(문항 0개) 하나라도 None(MRR·NDCG 구현 전 기록)이면 None, 아니면 평균."""
+    present = [v for v in values if v is not None]
+    if not values or len(present) != len(values):
+        return None
+    return sum(present) / len(present)
+
+
+def _slice(label: str, results: Sequence[QuestionResult]) -> SliceScore:
+    return SliceScore(
+        label=label,
+        total=len(results),
+        recall_all_at_5=sum(r.recall_all_at_5 for r in results),
+        recall_all_at_10=sum(r.recall_all_at_10 for r in results),
+        recall_frac_at_5=sum(r.recall_frac_at_5 for r in results),
+        recall_frac_at_10=sum(r.recall_frac_at_10 for r in results),
+        mrr=_mean_or_none([r.reciprocal_rank for r in results]),
+        ndcg_at_10=_mean_or_none([r.ndcg_at_10 for r in results]),
+    )
+
+
+# v1 30문항(#13 기준선과 비교용)과 추가 문항을 가르는 경계
+V1_LAST_QUESTION_ID = "q030"
+
+
+def aggregate_v2(
+    results: Sequence[QuestionResult], no_answer: Sequence[NoAnswerRecord]
+) -> RetrievalRunScore:
+    """전체 / v1 / 추가 / 태그별 행으로 집계한다. 문항이 0개인 태그 행은 만들지 않는다."""
+    slices = [
+        _slice("전체", results),
+        _slice("v1", [r for r in results if r.question_id <= V1_LAST_QUESTION_ID]),
+        _slice("추가", [r for r in results if r.question_id > V1_LAST_QUESTION_ID]),
+    ]
+    tags = sorted({t for r in results for t in r.tags})
+    slices += [_slice(f"tag:{t}", [r for r in results if t in r.tags]) for t in tags]
+    return RetrievalRunScore(
+        answerable=len(results),
+        excluded_no_answer=len(no_answer),
+        slices=slices,
+        no_answer=list(no_answer),
+    )
+
+
+def score_run_v2(
+    questions: Sequence[EvalQuestionV2],
+    chunks: Sequence[Chunk],
+    rankings: Mapping[str, Sequence[SearchHit]],
+) -> tuple[RetrievalRunScore, list[QuestionResult]]:
+    """문항별 검색 결과(rankings: question_id → 1위부터의 SearchHit)를 채점·집계한다.
+
+    답 없음 문항(evidence == [])은 검색 지표에서 빼고, 1위 점수·상위 5개 점수·1위
+    chunk_id만 기록한다. 정답 묶음은 chunks에서 evidence로 다시 뽑는다 — 색인한 청크
+    파일과 정답이 어긋나지 않게 하기 위해서다.
+    """
+    results: list[QuestionResult] = []
+    no_answer: list[NoAnswerRecord] = []
+    for question in questions:
+        hits = list(rankings[question.question_id])
+        if not question.evidence:
+            no_answer.append(
+                NoAnswerRecord(
+                    question_id=question.question_id,
+                    top1_chunk_id=hits[0].chunk_id if hits else None,
+                    top1_score=hits[0].score if hits else None,
+                    top5_scores=[h.score for h in hits[:5]],
+                )
+            )
+            continue
+        results.append(score_question_v2(question, hits, gold_groups(chunks, question)))
+    return aggregate_v2(results, no_answer), results

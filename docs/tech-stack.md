@@ -12,8 +12,8 @@
 |---|---|---|---|
 | 문서 검색 엔진 | **OpenSearch** (BM25-nori + k-NN + 하이브리드) ✅확정 | 확정 | — |
 | 정형 DB | **PostgreSQL 16** + SQLAlchemy 2 + Alembic | 확정 | — |
-| 임베딩 모델 | **KURE-v1** (RunPod) — 기본값, **Phase 1 선정 실험으로 최종 확정** (12-1) | 기본값(#16 실험 대기) | — |
-| 리랭커 | **bge-reranker-v2-m3** (RunPod) — 기본값, **Phase 1 선정 실험으로 최종 확정** (12-1) | 기본값(#16 실험 대기) | — |
+| 임베딩 모델 | **KURE-v1** (RunPod) — #16 선정 실험 후 채택 ([ADR-0001](adr/0001-embedding-model.md)) | 확정 (2026-09-27) | — |
+| 리랭커 | **bge-reranker-v2-m3** (RunPod), 후보 N=20 — #16 선정 실험 후 채택 ([ADR-0002](adr/0002-reranker.md)) | 확정 (2026-09-27) | — |
 | 임베딩·리랭커 서빙 | **Hugging Face TEI** (RunPod, 로컬 대체 가능) | 확정 | — |
 | 답변·에이전트 LLM | **OpenAI mini급** | 기본값(모델명 미확정, 착수 시 가격표로 확정) | **vLLM on RunPod** (Private LLM) |
 | 평가 채점 LLM | OpenAI mini급 | 기본값(모델명 미확정) | — |
@@ -59,14 +59,16 @@
 | 라이선스 | MIT | MIT | MIT |
 | 한국어 검색 (공개 벤치마크 Recall@10) | 0.797 | 0.792 | 0.759 |
 
-- 공개 벤치마크 차이는 작음 → **우리 RFP 평가 세트로 bge-m3와 직접 비교**하는 걸 Phase 2 실험으로
+- 공개 벤치마크 차이는 작음 → 우리 RFP 평가 세트로 세 모델을 직접 비교했다(#16). **KURE-v1 채택** — [ADR-0001](adr/0001-embedding-model.md)
+  - Recall@10(모든 evidence 적중) KURE-v1 30/51, e5 28/51, bge-m3 25/51. McNemar로는 셋 다 동률이었고, 동률 규칙을 기계적으로 적용하면 e5였지만 잘림 없음(8192토큰)·리랭크 지연을 근거로 소유자가 KURE-v1을 골랐다
 - RFP는 긴 요구사항 표가 많아 **512 토큰 제한이 없는 모델**이 유리
 - 한국어 검색 순위 1위는 KURE-v2지만 **Late-interaction(ColBERT 계열)** 이라 서빙·인덱싱 구조가 달라짐 → MVP에서는 제외
 
 ## 3. 리랭커 — bge-reranker-v2-m3
 
 - 다국어 크로스인코더, XLM-RoBERTa 기반 → TEI로 서빙 가능
-- 한국어 파인튜닝 변형은 **후보로만** 두고 평가 세트로 결정 (f1-ragops 리랭커 3종 비교 방식 재사용)
+- **채택, 후보 N=20** (#16, [ADR-0002](adr/0002-reranker.md)): KURE-v1 기준 MRR 0.317 → 0.474, NDCG@10 0.380 → 0.506, 추가 지연 p95 483ms
+- 한국어 파인튜닝 변형은 이번 비교에서 빠졌다 — ADR-0002 후속 후보
 
 ## 4. 임베딩·리랭커 서빙 — TEI (Text Embeddings Inference)
 
@@ -208,26 +210,34 @@
    - 추가 문항 유형: 말 바꾸기 6 / 요구사항 ID·고유명사 그대로(exact) 2 / 여러 청크 6 / 표 안의 정보 6 / 답 없음 6 / 없는 전제(false_premise) 1 — 정의는 data-design.md 9절
 2. **후보**
    - 임베딩: KURE-v1 / bge-m3 / multilingual-e5-large(기존 사용 모델, 기준선)
-   - 리랭커: 없음(기준선) / bge-reranker-v2-m3 / 한국어 파인튜닝 변형 1종
+   - 리랭커: 없음(기준선) / bge-reranker-v2-m3 (한국어 파인튜닝 변형은 이번 범위 밖 — ADR-0002에 후속 후보로 기록)
 3. **지표**: Recall@5·@10, MRR, NDCG@10 + **지연(ms/쿼리)**, **색인 시간**, **VRAM**
-   - 하이브리드(BM25+벡터 RRF) 조건에서도 같이 측정 → 실제 서비스 구성 기준 비교
-4. **결정 규칙 — 측정 전에 미리 고정**
-   - 1순위: Recall@10 (RAG는 상위 후보에 정답이 들어오는 게 먼저)
-   - 1위와 **1%p 이내**면 더 빠르고 가벼운 모델 선택
-   - 리랭커는 NDCG@10 개선폭 대비 지연 증가를 함께 판단 (f1-ragops 리랭커 3종 비교와 같은 틀)
+   - 하이브리드(BM25+벡터 RRF) 조건의 측정은 #18로 넘긴다 (소유자 구현 대상, 이슈 #16 결정). #16은 BM25 단독 한 행만 기준선으로 함께 싣는다
+4. **결정 규칙 — 측정 전에 미리 고정** (이슈 #16 본문에 2026-09-26 기록)
+   - 주 지표: Recall@10, 답 있는 51문항, "모든 evidence 묶음을 찾아야 적중"(0/1)
+   - 1위와 각 후보를 **McNemar 정확검정(양측)** 으로 비교해 p ≥ 0.05면 동률. 처음 계획한 "1위와 1%p 이내" 규칙은 51문항에서 1문항이 약 2%p라 해상도보다 작아서 바꿨다
+   - 동률이면 가벼운 모델: VRAM → 색인 시간 → 지연 순으로 비교
+   - 리랭커: 없음 vs bge-reranker-v2-m3, 후보 N=20. NDCG@10에는 McNemar를 쓰지 않고 개선폭과 p95 지연 증가를 함께 보고한다
+   - e5는 자기 최대 길이(512토큰)에서 자르고 자른 청크 수를 기록한다. 색인 대상은 block_requirement 청크
+   - 참고용(결정에 쓰지 않음): 적중 문항 수 차이, 비율 Recall
+   - 실행: `uv run python -m rfp_pm_agent.eval.run_retrieval` (측정 절차: docs/model-selection-measurement.md)
 5. **산출물**: `docs/adr/0001-embedding-model.md`, `docs/adr/0002-reranker.md`, `data/eval/results/model_selection/`
 
 **서빙 근거 보강(선택)**: 청크 1,000개 색인을 TEI vs sentence-transformers 직접 호출로 비교해 처리량 측정
 
 ### 근거 요약
 
-공개 벤치마크로 KURE-v1·bge-m3·e5를 후보로 좁혔고, 공공 RFP 청크로 만든 평가 세트 [N]문항에서 Recall@10을 측정해 결정한다. 차이가 1%p 이내면 가벼운 모델을 고른다는 규칙을 측정 전에 정해 둔다.
+공개 벤치마크로 KURE-v1·bge-m3·e5를 후보로 좁혔고, 공공 RFP 청크로 만든 평가 세트 57문항(답 있음 51)에서 Recall@10을 측정해 결정한다. 1위와의 차이가 McNemar 정확검정으로 유의하지 않으면(p ≥ 0.05) 가벼운 모델을 고른다는 규칙을 측정 전에 정해 둔다.
+
+**결과 (2026-09-27)**: 세 모델 모두 1위(KURE-v1)와 동률이었다. 동률 규칙(VRAM → 색인 시간 → 지연)은 세 모델의 로드 VRAM이 같아(1251 MiB) 구별하지 못했고, 기계적으로 적용하면 e5였다. 소유자가 결과를 본 뒤 KURE-v1 + bge-reranker-v2-m3(N=20)를 채택했다 — 근거와 규칙의 빈틈은 [ADR-0001](adr/0001-embedding-model.md)·[ADR-0002](adr/0002-reranker.md).
 
 ## 13. 확정 내역
 
 - [x] 검색 엔진: **OpenSearch** (2026-09-11)
 - [x] 개발 환경: **WSL2 Ubuntu** (2026-09-11)
 - [x] 패키지 관리: **uv** (2026-09-11)
+- [x] 임베딩 모델: **KURE-v1** (2026-09-27, #16, [ADR-0001](adr/0001-embedding-model.md))
+- [x] 리랭커: **bge-reranker-v2-m3**, 후보 N=20 (2026-09-27, #16, [ADR-0002](adr/0002-reranker.md))
 
 ## 14. 다음 단계
 

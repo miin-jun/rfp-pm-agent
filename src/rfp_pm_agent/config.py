@@ -85,6 +85,10 @@ class ClientsConfig(BaseModel):
     # `.env` 한 곳만 바꾸면 서버·클라이언트가 함께 바뀐다. 0 이하는 거부한다 — 0이면
     # range()가 에러를 내고, 음수면 요청을 하나도 보내지 않고 빈 결과를 돌려준다.
     tei_max_client_batch_size: int = Field(gt=0)
+    # TEI 모델 파일이 있는 Docker 볼륨 이름(docker-compose.yml의 tei_models, compose 프로젝트
+    # 이름이 앞에 붙는다). 실행 기록에 모델 revision(스냅샷 해시)을 남길 때 읽는다 — TEI 1.9.4의
+    # /info는 revision을 주지 않고 띄우면 model_sha가 null이다 (이슈 #16)
+    tei_models_volume: str = "rfp-pm-agent_tei_models"
 
     cost_log_path: str
 
@@ -110,6 +114,7 @@ class ClientsConfig(BaseModel):
             rerank_model_id=os.environ.get("RERANK_MODEL_ID", ""),
             rerank_timeout_s=_get_float("RERANK_TIMEOUT_S", 30.0),
             tei_max_client_batch_size=_get_int("TEI_MAX_CLIENT_BATCH_SIZE", 32),
+            tei_models_volume=os.environ.get("TEI_MODELS_VOLUME", "rfp-pm-agent_tei_models"),
             cost_log_path=os.environ.get("COST_LOG_PATH", "data/cost_log.jsonl"),
         )
 

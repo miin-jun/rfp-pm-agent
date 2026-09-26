@@ -204,7 +204,9 @@ class ServerInfo(BaseModel):
     """TEI `/info`에서 옮겨 적는 값. 모델이 바뀌었는지 실행 기록만 보고 알 수 있게 한다."""
 
     model_id: str
-    model_sha: str | None = None
+    model_sha: str | None = None  # /info 값. TEI 1.9.4에서 revision을 주지 않고 띄우면 null
+    # TEI 모델 볼륨의 models--<org>--<name>/snapshots/ 아래 해시 (실제로 로드된 파일의 revision)
+    snapshot_revision: str | None = None
     tei_version: str | None = None
     max_input_length: int | None = None
 
@@ -235,6 +237,9 @@ class RetrievalRunRecord(BaseModel):
     passage_prefix: str | None = None
     truncate: bool | None = None
     truncated_chunks: int | None = None
+    # text가 비어 임베딩 요청에서 빼고 영벡터로 둔 청크 (TEI는 빈 입력을 400으로 거절한다)
+    empty_chunks: int | None = None
+    empty_chunk_ids: list[str] | None = None
     index_seconds: float | None = None
     vector_cache: str | None = None
     # 리랭커

@@ -31,6 +31,14 @@
   `truncate: true`를 보낸다 — TEI 1.9.4가 요청 단위 `truncate`를 서버 설정보다 우선하는지는 미확인이다.
   e5 실행 뒤 413 오류 없이 끝났는지, `truncated_chunks`가 0보다 큰지를 확인한다
 
+- **빈 청크**: block_requirement 청크 중 text가 빈 것(2026-09-26 기준 4개: 944b의 b0134, d3e2의
+  b0005·b0023·b0165 — 모두 내용 없는 1×1 표 블록)은 TEI가 400으로 거절한다. 모든 모델에서 임베딩 요청에서
+  빼고 영벡터(코사인 점수 0)로 두며, 개수와 ID를 `runs.jsonl`의 `empty_chunks`·`empty_chunk_ids`에 남긴다
+- **모델 revision**: TEI 1.9.4의 `/info`는 revision을 주지 않고 띄우면 `model_sha`가 null이다.
+  `run_retrieval`은 TEI 모델 볼륨(`TEI_MODELS_VOLUME`)의 `models--<org>--<name>/snapshots/` 아래 해시를
+  읽어 `snapshot_revision`에 남기고, 벡터 캐시 이름에도 쓴다. 스냅샷이 0개거나 2개 이상이면, 또는 못 읽으면
+  실행하지 않는다
+
 ## 2. 순서 (모델 하나마다)
 
 ```bash
@@ -72,7 +80,7 @@ docker compose stop tei-embed tei-rerank
 | 색인 시간 | 청크 3,514개를 배치 32로 임베딩한 전체 시간(1회) | `runs.jsonl`의 `index_seconds` |
 | 지연 | 워밍업 5문항 뒤 57문항 × 3회, 질의 1건씩. 검색(질의 임베딩 + 코사인)과 리랭크(상위 20개)를 따로 | `search_latency`, `rerank_latency` (p50·p95) |
 | VRAM | 색인 중 `nvidia-smi -lms 500` 기록의 최댓값 − 기동 전 값 | `data/tmp/vram_<모델>.csv`에서 읽어 ADR에 적음 |
-| 환경 | GPU 이름·드라이버, TEI 버전(`/info`), 이미지 태그(docker-compose.yml), 모델 revision | `runs.jsonl` |
+| 환경 | GPU 이름·드라이버, TEI 버전(`/info`), 이미지 태그(docker-compose.yml), 모델 revision(볼륨 스냅샷 해시) | `runs.jsonl` |
 
 - WSL의 `nvidia-smi`가 `memory.used`를 0으로 보고한 적이 있다(2026-09-26, TEI를 띄우지 않은 상태).
   TEI를 띄운 뒤에도 0이면 Windows PowerShell의 `nvidia-smi.exe`로 같은 값을 읽는다 — WSL 값을 믿을

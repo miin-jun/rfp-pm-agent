@@ -184,10 +184,14 @@ def test_dense_리랭크_실행은_모델·접두어·리랭커를_기록하고_
         config=config,
         embedder=embedder,
         reranker=reranker,
+        revision_reader=lambda model_id: f"snap-{model_id}",
     )
 
     assert record.embed is not None and record.embed.model_id == "org/embed"
     assert record.embed.model_sha == "sha1" and record.embed.tei_version == "1.9.4"
+    assert record.embed.snapshot_revision == "snap-org/embed"
+    assert record.rerank is not None and record.rerank.snapshot_revision == "snap-org/reranker"
+    assert record.empty_chunks == 0 and record.empty_chunk_ids == []
     assert record.rerank is not None and record.rerank.model_id == "org/reranker"
     assert record.rerank_n == 20 and record.top_k == 20
     assert record.query_prefix == "query: " and record.truncated_chunks == 0
@@ -213,6 +217,7 @@ def test_서버_모델이_설정과_다르면_실행하지_않는다(tmp_path: P
             cache_dir=tmp_path / "cache",
             config=config,
             embedder=embedder,
+            revision_reader=lambda model_id: "snap",
         )
 
 
@@ -277,3 +282,81 @@ def test_compare는_없는_run_id를_거부한다(tmp_path: Path) -> None:
     (tmp_path / "runs.jsonl").write_text("", encoding="utf-8")
     with pytest.raises(ValueError, match="없는 run_id"):
         run_retrieval.compare(["X"], tmp_path)
+
+
+# --- 모델 revision (TEI 볼륨의 스냅샷 해시) ---
+
+
+def test_스냅샷이_하나면_그_해시를_revision으로_쓴다() -> None:
+    listing = "8b418a58414668e75532ed045c22d9ca018ae2b2\n"
+    assert (
+        run_retrieval.parse_snapshot_listing("nlpai-lab/KURE-v1", listing)
+        == "8b418a58414668e75532ed045c22d9ca018ae2b2"
+    )
+
+
+@pytest.mark.parametrize("listing", ["", "aaa\nbbb\n"])
+def test_스냅샷이_0개거나_2개_이상이면_추측하지_않고_거부한다(listing: str) -> None:
+    with pytest.raises(ValueError, match="revision을 정할 수 없다"):
+        run_retrieval.parse_snapshot_listing("org/model", listing)
+
+
+def test_revision을_못_읽으면_색인하지_않는다(tmp_path: Path) -> None:
+    qa_file, chunks_file = _write_data(tmp_path)
+    config = make_clients_config(embed_model_id="org/embed")
+    seen: list[dict[str, Any]] = []
+    embedder = TEIEmbeddingClient(config, transport=_embed_transport("org/embed", seen))
+
+    def failing_reader(model_id: str) -> str:
+        raise RuntimeError("docker 없음")
+
+    with pytest.raises(RuntimeError, match="docker 없음"):
+        run_retrieval.run(
+            retriever="dense",
+            use_rerank=False,
+            qa_file=qa_file,
+            chunks_file=chunks_file,
+            out_dir=tmp_path / "out",
+            cache_dir=tmp_path / "cache",
+            config=config,
+            embedder=embedder,
+            revision_reader=failing_reader,
+        )
+    assert seen == []  # /embed 요청을 하나도 보내지 않았다
+    assert not (tmp_path / "cache").exists()
+
+
+def test_빈_청크의_개수와_ID를_실행_기록에_남긴다(tmp_path: Path) -> None:
+    qa_file, chunks_file = _write_data(tmp_path)
+    empty = Chunk(
+        chunk_id="d:block_requirement:b9",
+        doc_id="d",
+        method="block_requirement",
+        source_ids=["b9"],
+        text="",
+    )
+    with chunks_file.open("a", encoding="utf-8") as f:
+        f.write(empty.model_dump_json() + "\n")
+    config = make_clients_config(embed_model_id="org/embed")
+    seen: list[dict[str, Any]] = []
+    embedder = TEIEmbeddingClient(config, transport=_embed_transport("org/embed", seen))
+
+    record = run_retrieval.run(
+        retriever="dense",
+        use_rerank=False,
+        qa_file=qa_file,
+        chunks_file=chunks_file,
+        out_dir=tmp_path / "out",
+        cache_dir=tmp_path / "cache",
+        compose_file=tmp_path / "없음.yml",
+        warmup=0,
+        repeats=1,
+        config=config,
+        embedder=embedder,
+        revision_reader=lambda model_id: "snap",
+    )
+
+    assert record.chunk_count == 4
+    assert record.empty_chunks == 1
+    assert record.empty_chunk_ids == ["d:block_requirement:b9"]
+    assert all("" not in body["inputs"] for body in seen)

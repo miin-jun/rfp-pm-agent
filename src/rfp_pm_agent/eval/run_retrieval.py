@@ -125,6 +125,49 @@ def tei_image_tag(compose_file: Path) -> str | None:
     return match.group(1) if match else None
 
 
+def parse_snapshot_listing(model_id: str, listing: str) -> str:
+    """`snapshots/` 목록에서 revision 해시 하나를 고른다. 0개거나 2개 이상이면 ValueError.
+
+    2개 이상이면 어느 스냅샷이 로드됐는지 이 목록만으로는 알 수 없으므로 추측하지 않는다.
+    """
+    entries = [line.strip() for line in listing.splitlines() if line.strip()]
+    if len(entries) != 1:
+        raise ValueError(
+            f"{model_id}의 TEI 스냅샷이 {len(entries)}개다({entries}) — revision을 정할 수 없다"
+        )
+    return entries[0]
+
+
+def read_snapshot_revision(model_id: str, *, volume: str, image: str) -> str:
+    """TEI 모델 볼륨의 models--<org>--<name>/snapshots/ 아래 해시를 읽는다.
+
+    볼륨은 root 소유라 WSL에서 바로 읽을 수 없어, TEI 이미지로 `ls`만 하는 일회용 컨테이너를
+    띄운다(이미지는 이미 받아 둔 것을 쓴다). 실패하면 RuntimeError — revision 없이 실행하지 않는다.
+    """
+    folder = "models--" + model_id.replace("/", "--")
+    try:
+        out = subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "--entrypoint",
+                "ls",
+                "-v",
+                f"{volume}:/data:ro",
+                image,
+                f"/data/{folder}/snapshots",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=60,
+        ).stdout
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError(f"{model_id}의 스냅샷 revision을 읽지 못했다: {exc}") from exc
+    return parse_snapshot_listing(model_id, out)
+
+
 def latency_stats(samples_ms: Sequence[float]) -> LatencyStats | None:
     if not samples_ms:
         return None
@@ -249,11 +292,13 @@ def run(
     config: ClientsConfig | None = None,
     embedder: TEIEmbeddingClient | None = None,
     reranker: TEIRerankerClient | None = None,
+    revision_reader: Callable[[str], str] | None = None,
 ) -> RetrievalRunRecord:
     """검색 조건 하나를 돌려 채점하고 기록을 남긴다.
 
     embedder·reranker를 주지 않으면 config(없으면 환경변수)로 TEI 클라이언트를 만든다.
-    테스트는 가짜 transport를 넣은 클라이언트를 준다.
+    테스트는 가짜 transport를 넣은 클라이언트를 준다. revision_reader(모델 ID → 스냅샷
+    해시)를 주지 않으면 TEI 볼륨을 docker로 읽는다(`read_snapshot_revision`).
     """
     questions = load_questions_v2(qa_file)
     chunks = load_chunks(chunks_file)
@@ -273,11 +318,23 @@ def run(
     elif retriever == "dense":
         cfg = config or ClientsConfig.from_env()
         embedder = embedder or TEIEmbeddingClient(cfg)
+        tei_image = tei_image_tag(compose_file)
+        if revision_reader is None:
+            if tei_image is None:
+                raise ValueError(
+                    f"{compose_file}에서 TEI 이미지를 찾지 못해 revision을 읽을 수 없다"
+                )
+            image = tei_image
+
+            def revision_reader(model_id: str) -> str:
+                return read_snapshot_revision(model_id, volume=cfg.tei_models_volume, image=image)
+
         info = server_info(embedder.info())
         if cfg.embed_model_id and info.model_id != cfg.embed_model_id:
             raise ValueError(
                 f"TEI 서버 모델({info.model_id})이 EMBED_MODEL_ID({cfg.embed_model_id})와 다르다"
             )
+        info = info.model_copy(update={"snapshot_revision": revision_reader(info.model_id)})
         indexed = build_or_load_vectors(
             chunks,
             embedder,
@@ -301,13 +358,18 @@ def run(
             "passage_prefix": cfg.embed_passage_prefix,
             "truncate": cfg.embed_truncate,
             "truncated_chunks": len(indexed.truncated),
+            "empty_chunks": len(indexed.empty_chunk_ids),
+            "empty_chunk_ids": indexed.empty_chunk_ids,
             "index_seconds": indexed.index_seconds,
             "vector_cache": str(indexed.cache_path),
-            "tei_image": tei_image_tag(compose_file),
+            "tei_image": tei_image,
         }
         if use_rerank:
             rerank_client = reranker or TEIRerankerClient(cfg)
             rerank_info = server_info(rerank_client.info())
+            rerank_info = rerank_info.model_copy(
+                update={"snapshot_revision": revision_reader(rerank_info.model_id)}
+            )
 
             def rerank(q: str, hits: list[SearchHit]) -> list[SearchHit]:
                 return rerank_hits(q, hits, rerank_client, rerank_n)

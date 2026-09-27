@@ -125,12 +125,74 @@ def test_every_chunk_has_source_ids() -> None:
             assert set(chunk.source_ids) <= known
 
 
-def test_short_and_empty_blocks_are_kept_as_their_own_chunks() -> None:
-    """짧은 블록도 합치지 않고, text가 빈 블록도 버리지 않는다."""
-    doc = _document(blocks=[_block("b0001", "가", 1), _block("b0002", "   ", 2)])
+def test_short_blocks_are_kept_as_their_own_chunks() -> None:
+    """짧은 블록도 합치지 않는다."""
+    doc = _document(blocks=[_block("b0001", "가", 1), _block("b0002", "나", 2)])
     chunks = chunking.chunk_by_block(doc)
-    assert [c.text for c in chunks] == ["가", "   "]
-    assert chunking.count_empty_blocks([doc]) == 1
+    assert [c.text for c in chunks] == ["가", "나"]
+
+
+def test_count_dropped_blocks_counts_blocks_without_letters_or_digits() -> None:
+    doc = _document(
+        blocks=[
+            _block("b0001", "가", 1),  # 남음
+            _block("b0002", "   ", 2),  # 버림 (공백만)
+            _block("b0003", " | ", 3),  # 버림 (구분자만)
+        ]
+    )
+    assert chunking.count_dropped_blocks([doc]) == 2
+
+
+# 이슈 #62: 유니코드 L(문자)·N(숫자) 범주 글자가 하나도 없는 블록은 청크로 만들지 않는다.
+# 실제 데이터에서 나온 모양들이다 (빈 1×1 표, 구분자만 남은 표, 체크 표시만 남은 표 등)
+NO_LETTER_TEXTS = ["", "   ", " |  | \n |  | \n |  | ", " | ", "+\n", " |  |  | √", "○○"]
+# 의미 글자가 1개 이상이면 짧아도 남긴다
+SHORT_TEXTS = ["다.\n", "【 끝 】\n", "20", "  1. ○○○ :     %\n", "○○○ (인)"]
+
+# 소유자 구현 대기(#62, 학습 모드 #13). 필터를 구현하면 strict라 XPASS로 실패하므로 이 표시를 지운다
+
+
+def _mixed_document() -> Document:
+    """글자 없는 블록과 짧은 블록이 섞인 문서. b0001부터 순서대로 번호를 붙인다."""
+    texts = [*SHORT_TEXTS[:2], *NO_LETTER_TEXTS, *SHORT_TEXTS[2:]]
+    blocks = [_block(f"b{i:04d}", text, i) for i, text in enumerate(texts, start=1)]
+    return _document(blocks=blocks)
+
+
+@pytest.mark.parametrize("text", NO_LETTER_TEXTS)
+def test_block_without_letters_or_digits_is_dropped(text: str) -> None:
+    doc = _document(blocks=[_block("b0001", text, 1)], requirements=[])
+    for method in chunking.CHUNKERS:
+        assert chunking.chunk_document(doc, method) == []  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("text", SHORT_TEXTS)
+def test_block_with_one_or_more_letters_or_digits_is_kept(text: str) -> None:
+    doc = _document(blocks=[_block("b0001", text, 1)], requirements=[])
+    for method in ("block", "block_requirement"):
+        assert [c.text for c in chunking.chunk_document(doc, method)] == [text]
+
+
+def test_dropping_blocks_keeps_other_chunk_ids() -> None:
+    """버린 블록 뒤의 청크도 chunk_id가 바뀌지 않는다 (qa_v2 gold_chunk_ids가 이 ID를 쓴다)."""
+    doc = _mixed_document()
+    kept = [b for b in doc.blocks if b.text in SHORT_TEXTS]
+    for method in ("block", "block_requirement"):
+        chunks = chunking.chunk_document(doc, method)
+        block_chunks = [c for c in chunks if c.source_ids[0].startswith("b")]
+        assert [c.chunk_id for c in block_chunks] == [
+            f"{doc.doc_id}:{method}:{b.block_id}" for b in kept
+        ]
+        assert [c.text for c in block_chunks] == [b.text for b in kept]
+
+
+def test_requirement_chunks_are_not_affected_by_block_filter() -> None:
+    doc = _mixed_document()
+    req_ids = [r.requirement_id for r in doc.requirements]
+    assert [c.source_ids[0] for c in chunking.chunk_by_requirement(doc)] == req_ids
+    both = chunking.chunk_by_block_and_requirement(doc)
+    assert [c.source_ids[0] for c in both][-len(req_ids) :] == req_ids
+    assert len(both) == len(SHORT_TEXTS) + len(req_ids)
 
 
 def test_chunk_id_is_unique_within_method() -> None:

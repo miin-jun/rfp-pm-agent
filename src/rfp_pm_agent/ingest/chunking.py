@@ -15,6 +15,7 @@ CLI: `uv run python -m rfp_pm_agent.ingest.chunking`
 from __future__ import annotations
 
 import logging
+import unicodedata
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -35,6 +36,11 @@ def _chunk_id(doc_id: str, method: ChunkMethod, source_id: str) -> str:
     return f"{doc_id}:{method}:{source_id}"
 
 
+def _has_meaningful_char(text: str) -> bool:
+
+    return any(unicodedata.category(c)[0] in "LN" for c in text)
+
+
 def chunk_by_block(doc: Document) -> list[Chunk]:
     """블록 하나를 청크 하나로 만든다. 빈 블록도 버리지 않고 그대로 남긴다."""
     return [
@@ -46,6 +52,7 @@ def chunk_by_block(doc: Document) -> list[Chunk]:
             text=block.text,
         )
         for block in doc.blocks
+        if _has_meaningful_char(block.text)
     ]
 
 
@@ -117,9 +124,9 @@ def write_chunks(chunks: Iterable[Chunk], path: Path) -> int:
     return written
 
 
-def count_empty_blocks(docs: Iterable[Document]) -> int:
-    """text가 공백뿐인 블록 수. 버리지 않고 남기므로 몇 개인지만 센다."""
-    return sum(1 for doc in docs for block in doc.blocks if not block.text.strip())
+def count_dropped_blocks(docs: Iterable[Document]) -> int:
+    """의미 글자(L·N)가 없어 청크에서 버려지는 블록 수 (#62)."""
+    return sum(1 for doc in docs for block in doc.blocks if not _has_meaningful_char(block.text))
 
 
 def run(
@@ -147,7 +154,7 @@ def main() -> None:
         sum(len(d.blocks) for d in docs),
         sum(len(d.requirements) for d in docs),
     )
-    logger.info("text가 공백뿐인 블록: %d개 (버리지 않고 청크로 남긴다)", count_empty_blocks(docs))
+    logger.info("의미 글자가 없어 버린 블록: %d개", count_dropped_blocks(docs))
     for method, n in run().items():
         logger.info("%s: %d청크 → %s", method, n, DEFAULT_CHUNKS_DIR / f"{method}.jsonl")
 

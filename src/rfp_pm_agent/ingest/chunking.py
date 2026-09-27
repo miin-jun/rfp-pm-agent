@@ -37,12 +37,12 @@ def _chunk_id(doc_id: str, method: ChunkMethod, source_id: str) -> str:
 
 
 def has_meaningful_char(text: str) -> bool:
-
+    """유니코드 L(문자)·N(숫자) 범주 글자가 하나라도 있으면 True. 청킹(#62)과 dense 사전 검사에서 쓴다."""
     return any(unicodedata.category(c)[0] in "LN" for c in text)
 
 
 def chunk_by_block(doc: Document) -> list[Chunk]:
-    """블록 하나를 청크 하나로 만든다. 빈 블록도 버리지 않고 그대로 남긴다."""
+    """블록 하나를 청크 하나로 만든다. 의미 글자(L·N)가 없는 블록은 버린다(#62)."""
     return [
         Chunk(
             chunk_id=_chunk_id(doc.doc_id, "block", block.block_id),

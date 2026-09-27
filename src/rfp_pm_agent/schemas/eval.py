@@ -237,7 +237,8 @@ class RetrievalRunRecord(BaseModel):
     passage_prefix: str | None = None
     truncate: bool | None = None
     truncated_chunks: int | None = None
-    # text가 비어 임베딩 요청에서 빼고 영벡터로 둔 청크 (TEI는 빈 입력을 400으로 거절한다)
+    # text가 비어 영벡터로 둔 청크. #16 기록에만 값이 있다 — #62부터 의미 글자(L·N) 없는
+    # 청크는 청킹에서 버리고, 남아 있으면 임베딩 전에 실패하므로 새 기록은 늘 0이다
     empty_chunks: int | None = None
     empty_chunk_ids: list[str] | None = None
     index_seconds: float | None = None

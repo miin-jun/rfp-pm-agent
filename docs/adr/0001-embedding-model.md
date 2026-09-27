@@ -35,6 +35,7 @@ KURE-v1 0.797, bge-m3 0.792(차이 0.5%p), multilingual-e5-large 0.759(차이 3.
 ## 측정 조건
 
 - 평가 세트 `data/eval/qa_v2.jsonl` 57문항(답 있음 51, 답 없음 6), 청크 `data/chunks/block_requirement.jsonl` 3,514개
+- #16 측정은 #62 이전 청크 파일(해시 e07f4fbbe181, block_requirement 3,514개) 기준. #62 이후 3,499개(의미 글자 없는 블록 15개 제외)
 - 로컬 RTX 4050 Laptop(6GB, 드라이버 591.74), WSL2 RAM 7.5GiB
 - 전원 연결·Windows 최고 성능 모드, Pwr Cap 60W(Max 60W, Default 35W) — 측정 전에 소유자가 확인한 값
   (2026-09-26 23:14, Windows PowerShell `nvidia-smi.exe -q -d POWER`). 레포의 실행 기록에는 남지 않는다

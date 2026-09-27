@@ -36,7 +36,7 @@ def _chunk_id(doc_id: str, method: ChunkMethod, source_id: str) -> str:
     return f"{doc_id}:{method}:{source_id}"
 
 
-def _has_meaningful_char(text: str) -> bool:
+def has_meaningful_char(text: str) -> bool:
 
     return any(unicodedata.category(c)[0] in "LN" for c in text)
 
@@ -52,7 +52,7 @@ def chunk_by_block(doc: Document) -> list[Chunk]:
             text=block.text,
         )
         for block in doc.blocks
-        if _has_meaningful_char(block.text)
+        if has_meaningful_char(block.text)
     ]
 
 
@@ -126,7 +126,7 @@ def write_chunks(chunks: Iterable[Chunk], path: Path) -> int:
 
 def count_dropped_blocks(docs: Iterable[Document]) -> int:
     """의미 글자(L·N)가 없어 청크에서 버려지는 블록 수 (#62)."""
-    return sum(1 for doc in docs for block in doc.blocks if not _has_meaningful_char(block.text))
+    return sum(1 for doc in docs for block in doc.blocks if not has_meaningful_char(block.text))
 
 
 def run(

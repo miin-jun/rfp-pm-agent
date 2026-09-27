@@ -326,7 +326,8 @@ def test_revision을_못_읽으면_색인하지_않는다(tmp_path: Path) -> Non
     assert not (tmp_path / "cache").exists()
 
 
-def test_빈_청크의_개수와_ID를_실행_기록에_남긴다(tmp_path: Path) -> None:
+def test_빈_청크가_있으면_임베딩_전에_실패한다(tmp_path: Path) -> None:
+    """#62: 빈 청크는 청킹에서 버린다. 남아 있으면 영벡터로 채우지 않고 멈춘다."""
     qa_file, chunks_file = _write_data(tmp_path)
     empty = Chunk(
         chunk_id="d:block_requirement:b9",
@@ -341,22 +342,20 @@ def test_빈_청크의_개수와_ID를_실행_기록에_남긴다(tmp_path: Path
     seen: list[dict[str, Any]] = []
     embedder = TEIEmbeddingClient(config, transport=_embed_transport("org/embed", seen))
 
-    record = run_retrieval.run(
-        retriever="dense",
-        use_rerank=False,
-        qa_file=qa_file,
-        chunks_file=chunks_file,
-        out_dir=tmp_path / "out",
-        cache_dir=tmp_path / "cache",
-        compose_file=tmp_path / "없음.yml",
-        warmup=0,
-        repeats=1,
-        config=config,
-        embedder=embedder,
-        revision_reader=lambda model_id: "snap",
-    )
+    with pytest.raises(ValueError, match="d:block_requirement:b9"):
+        run_retrieval.run(
+            retriever="dense",
+            use_rerank=False,
+            qa_file=qa_file,
+            chunks_file=chunks_file,
+            out_dir=tmp_path / "out",
+            cache_dir=tmp_path / "cache",
+            compose_file=tmp_path / "없음.yml",
+            warmup=0,
+            repeats=1,
+            config=config,
+            embedder=embedder,
+            revision_reader=lambda model_id: "snap",
+        )
 
-    assert record.chunk_count == 4
-    assert record.empty_chunks == 1
-    assert record.empty_chunk_ids == ["d:block_requirement:b9"]
-    assert all("" not in body["inputs"] for body in seen)
+    assert seen == []  # /embed 요청을 하나도 보내지 않았다

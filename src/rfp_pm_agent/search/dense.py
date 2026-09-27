@@ -11,10 +11,11 @@
   이름에 모델 ID·revision·passage 접두어·자르기 여부·청크 파일 해시를 넣어, 다른
   모델이나 다른 청크의 벡터가 섞이지 않게 한다(CLAUDE.md: 인덱스는 모델별).
 - 동점 순서: 점수가 같으면 청크 목록 순서(앞쪽 우선)로 고정한다.
-- 빈 청크: text가 비어 있는(공백만 있는 것 포함) 청크는 TEI가 400("`inputs` cannot be
-  empty")으로 거절하므로 임베딩 요청에서 빼고 영벡터로 채운다. 청크 수·순서는 그대로라
-  BM25·다른 모델과 같은 청크 집합을 검색하고, 영벡터의 코사인 점수는 0이다. 모든 모델에
-  같은 규칙을 쓴다. 빈 청크가 생기는 원인은 청킹 쪽 이슈로 따로 다룬다.
+- 의미 글자 없는 청크: #62부터 청킹이 유니코드 L·N 글자가 하나도 없는 블록을 버린다.
+  그런 청크가 들어오면 청킹과 같은 기준(`chunking.has_meaningful_char`)으로 찾아 TEI에
+  요청하기 전에 chunk_id를 담은 ValueError를 낸다. 빈 문자열은 TEI가 400("`inputs`
+  cannot be empty")으로 거절하고, `" | "`처럼 구분자만 있는 문자열은 에러 없이 벡터가
+  만들어지므로 둘 다 여기서 막는다. #16 측정 때의 처리는 docs/model-selection-measurement.md 참고.
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ import numpy.typing as npt
 
 from rfp_pm_agent.clients.embedding import TEIEmbeddingClient
 from rfp_pm_agent.clients.reranker import RerankerClient
+from rfp_pm_agent.ingest.chunking import has_meaningful_char
 from rfp_pm_agent.schemas.chunk import Chunk
 from rfp_pm_agent.schemas.eval import SearchHit, ServerInfo
 
@@ -81,7 +83,6 @@ class IndexedVectors:
     index_seconds: float
     cache_path: Path
     cache_hit: bool
-    empty_chunk_ids: list[str]
 
 
 def file_sha256(path: Path) -> str:
@@ -120,7 +121,14 @@ def build_or_load_vectors(
 
     캐시 메타(.json)에 청크 ID 순서를 적어 두고, 읽을 때 지금 청크 순서와 다르면
     ValueError를 낸다 — 벡터와 청크의 대응이 어긋난 채 검색되는 것을 막는다.
+    의미 글자(L·N)가 없는 청크가 있으면 TEI에 요청하기 전에 그 chunk_id를 담아
+    ValueError를 낸다 (#62, 청킹과 같은 기준).
     """
+    no_letter_ids = [c.chunk_id for c in chunks if not has_meaningful_char(c.text)]
+    if no_letter_ids:
+        raise ValueError(
+            f"의미 글자가 없는 청크 {len(no_letter_ids)}개는 임베딩할 수 없다 (#62): {no_letter_ids}"
+        )
     key = cache_key(info, passage_prefix, truncate, chunks_sha)
     npy_path = cache_dir / f"{key}.npy"
     meta_path = cache_dir / f"{key}.json"
@@ -135,21 +143,13 @@ def build_or_load_vectors(
             index_seconds=float(meta["index_seconds"]),
             cache_path=npy_path,
             cache_hit=True,
-            empty_chunk_ids=list(meta["empty_chunk_ids"]),
         )
 
-    filled = [i for i, c in enumerate(chunks) if c.text.strip()]
-    empty_chunk_ids = [c.chunk_id for c in chunks if not c.text.strip()]
     start = time.perf_counter()
-    report = client.embed_with_report([chunks[i].text for i in filled], input_type="passage")
+    report = client.embed_with_report([c.text for c in chunks], input_type="passage")
     index_seconds = time.perf_counter() - start
-    embedded = np.asarray(report.vectors, dtype=np.float32)
-    dim = embedded.shape[1] if len(filled) else 0
-    vectors = np.zeros((len(chunks), dim), dtype=np.float32)
-    if filled:
-        vectors[filled] = embedded
-    # 잘린 입력의 위치를 보낸 목록 기준에서 전체 청크 기준으로 옮긴다
-    truncated = [filled[i] for i in report.truncated]
+    vectors = np.asarray(report.vectors, dtype=np.float32)
+    truncated = list(report.truncated)
     cache_dir.mkdir(parents=True, exist_ok=True)
     np.save(npy_path, vectors)
     meta_path.write_text(
@@ -161,7 +161,6 @@ def build_or_load_vectors(
                 "chunks_sha256": chunks_sha,
                 "chunk_ids": chunk_ids,
                 "truncated": truncated,
-                "empty_chunk_ids": empty_chunk_ids,
                 "index_seconds": index_seconds,
             },
             ensure_ascii=False,
@@ -174,7 +173,6 @@ def build_or_load_vectors(
         index_seconds=index_seconds,
         cache_path=npy_path,
         cache_hit=False,
-        empty_chunk_ids=empty_chunk_ids,
     )
 
 

@@ -34,6 +34,9 @@
 - **빈 청크**: block_requirement 청크 중 text가 빈 것(2026-09-26 기준 4개: 944b의 b0134, d3e2의
   b0005·b0023·b0165 — 모두 내용 없는 1×1 표 블록)은 TEI가 400으로 거절한다. 모든 모델에서 임베딩 요청에서
   빼고 영벡터(코사인 점수 0)로 두며, 개수와 ID를 `runs.jsonl`의 `empty_chunks`·`empty_chunk_ids`에 남긴다
+  - #16 측정은 #62 이전 청크 파일(해시 e07f4fbbe181, block_requirement 3,514개) 기준.
+    #62 이후 3,499개(의미 글자 없는 블록 15개 제외). `search/dense.py`는 이제 의미 글자 없는 청크가
+    있으면 임베딩 전에 ValueError를 내고, 새 기록의 `empty_chunks`는 늘 0이다
 - **모델 revision**: TEI 1.9.4의 `/info`는 revision을 주지 않고 띄우면 `model_sha`가 null이다.
   `run_retrieval`은 TEI 모델 볼륨(`TEI_MODELS_VOLUME`)의 `models--<org>--<name>/snapshots/` 아래 해시를
   읽어 `snapshot_revision`에 남기고, 벡터 캐시 이름에도 쓴다. 스냅샷이 0개거나 2개 이상이면, 또는 못 읽으면

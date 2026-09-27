@@ -154,45 +154,64 @@ def test_리랭크_후보가_없으면_빈_목록() -> None:
     assert rerank_hits("질의", [], FakeRerankerClient(), n=20) == []
 
 
-def _rejecting_empty_transport(sent: list[list[str]]) -> httpx.MockTransport:
-    """실제 TEI처럼 빈 문자열 입력이 있으면 400을 낸다 ("`inputs` cannot be empty")."""
-
-    def handle(request: httpx.Request) -> httpx.Response:
-        inputs: list[str] = json.loads(request.content)["inputs"]
-        if any(not t for t in inputs):
-            return httpx.Response(400, json={"error": "`inputs` cannot be empty"})
-        sent.append(inputs)
-        return httpx.Response(200, json=[[1.0] + [0.0] * (EMBEDDING_DIM - 1) for _ in inputs])
-
-    return httpx.MockTransport(handle)
-
-
-def test_빈_청크는_임베딩_요청에서_빼고_영벡터로_채운다(tmp_path: Path) -> None:
+def test_빈_청크가_있으면_임베딩_요청_전에_ValueError(tmp_path: Path) -> None:
+    """#62: 청킹이 빈 청크를 버리므로, 들어오면 TEI 400 대신 chunk_id를 담은 오류로 멈춘다."""
     chunks = [
         Chunk(chunk_id=f"d:m:b{i}", doc_id="d", method="block", source_ids=[f"b{i}"], text=text)
-        for i, text in enumerate(["첫 문장", "", "셋째 문장", "", "다섯째"])
+        for i, text in enumerate(["첫 문장", "", "셋째 문장", "  \n"])
     ]
-    sent: list[list[str]] = []
-    client = TEIEmbeddingClient(make_clients_config(), transport=_rejecting_empty_transport(sent))
+    sent: list[bytes] = []
 
-    indexed = build_or_load_vectors(
-        chunks,
-        client,
-        ServerInfo(model_id="org/model", snapshot_revision="rev1"),
-        passage_prefix="",
-        truncate=False,
-        chunks_sha="0" * 64,
-        cache_dir=tmp_path,
-    )
+    def handle(request: httpx.Request) -> httpx.Response:
+        sent.append(request.content)
+        return httpx.Response(500)
 
-    assert sent == [["첫 문장", "셋째 문장", "다섯째"]]  # 빈 청크는 보내지 않는다
-    assert indexed.vectors.shape == (5, EMBEDDING_DIM)  # 청크 수·순서는 입력과 같다
-    assert not indexed.vectors[1].any() and not indexed.vectors[3].any()  # 빈 자리는 영벡터
-    assert indexed.vectors[0][0] == 1.0 and indexed.vectors[4][0] == 1.0
-    assert indexed.empty_chunk_ids == ["d:m:b1", "d:m:b3"]
+    client = TEIEmbeddingClient(make_clients_config(), transport=httpx.MockTransport(handle))
+
+    with pytest.raises(ValueError, match=r"d:m:b1.*d:m:b3"):
+        build_or_load_vectors(
+            chunks,
+            client,
+            ServerInfo(model_id="org/model", snapshot_revision="rev1"),
+            passage_prefix="",
+            truncate=False,
+            chunks_sha="0" * 64,
+            cache_dir=tmp_path,
+        )
+    assert sent == []  # /embed 요청을 하나도 보내지 않았다
+    assert list(tmp_path.iterdir()) == []  # 캐시도 만들지 않았다
 
 
-def test_빈_청크의_검색_점수는_0이다() -> None:
+@pytest.mark.parametrize("text", [" | ", " |  | \n |  | ", "+\n", " |  |  | √", "○○"])
+def test_의미_글자가_없는_청크도_임베딩_요청_전에_ValueError(tmp_path: Path, text: str) -> None:
+    """#62: 공백은 아니어도 L·N 글자가 없으면 청킹이 버리는 청크다. TEI는 받아 주지만
+    멈춘다 — 청킹과 같은 기준(chunking.has_meaningful_char)을 쓴다."""
+    chunks = [
+        Chunk(chunk_id="d:m:b0", doc_id="d", method="block", source_ids=["b0"], text="첫 문장"),
+        Chunk(chunk_id="d:m:b1", doc_id="d", method="block", source_ids=["b1"], text=text),
+    ]
+    sent: list[bytes] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        sent.append(request.content)
+        return httpx.Response(200, json=[[1.0] + [0.0] * (EMBEDDING_DIM - 1)] * 2)
+
+    client = TEIEmbeddingClient(make_clients_config(), transport=httpx.MockTransport(handle))
+
+    with pytest.raises(ValueError, match="d:m:b1"):
+        build_or_load_vectors(
+            chunks,
+            client,
+            ServerInfo(model_id="org/model", snapshot_revision="rev1"),
+            passage_prefix="",
+            truncate=False,
+            chunks_sha="0" * 64,
+            cache_dir=tmp_path,
+        )
+    assert sent == []
+
+
+def test_영벡터의_검색_점수는_0이다() -> None:
     vectors = np.array([[1.0, 0.0], [0.0, 0.0]], dtype=np.float32)
     hits = DenseIndex(_chunks(2), vectors).search_vector([1.0, 0.0], top_k=2)
     assert [h.chunk_id for h in hits] == ["d:m:b0", "d:m:b1"]

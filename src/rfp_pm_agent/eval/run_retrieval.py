@@ -358,8 +358,9 @@ def run(
             "passage_prefix": cfg.embed_passage_prefix,
             "truncate": cfg.embed_truncate,
             "truncated_chunks": len(indexed.truncated),
-            "empty_chunks": len(indexed.empty_chunk_ids),
-            "empty_chunk_ids": indexed.empty_chunk_ids,
+            # build_or_load_vectors가 의미 글자 없는 청크를 거절하므로 성공한 실행은 늘 0이다 (#62)
+            "empty_chunks": 0,
+            "empty_chunk_ids": [],
             "index_seconds": indexed.index_seconds,
             "vector_cache": str(indexed.cache_path),
             "tei_image": tei_image,

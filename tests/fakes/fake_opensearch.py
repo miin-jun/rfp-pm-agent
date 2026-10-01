@@ -3,12 +3,14 @@
 색인 모듈(`ingest/index_chunks.py`)이 쓰는 호출만 흉내 낸다.
 - `indices.exists / create / exists_alias / get_alias / put_alias / refresh`
 - `search`: match_all + `_source` 필드 목록 + `sort` 1개 필드 + `search_after`
-- `bulk`: `index`(같은 _id가 있으면 "updated", 없으면 "created"), `update`(부분 update, 없으면 404)와 `delete`
+- `indices.exists`는 실제 서버처럼 별칭 이름에도 True를 준다
+- `bulk`: `create`(같은 _id가 있으면 409 오류), `index`(있으면 "updated", 없으면 "created"),
+  `update`(부분 update, 없으면 404)와 `delete`
   ("deleted" 또는 404 "not_found") — 응답 모양은 OpenSearch bulk 응답과 같다
 - `count`
 
 `hidden_ids`에 넣은 문서는 저장돼 있지만 `search`에는 나오지 않는다. refresh 전이라
-검색에 아직 안 보이는 문서를 흉내 내, "create로 보냈는데 updated가 돌아오는" 경우를 만든다.
+검색에 아직 안 보이는 문서를 흉내 내, "create로 보냈는데 같은 _id가 이미 있어 409"인 경우를 만든다.
 """
 
 from __future__ import annotations
@@ -22,7 +24,9 @@ class FakeIndices:
         self._store = store
 
     def exists(self, *, index: str) -> bool:
-        return index in self._store.indexes
+        # 실제 서버(HEAD /{name})처럼 별칭 이름에도 True를 준다. 처음에는 인덱스 이름만 봐서
+        # "인덱스 이름 자리에 별칭을 넣은 경우"를 단위 테스트가 놓쳤다 (#17 리뷰 2번)
+        return index in self._store.indexes or bool(self._store.aliases.get(index))
 
     def create(self, *, index: str, body: dict[str, Any]) -> dict[str, Any]:
         if index in self._store.indexes:
@@ -116,7 +120,23 @@ class FakeOpenSearch:
             (op, meta), *_ = body[i].items()
             docs = self.docs(meta["_index"])
             doc_id = meta["_id"]
-            if op == "index":
+            if op == "create":
+                # op_type create: 같은 _id가 있으면 409로 거절하고 문서를 건드리지 않는다
+                if doc_id in docs:
+                    items.append(
+                        {
+                            op: {
+                                "_id": doc_id,
+                                "status": 409,
+                                "error": {"type": "version_conflict_engine_exception"},
+                            }
+                        }
+                    )
+                else:
+                    docs[doc_id] = copy.deepcopy(body[i + 1])
+                    items.append({op: {"_id": doc_id, "result": "created", "status": 201}})
+                i += 2
+            elif op == "index":
                 source = body[i + 1]
                 existed = doc_id in docs
                 docs[doc_id] = copy.deepcopy(source)

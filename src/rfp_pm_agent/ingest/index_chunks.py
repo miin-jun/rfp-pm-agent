@@ -1,17 +1,17 @@
 """OpenSearch 증분 색인 (이슈 #17) — 청크 파일을 모델별 인덱스에 넣고, 바뀐 것만 다시 임베딩한다.
 
 처리 순서
-1. 청크 검사: 의미 글자(L·N)가 없는 청크가 있으면 chunk_id를 담아 ValueError (#62, dense.py와
+1. 인덱스 이름 검사: 비어 있거나, 별칭과 같거나, 이미 별칭으로 쓰이는 이름이면 ValueError.
+   OpenSearch는 별칭으로도 읽고 쓸 수 있어서, 막지 않으면 다른 모델 인덱스를 덮어쓴다 (#17 리뷰 2번)
+2. 청크 검사: 의미 글자(L·N)가 없는 청크가 있으면 chunk_id를 담아 ValueError (#62, dense.py와
    같은 기준). chunk_id 중복도 ValueError — 문서 `_id`로 쓰기 때문이다(#65)
-2. 청크마다 content_hash 계산 = sha256(TEI `/embed`에 실제로 보내는 문자열). 그 문자열은
+3. 청크마다 content_hash 계산 = sha256(TEI `/embed`에 실제로 보내는 문자열). 그 문자열은
    `EMBED_PASSAGE_PREFIX + text`다 — `TEIEmbeddingClient`가 붙이는 접두어와 같은 설정값을 쓴다
-3. 청크마다 metadata_hash 계산 = 임베딩하지 않는 필드(`METADATA_FIELDS`)의 sha256.
+4. 청크마다 metadata_hash 계산 = 임베딩하지 않는 필드(`METADATA_FIELDS`)의 sha256.
    직렬화 규칙은 `metadata_hash` 설명 참고
-4. embedding_model = "{모델ID}@{revision}". TEI `/info`의 model_sha가 있으면 그 값, null이면
+5. embedding_model = "{모델ID}@{revision}". TEI `/info`의 model_sha가 있으면 그 값, null이면
    (TEI 1.9.4 기본) #16과 같은 방법으로 TEI 모델 볼륨의 snapshots/를 읽는다
-5. 인덱스가 없으면 만들고(매핑은 `index_mapping.json`), 별칭이 아직 없을 때만 연결한다.
-   이미 있는 인덱스의 매핑은 바꾸지 않는다
-6. 인덱스에서 chunk_id·content_hash·embedding_model·metadata_hash만 읽어 판정한다. 위에서부터
+6. 인덱스가 있으면 chunk_id·content_hash·embedding_model·metadata_hash만 읽어 판정한다. 위에서부터
    처음 맞는 것 하나로 정한다(content > model > metadata)
    - 인덱스에 없음 → create
    - content_hash 다름 → update(content): 다시 임베딩하고 문서 전체를 다시 쓴다
@@ -20,11 +20,15 @@
      metadata_hash만 부분 update한다. TEI를 부르지 않는다. indexed_at도 그대로 둔다
    - 셋 다 같음 → skip / 인덱스에만 있음 → delete
 7. 삭제 대상이 인덱스 문서 수의 5%를 넘으면 MassDeleteError (`--allow-mass-delete`로만 허용).
-   이 검사는 임베딩·적재 전에 하므로, 걸리면 인덱스는 바뀌지 않는다
-8. create·update(content·model) 대상만 `TEI_MAX_CLIENT_BATCH_SIZE`(기본 32)개씩 임베딩해 bulk로
-   적재하고, update(metadata)를 부분 update로 보낸 뒤, stale 문서를 지운다
-9. bulk 응답을 항목별로 확인한다. create로 보낸 문서가 "updated"로 돌아오면(검색에는 안 보였는데
-   같은 _id가 이미 있었음) 오류로 친다. 적재 단계에서 오류가 하나라도 있으면 삭제 전에 멈춘다
+   인덱스 생성·별칭 연결·임베딩·적재보다 먼저 하므로, 걸리면 인덱스와 별칭은 바뀌지 않는다
+8. 인덱스가 없으면 만들고(매핑은 `index_mapping.json`), 별칭이 아직 없을 때만 연결한다.
+   이미 있는 인덱스의 매핑은 바꾸지 않는다
+9. create·update(content·model) 대상만 `TEI_MAX_CLIENT_BATCH_SIZE`(기본 32)개씩 임베딩해 bulk로
+   적재하고, update(metadata)를 부분 update로 보낸 뒤, stale 문서를 지운다.
+   create 대상은 bulk `create`로 보낸다 — 같은 _id가 이미 있으면(검색에는 안 보였던 문서)
+   서버가 409로 거절하고 기존 문서는 그대로 남는다. update(content·model)는 bulk `index`다
+10. bulk 응답은 배치마다 항목별로 확인한다. 오류(409 포함)나 예상과 다른 결과가 하나라도 있으면
+    IndexingError로 멈춘다 — 다음 배치의 임베딩·쓰기와 이후 단계(메타데이터 갱신·삭제)는 하지 않는다
 
 읽기·쓰기는 별칭이 아니라 실제 인덱스 이름(`OPENSEARCH_INDEX_NAME`)으로 한다. 이 모듈은 모델별
 인덱스를 만드는 쪽이고, 별칭이 다른 모델 인덱스를 가리키는 동안 새 인덱스를 채울 수 있어야
@@ -154,7 +158,11 @@ class IndexPlan(BaseModel):
 
 
 class IndexReport(BaseModel):
-    """실행 결과 요약. dry_run이면 개수는 "실행했다면"의 값이고 인덱스는 바뀌지 않았다."""
+    """실행 결과 요약.
+
+    dry_run이면 create~delete 개수는 "실행했다면"의 값이고 인덱스는 바뀌지 않았다. 이때
+    final_count는 실행 후 예상값이 아니라 지금 인덱스의 문서 수다.
+    """
 
     index_name: str
     alias: str
@@ -286,6 +294,26 @@ def metadata_fields(chunk: Chunk, documents: Mapping[str, Document]) -> dict[str
     }
 
 
+def check_index_name(client: OpenSearch, index_name: str, alias: str) -> None:
+    """인덱스 이름 자리에 별칭이 들어왔으면 ValueError (#17 리뷰 2번).
+
+    OpenSearch는 `indices.exists`에 별칭 이름을 넣어도 True를 주고, 별칭으로 읽고 쓸 수 있다.
+    그래서 막지 않으면 별칭이 가리키는 다른 모델의 인덱스를 이 모델로 전부 update(model)해
+    덮어쓴다. 삭제가 아니라서 5% 안전장치에도 걸리지 않는다.
+    """
+    if index_name == alias:
+        raise ValueError(
+            f"인덱스 이름({index_name})이 별칭과 같다 — OPENSEARCH_INDEX_NAME에는 모델별 실제 "
+            "인덱스 이름(예: rfp_chunks_v1_kure)을 넣는다"
+        )
+    if client.indices.exists_alias(name=index_name):
+        targets = sorted(client.indices.get_alias(name=index_name))
+        raise ValueError(
+            f"인덱스 이름({index_name})이 이미 별칭이다(→ {', '.join(targets)}) — "
+            "OPENSEARCH_INDEX_NAME에는 별칭이 아니라 실제 인덱스 이름을 넣는다"
+        )
+
+
 def ensure_index(client: OpenSearch, index_name: str, alias: str) -> bool:
     """인덱스가 없으면 만들고 True. 이미 있으면 매핑을 건드리지 않고 False.
 
@@ -315,7 +343,10 @@ def alias_targets(client: OpenSearch, alias: str) -> list[str]:
 
 
 def fetch_indexed(client: OpenSearch, index_name: str) -> dict[str, IndexedMeta]:
-    """인덱스의 모든 문서에서 content_hash·embedding_model만 읽는다 (chunk_id 순 search_after)."""
+    """인덱스의 모든 문서에서 content_hash·embedding_model·metadata_hash만 읽는다.
+
+    chunk_id(keyword) 오름차순으로 정렬해 search_after로 FETCH_PAGE_SIZE씩 넘긴다.
+    """
     body: dict[str, Any] = {
         "size": FETCH_PAGE_SIZE,
         "_source": ["content_hash", "embedding_model", "metadata_hash"],
@@ -356,8 +387,8 @@ class BulkTally:
             got = result.get("result")
             want = expected.get(doc_id)
             if want is None or "error" in result or got != want:
-                duplicated = want == "created" and got == "updated"
-                reason = " — ID 중복(검색에 없던 _id가 이미 있음)" if duplicated else ""
+                duplicated = op == "create" and result.get("status") == 409
+                reason = " — 409 ID 중복(검색에 없던 _id가 이미 있음)" if duplicated else ""
                 self.errors.append(
                     f"{op} {doc_id}: 기대 {want}, 응답 {got} {result.get('error', '')}{reason}"
                 )
@@ -416,6 +447,7 @@ def index_chunks(
     start = time.perf_counter()
     if not index_name:
         raise ValueError("인덱스 이름이 비어 있다 (OPENSEARCH_INDEX_NAME)")
+    check_index_name(client, index_name, alias)
     check_chunks(chunks)
     metadata_by_id = {c.chunk_id: metadata_fields(c, documents) for c in chunks}
     hashes = {
@@ -429,17 +461,15 @@ def index_chunks(
         embedder.info(), config, revision_reader or volume_revision_reader(config)
     )
 
-    if dry_run:
-        index_created = False
-        exists = bool(client.indices.exists(index=index_name))
-        indexed = fetch_indexed(client, index_name) if exists else {}
-    else:
-        index_created = ensure_index(client, index_name, alias)
-        client.indices.refresh(index=index_name)
+    # 판정과 5% 검사를 인덱스·별칭을 만들기 전에 한다 — 걸리면 아무것도 바뀌지 않게 (#17 리뷰 1번)
+    indexed: dict[str, IndexedMeta] = {}
+    if client.indices.exists(index=index_name):
+        if not dry_run:
+            client.indices.refresh(index=index_name)  # 직전 쓰기를 검색에 보이게 한다
         indexed = fetch_indexed(client, index_name)
-
     plan = plan_index(hashes, embedding_model, indexed)
     blocked = is_mass_delete(len(plan.delete), len(indexed)) and not allow_mass_delete
+    index_created = False
 
     def report(*, embed_inputs: int, embed_requests: int, final_count: int) -> IndexReport:
         return IndexReport(
@@ -471,11 +501,17 @@ def index_chunks(
             f"{MASS_DELETE_RATIO:.0%}를 넘는다 — --dry-run으로 대상을 확인하고 "
             f"--allow-mass-delete로 다시 실행한다. 인덱스는 바뀌지 않았다"
         )
+    index_created = ensure_index(client, index_name, alias)
 
     by_id = {c.chunk_id: c for c in chunks}
-    expected_result = {cid: "created" for cid in plan.create}
-    expected_result.update({cid: "updated" for cid in plan.update_content + plan.update_model})
-    targets = [cid for cid in hashes if cid in expected_result]
+    # create 대상은 bulk create로 보낸다 — 같은 _id가 있으면 서버가 409로 거절하고 문서는 그대로다.
+    # update 대상은 bulk index(문서 전체 교체)로 보낸다 (이슈 #17 결정 3)
+    op_by_id = dict.fromkeys(plan.create, "create")
+    op_by_id.update(dict.fromkeys(plan.update_content + plan.update_model, "index"))
+    expected_result = {
+        cid: "created" if op == "create" else "updated" for cid, op in op_by_id.items()
+    }
+    targets = [cid for cid in hashes if cid in op_by_id]
     indexed_at = now().isoformat()
     tally = BulkTally()
     embed_inputs = embed_requests = 0
@@ -486,7 +522,8 @@ def index_chunks(
         embed_requests += 1
         operations: list[dict[str, Any]] = []
         for chunk, vector in zip(batch, vectors, strict=True):
-            operations.append({"index": {"_index": index_name, "_id": chunk.chunk_id}})
+            op = op_by_id[chunk.chunk_id]
+            operations.append({op: {"_index": index_name, "_id": chunk.chunk_id}})
             operations.append(
                 _document_body(
                     chunk,
@@ -498,7 +535,7 @@ def index_chunks(
                 )
             )
         tally.add(client.bulk(body=operations), {cid: expected_result[cid] for cid in batch_ids})
-    tally.raise_if_errors("적재")
+        tally.raise_if_errors("적재")  # 배치마다 확인해 다음 배치의 임베딩 전에 멈춘다
 
     # 메타데이터만 바뀐 문서: 벡터·content_hash·indexed_at은 두고 메타데이터 필드만 덮는다
     for update_ids in batched(plan.update_metadata, WRITE_BATCH_SIZE):
@@ -508,12 +545,12 @@ def index_chunks(
             partial = {**metadata_by_id[cid], "metadata_hash": hashes[cid].metadata_hash}
             operations.append({"doc": partial})
         tally.add(client.bulk(body=operations), dict.fromkeys(update_ids, "updated"))
-    tally.raise_if_errors("메타데이터 갱신")
+        tally.raise_if_errors("메타데이터 갱신")
 
     for delete_ids in batched(plan.delete, WRITE_BATCH_SIZE):
         operations = [{"delete": {"_index": index_name, "_id": cid}} for cid in delete_ids]
         tally.add(client.bulk(body=operations), dict.fromkeys(delete_ids, "deleted"))
-    tally.raise_if_errors("삭제")
+        tally.raise_if_errors("삭제")
 
     client.indices.refresh(index=index_name)
     final_count = int(client.count(index=index_name)["count"])
@@ -525,6 +562,7 @@ def format_report(report: IndexReport) -> str:
     head = "[dry-run] 색인 계획 (인덱스는 바뀌지 않았다)" if report.dry_run else "색인 결과"
     targets = ", ".join(report.alias_targets) or "(없음)"
     n_updated = report.updated_content + report.updated_model + report.updated_metadata
+    count_label = "현재 _count" if report.dry_run else "최종 _count"
     lines = [
         f"{head} — {report.index_name} (별칭 {report.alias} → {targets})",
         f"embedding_model: {report.embedding_model}",
@@ -536,7 +574,7 @@ def format_report(report: IndexReport) -> str:
         ),
         (
             f"TEI 임베딩 입력 {report.embed_inputs}건 (요청 {report.embed_requests}건) / "
-            f"소요 {report.seconds:.1f}s / 최종 _count {report.final_count}"
+            f"소요 {report.seconds:.1f}s / {count_label} {report.final_count}"
         ),
     ]
     if report.index_created:

@@ -312,6 +312,21 @@ def test_mass_delete_over_threshold_aborts_without_changes(env: Env) -> None:
     assert len(env.tei.embed_inputs) == 0
 
 
+def test_mass_delete_check_runs_before_alias_is_attached(env: Env) -> None:
+    # 리뷰 1번 (새로 추가): 인덱스는 있는데 별칭이 없는 상태에서 5% 초과면 별칭도 붙이지 않는다
+    env.run(_chunks())
+    env.os.aliases.pop(ALIAS)
+    chunks = _chunks()
+    chunks.pop()
+    before = env.os.snapshot()
+
+    with pytest.raises(MassDeleteError):
+        env.run(chunks)
+
+    assert env.os.snapshot() == before
+    assert ALIAS not in env.os.aliases
+
+
 # --- 8. 7과 같은 조건에 --allow-mass-delete → 삭제 수행 ---
 
 
@@ -343,16 +358,44 @@ def test_chunk_without_meaningful_char_raises_before_embedding(env: Env) -> None
     assert env.os.indexes == {}
 
 
-# --- 10. bulk에서 create가 "updated"로 응답 → 오류 ---
+# --- 10. create 대상의 _id가 이미 있음 → bulk create가 409로 거절 → 오류 ---
+# 결정 변경(이슈 #17 결정 3, #17 리뷰 후): 이전 기대값은 "bulk index가 updated로 응답 → 오류"였다.
+# 이제 create 대상은 bulk create로 보내므로 서버가 409로 거절하고, 기존 문서는 덮어써지지 않는다
 
 
-def test_create_answered_as_updated_is_error(env: Env) -> None:
+def test_create_rejected_with_409_is_error_and_keeps_existing_doc(env: Env) -> None:
     env.run(_chunks())
     hidden = _chunks()[0].chunk_id
     env.os.hidden_ids.add(hidden)  # 저장돼 있지만 검색에 안 보임 → create로 판정됨
+    before = env.os.snapshot()
+    chunks = _chunks()
+    chunks[0] = chunks[0].model_copy(update={"text": "사업 개요 (덮어쓰면 안 됨)"})
 
-    with pytest.raises(IndexingError, match=hidden):
+    with pytest.raises(IndexingError, match=rf"{hidden}.*409"):
+        env.run(chunks)
+
+    assert env.os.snapshot() == before
+
+
+# --- 10-1. 배치 중간 오류 → 다음 배치 임베딩·쓰기 없음 (새로 추가) ---
+
+
+def test_bulk_error_stops_before_next_batch() -> None:
+    env = Env(make_clients_config(tei_max_client_batch_size=2))
+    env.run(_chunks())
+    first = _chunks()[0].chunk_id
+    env.os.hidden_ids.add(first)  # 첫 배치(청크 2개)의 create가 409로 거절된다
+    # 나머지 4개는 인덱스에서 지워 create 대상으로 만든다 (배치 3개: [0,1] [2,3] [4])
+    for chunk in _chunks()[1:]:
+        del env.os.docs(ALIAS)[chunk.chunk_id]
+
+    with pytest.raises(IndexingError, match=first):
         env.run(_chunks())
+
+    assert len(env.tei.embed_inputs) == 2
+    assert env.tei.embed_requests == 1
+    remaining = set(env.os.docs(ALIAS))
+    assert remaining == {first, _chunks()[1].chunk_id}  # 첫 배치의 두 번째만 쓰였다
 
 
 # --- 11. 같은 text라도 접두어가 다르면 content_hash가 다르다 ---
@@ -533,3 +576,64 @@ def test_metadata_hash_is_sha256_of_sorted_json() -> None:
     assert metadata_hash(fields) == expected
     assert metadata_hash(dict(reversed(fields.items()))) == expected
     assert metadata_hash({**fields, "page": 1}) != expected
+
+
+# --- 리뷰 2번 (새로 추가): 인덱스 이름이 별칭이면 실행 전에 멈춘다 ---
+
+
+def test_index_name_equal_to_alias_is_rejected(env: Env) -> None:
+    with pytest.raises(ValueError, match="별칭"):
+        index_chunks(
+            _chunks(),
+            env.documents,
+            client=cast(OpenSearch, env.os),
+            embedder=env.tei.client(env.config),
+            config=env.config,
+            index_name=ALIAS,
+            alias=ALIAS,
+            revision_reader=_no_volume_read,
+            now=lambda: FIXED_NOW,
+        )
+
+    assert env.os.indexes == {}
+    assert len(env.tei.embed_inputs) == 0
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_index_name_that_is_an_existing_alias_is_rejected(dry_run: bool) -> None:
+    # 실제 서버처럼 exists(index=별칭)이 True라서, 막지 않으면 별칭이 가리키는
+    # 다른 모델 인덱스가 전부 update(model)로 덮어써진다
+    env = Env()
+    env.os.indices.create(index="rfp_chunks_v1_other", body={"aliases": {INDEX: {}}})
+    env.os.docs("rfp_chunks_v1_other")["x"] = {"chunk_id": "x", "embedding_model": "other@1"}
+    before = env.os.snapshot()
+
+    with pytest.raises(ValueError, match=INDEX):
+        env.run(_chunks(), dry_run=dry_run)
+
+    assert env.os.snapshot() == before
+    assert len(env.tei.embed_inputs) == 0
+
+
+# --- 리뷰 4번 (새로 추가): dry-run 요약은 "현재 _count" ---
+
+
+def test_dry_run_summary_says_current_count(env: Env) -> None:
+    env.run(_chunks())
+
+    summary = format_report(env.run(_chunks(), dry_run=True))
+
+    assert "현재 _count 5" in summary
+    assert "최종 _count" not in summary
+    assert "최종 _count 5" in format_report(env.run(_chunks()))
+
+
+# --- 리뷰 13번 (새로 추가): 매핑 필드와 생성 문서의 키를 직접 대조 ---
+
+
+def test_created_document_keys_match_mapping_fields(env: Env) -> None:
+    env.run(_chunks())
+    mapping_fields = set(load_mapping()["mappings"]["properties"])
+
+    for doc in env.os.docs(ALIAS).values():
+        assert set(doc) == mapping_fields

@@ -22,6 +22,8 @@ uv run pytest tests/integration -m tei -q     # 실제 TEI 호출 테스트 (꺼
 
 `data/chunks/block_requirement.jsonl`을 `OPENSEARCH_INDEX_NAME`(예: `rfp_chunks_v1_kure`) 인덱스에 증분 색인한다. 리랭커는 필요 없으므로 `tei-embed`만 띄운다. 판정 규칙은 docs/data-design.md 5절.
 
+`.env`에 `OPENSEARCH_INDEX_NAME=rfp_chunks_v1_kure`를 직접 추가해야 한다(`.env.example` 참고). 없으면 빈 문자열(`''`)로 읽혀 CLI가 "OPENSEARCH_INDEX_NAME이 비어 있다"며 멈춘다. 별칭 이름(`rfp_chunks`)을 넣어도 실행 전에 멈춘다.
+
 ```bash
 cat /proc/sys/vm/max_map_count                # 262144 이상이어야 한다 (아래 "알려진 함정")
 docker compose up -d opensearch tei-embed

@@ -1,0 +1,44 @@
+{
+  "settings": {
+    "index": { "knn": true },
+    "analysis": {
+      "tokenizer": {
+        "ko_tokenizer": { "type": "nori_tokenizer", "decompound_mode": "mixed" }
+      },
+      "analyzer": {
+        "korean": {
+          "type": "custom",
+          "tokenizer": "ko_tokenizer",
+          "filter": ["nori_part_of_speech", "lowercase"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "chunk_id": { "type": "keyword" },
+      "doc_id": { "type": "keyword" },
+      "method": { "type": "keyword" },
+      "source_ids": { "type": "keyword" },
+      "text": { "type": "text", "analyzer": "korean" },
+      "requirement_id": { "type": "keyword" },
+      "block_type": { "type": "keyword" },
+      "page": { "type": "integer" },
+      "embedding": {
+        "type": "knn_vector",
+        "dimension": 1024,
+        "method": {
+          "name": "hnsw",
+          "engine": "lucene",
+          "space_type": "cosinesimil",
+          "parameters": { "m": 16, "ef_construction": 100 }
+        }
+      },
+      "embedding_model": { "type": "keyword" },
+      "content_hash": { "type": "keyword" },
+      "metadata_hash": { "type": "keyword" },
+      "indexed_at": { "type": "date" }
+    }
+  }
+}

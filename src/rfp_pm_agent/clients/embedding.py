@@ -13,8 +13,8 @@ import httpx
 
 from rfp_pm_agent.config import ClientsConfig
 
-# KURE-v1(현재 기본 임베딩 모델) 기준. docs/data-design.md의 knn_vector 차원과
-# 일치해야 한다. 이슈 #16에서 다른 모델로 바뀌면 이 값도 같이 바뀔 수 있다.
+# KURE-v1(#16에서 채택, ADR-0001)의 벡터 차원. OpenSearch 매핑
+# (ingest/index_mapping.json의 knn_vector dimension)과 같아야 한다 — 단위 테스트가 대조한다.
 EMBEDDING_DIM = 1024
 
 

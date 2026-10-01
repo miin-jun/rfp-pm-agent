@@ -21,9 +21,9 @@
 
 ## 구조
 - src/rfp_pm_agent/clients/   LLM·임베딩·리랭커 클라이언트 (base_url 전환, 비용 로그). 모델 호출은 여기서만
-- src/rfp_pm_agent/ingest/    나라장터 수집, 파서(pdf·hwpx·hwp), 청킹
+- src/rfp_pm_agent/ingest/    나라장터 수집, 파서(pdf·hwpx·hwp), 청킹, OpenSearch 색인(`index_chunks`, 매핑 `index_mapping.json`)
 - src/rfp_pm_agent/schemas/   Pydantic 스키마 (docs/data-design.md와 일치해야 함)
-- src/rfp_pm_agent/search/    OpenSearch 색인, 하이브리드 검색, 리랭킹, 근거 답변
+- src/rfp_pm_agent/search/    하이브리드 검색, 리랭킹, 근거 답변
 - src/rfp_pm_agent/pms/       PMS 모델·조회·합성 데이터
 - src/rfp_pm_agent/tools/     에이전트와 MCP 서버가 함께 쓰는 툴 함수
 - src/rfp_pm_agent/agent/     LangGraph 에이전트

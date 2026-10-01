@@ -1,9 +1,8 @@
 """Project configuration, read from environment variables only.
 
 CLAUDE.md 코드 규칙: 설정은 이 파일 한 곳에서 환경변수로 읽는다. 코드에
-URL·키·모델명·타임아웃을 하드코딩하지 않는다. 이 파일은 현재 이슈(#9,
-모델 클라이언트)에 필요한 값만 담고 있고, 이후 이슈(OpenSearch·Postgres 등)가
-같은 파일에 자기 설정을 추가한다.
+URL·키·모델명·타임아웃을 하드코딩하지 않는다. 이슈마다 필요한 설정을 이 파일에
+추가한다 (모델 클라이언트 #9, 나라장터 #10, OpenSearch #17).
 
 이슈 #10 검증 중 발견: `.env`를 읽는 코드가 레포 어디에도 없어서, 지금까지
 모든 설정이 (실제로는 `.env`에 값이 있어도) 하드코딩된 기본값으로만 동작하고
@@ -116,6 +115,27 @@ class ClientsConfig(BaseModel):
             tei_max_client_batch_size=_get_int("TEI_MAX_CLIENT_BATCH_SIZE", 32),
             tei_models_volume=os.environ.get("TEI_MODELS_VOLUME", "rfp-pm-agent_tei_models"),
             cost_log_path=os.environ.get("COST_LOG_PATH", "data/cost_log.jsonl"),
+        )
+
+
+class OpenSearchConfig(BaseModel):
+    """OpenSearch 연결과 인덱스 이름 (이슈 #17).
+
+    index_alias는 검색 코드가 부르는 이름이고, index_name은 색인 모듈이 쓰는 실제 인덱스다.
+    인덱스는 임베딩 모델별로 나누므로(docs/data-design.md 5절) index_name에 모델 이름이
+    들어간다 — 모델명을 코드에 두지 않으려고 기본값을 비워 두고, 비어 있으면 색인 CLI가 멈춘다.
+    """
+
+    url: str
+    index_alias: str
+    index_name: str
+
+    @classmethod
+    def from_env(cls) -> OpenSearchConfig:
+        return cls(
+            url=os.environ.get("OPENSEARCH_URL", "http://localhost:9200"),
+            index_alias=os.environ.get("OPENSEARCH_INDEX_ALIAS", "rfp_chunks"),
+            index_name=os.environ.get("OPENSEARCH_INDEX_NAME", ""),
         )
 
 

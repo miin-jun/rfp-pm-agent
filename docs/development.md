@@ -18,9 +18,34 @@ curl -i localhost:8080/health                 # 200이면 준비 완료 (리랭�
 uv run pytest tests/integration -m tei -q     # 실제 TEI 호출 테스트 (꺼져 있으면 실패)
 ```
 
+### OpenSearch 색인 (#17)
+
+`data/chunks/block_requirement.jsonl`을 `OPENSEARCH_INDEX_NAME`(예: `rfp_chunks_v1_kure`) 인덱스에 증분 색인한다. 리랭커는 필요 없으므로 `tei-embed`만 띄운다. 판정 규칙은 docs/data-design.md 5절.
+
+```bash
+cat /proc/sys/vm/max_map_count                # 262144 이상이어야 한다 (아래 "알려진 함정")
+docker compose up -d opensearch tei-embed
+curl -s localhost:9200/_cluster/health        # status가 red가 아니면 준비 완료 (단일 노드라 yellow일 수 있음)
+curl -i localhost:8080/health                 # 200이면 준비 완료
+
+# 1) 먼저 dry-run: 인덱스를 만들지도 쓰지도 않고, TEI는 /info만 부른다
+uv run python -m rfp_pm_agent.ingest.index_chunks --dry-run
+# 2) 실제 색인 — 결과 요약: create / update(content, model) / skip / delete / TEI 임베딩 입력 수 / 소요 시간 / 최종 _count
+uv run python -m rfp_pm_agent.ingest.index_chunks
+```
+
+- 삭제 대상이 인덱스 문서 수의 5%를 넘으면 `MassDeleteError`로 멈춘다(인덱스는 바뀌지 않는다). dry-run으로 삭제 대상 ID를 확인한 뒤에만 `--allow-mass-delete`를 붙인다
+- TEI `/info`의 `model_sha`가 null이면(TEI 1.9.4 기본) revision을 읽으려고 `docker run --rm`으로 일회용 컨테이너를 띄워 모델 볼륨의 `snapshots/`를 본다 — dry-run에서도 같다
+- 인덱스가 이미 있으면 매핑은 바꾸지 않는다. 매핑을 바꿨다면 새 인덱스 이름으로 색인한 뒤 별칭을 옮긴다
+
 ## 알려진 함정
 
 - **WSL2에서 OpenSearch 컨테이너가 계속 재시작되거나 바로 죽는 경우**: 커널의 `vm.max_map_count`가 기본값(65530)이라 OpenSearch(Lucene)가 요구하는 최소값(262144)에 못 미쳐서 발생합니다.
+  - 현재 값 확인 (WSL2 배포판들은 커널 하나를 함께 쓰므로 Ubuntu 안에서 확인하면 된다):
+    ```bash
+    cat /proc/sys/vm/max_map_count                                    # 262144 이상이면 정상
+    grep -rn max_map_count /etc/sysctl.conf /etc/sysctl.d/ 2>/dev/null   # 영구 설정이 있는지
+    ```
   - 임시 적용 (WSL 재시작 시 초기화됨):
     ```bash
     sudo sysctl -w vm.max_map_count=262144

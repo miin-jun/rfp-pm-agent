@@ -6,7 +6,7 @@ import pytest
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
-from rfp_pm_agent.config import ClientsConfig, NaraApiConfig
+from rfp_pm_agent.config import ClientsConfig, NaraApiConfig, OpenSearchConfig
 
 
 def test_from_env_reads_base_urls_and_models(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -171,3 +171,25 @@ def test_from_env_embed_truncate_rejects_unknown_value(monkeypatch: pytest.Monke
 
     with pytest.raises(ValueError, match="EMBED_TRUNCATE"):
         ClientsConfig.from_env()
+
+
+def test_opensearch_config_reads_env_names_from_env_example(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # .env.example의 키 이름 그대로 읽는지 확인 (이슈 #17)
+    monkeypatch.setenv("OPENSEARCH_URL", "http://opensearch.test:9200")
+    monkeypatch.setenv("OPENSEARCH_INDEX_ALIAS", "alias_test")
+    monkeypatch.setenv("OPENSEARCH_INDEX_NAME", "index_test")
+
+    config = OpenSearchConfig.from_env()
+
+    assert config.url == "http://opensearch.test:9200"
+    assert config.index_alias == "alias_test"
+    assert config.index_name == "index_test"
+
+
+def test_opensearch_config_index_name_defaults_to_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 인덱스 이름에는 모델 이름이 들어가므로 코드에 기본값을 두지 않는다
+    monkeypatch.delenv("OPENSEARCH_INDEX_NAME", raising=False)
+
+    assert OpenSearchConfig.from_env().index_name == ""

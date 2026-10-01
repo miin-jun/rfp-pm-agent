@@ -175,28 +175,35 @@ Document
 |---|---|---|
 | `chunk_id` | keyword | `{doc_id}:{method}:{source_id}`. method는 block / requirement / block_requirement, source_id는 블록 ID(예: b0001) 또는 요구사항 ID. 블록을 더 나누지 않으므로 순번 없음. 파일 안에서 고유함을 확인(#65: 3,077 / 3,499 / 422 모두 중복 0) |
 | `doc_id` | keyword | |
+| `method` | keyword | 청킹 방식 (block / requirement / block_requirement) |
+| `source_ids` | keyword[] | 원본 조각 ID (블록 ID 또는 요구사항 ID, 지금은 항상 1개) |
 | `project_id` | keyword | PMS 프로젝트와 연결 (RFP 1건 = 프로젝트 1개) |
 | `text` | text (nori) | 원문 (답변 근거로 보여줄 텍스트) |
 | `text_for_embedding` | — (저장만) | 섹션 경로 + 원문 |
 | `heading_path` | text (nori) | 섹션 경로 |
 | `requirement_id` | keyword | `SFR-001` |
 | `requirement_category` | keyword | `SFR` |
-| `block_type` | keyword | paragraph / table / list |
-| `page` | integer | PDF만 |
+| `block_type` | keyword | paragraph / table (Silver `Block.type`). 요구사항 청크는 null |
+| `page` | integer | PDF만. Silver와 같은 **0부터 세는** PDF 페이지(블록 `pdf_page`, 요구사항 `pdf_page_start`). 인쇄 쪽번호가 아니다 |
 | `notice_no`, `agency` | keyword | |
 | `security_level` | keyword | 권한 필터용 (Phase 2 적용) |
 | `allowed_roles` | keyword[] | 권한 필터용 (Phase 2 적용) |
 | `embedding` | knn_vector(1024) | KURE-v1 기준 |
-| `embedding_model` | keyword | `nlpai-lab/KURE-v1@{revision}` — **모델 혼용 방지** |
-| `content_hash` | keyword | 증분 색인용 (내용이 같으면 재임베딩 생략) |
-| `indexed_at` | date | |
+| `embedding_model` | keyword | `{모델ID}@{revision}` (예: `nlpai-lab/KURE-v1@{revision}`) — **모델 혼용 방지**. revision은 TEI `/info`의 `model_sha`, null이면(TEI 1.9.4 기본) TEI 모델 볼륨의 `snapshots/` 해시 (#17) |
+| `content_hash` | keyword | 증분 색인용. **sha256(TEI `/embed`에 실제로 보내는 문자열)**, 16진수 64자 전체. 그 문자열은 `EMBED_PASSAGE_PREFIX + text`라 접두어가 바뀌면 값이 바뀐다. **`embedding_model`과 함께 비교**해, 둘 다 같을 때만 재임베딩을 생략한다 (#17) |
+| `indexed_at` | date | 실제 색인 시각(UTC). 기준일 `AS_OF_DATE`와 관계없다 |
+
+첫 인덱스(#17)에 실제로 들어간 필드는 5절 "첫 인덱스 필드"를 본다. 위 표에서 빠진 필드는 그 이유와 함께 5절에 적었다.
 
 ---
 
 ## 5. OpenSearch 인덱스
 
+매핑 원본은 `src/rfp_pm_agent/ingest/index_mapping.json`이다(#17). 아래는 그 요약이고, 값이 다르면 JSON이 맞다
+(`tests/unit/test_ingest_index_chunks.py::test_mapping_matches_decision`이 결정값을 고정한다).
+
 ```jsonc
-// PUT rfp_chunks_v1_kure   (실제 파일은 JSON — 주석은 설명용)
+// PUT rfp_chunks_v1_kure   (인덱스 이름은 OPENSEARCH_INDEX_NAME, 별칭은 OPENSEARCH_INDEX_ALIAS)
 {
   "settings": {
     "index": { "knn": true },
@@ -214,27 +221,45 @@ Document
     }
   },
   "mappings": {
+    "dynamic": "strict",          // 매핑에 없는 필드가 오면 색인 오류 (모르는 필드가 에러 없이 추가되지 않게)
     "properties": {
-      "text":          { "type": "text", "analyzer": "korean" },
-      "heading_path":  { "type": "text", "analyzer": "korean" },
-      "requirement_id":{ "type": "keyword" },
-      "allowed_roles": { "type": "keyword" },
-      "security_level":{ "type": "keyword" },
+      "chunk_id":        { "type": "keyword" },
+      "doc_id":          { "type": "keyword" },
+      "method":          { "type": "keyword" },
+      "source_ids":      { "type": "keyword" },
+      "text":            { "type": "text", "analyzer": "korean" },
+      "requirement_id":  { "type": "keyword" },
+      "block_type":      { "type": "keyword" },
+      "page":            { "type": "integer" },
       "embedding": {
         "type": "knn_vector",
         "dimension": 1024,
-        "method": { "name": "hnsw", "engine": "lucene", "space_type": "cosinesimil" }
-      }
-      // 나머지 keyword·date 필드 생략
+        "method": {
+          "name": "hnsw", "engine": "lucene", "space_type": "cosinesimil",
+          "parameters": { "m": 16, "ef_construction": 100 }
+        }
+      },
+      "embedding_model": { "type": "keyword" },
+      "content_hash":    { "type": "keyword" },
+      "indexed_at":      { "type": "date" }
     }
   }
 }
 ```
 
+- **문서 `_id` = `chunk_id`** (#65 확인: 3,077 / 3,499 / 422 모두 중복 0). 색인 모듈은 청크 파일에 chunk_id 중복이 있으면 멈춘다
+- **HNSW 파라미터**: `m=16`, `ef_construction=100`을 명시한다. OpenSearch 2.19 lucene 엔진의 기본값과 같지만, 기본값이 버전마다 바뀐 적이 있어(2.11 이하 `ef_construction` 512) 매핑에 고정한다. lucene은 `ef_search`를 쓰지 않고 요청의 k를 쓴다 (공식 문서 2.19 "Methods and engines")
+- **첫 인덱스 필드 (#17, 2026-10-01 결정)**: chunk_id, doc_id, method, source_ids, text, requirement_id, block_type, page, embedding, embedding_model, content_hash, indexed_at. 임베딩 입력은 `text`(#16과 같음)
+  - 제외 `agency`, `project_id` — 출처가 없다 (manifest·Silver 어디에도 없음)
+  - 제외 `heading_path`, `text_for_embedding` — 4절 경고대로 #11 이후 구조에 맞게 다시 정의해야 한다
+  - 제외 `requirement_category`, `notice_no`, `security_level`, `allowed_roles` — 결정 목록에 없다. 필요해지면 매핑에 필드를 추가하고 다시 색인한다 (`dynamic: strict`라 매핑 추가가 먼저다)
+- **첫 색인 대상 청크 파일**: `data/chunks/block_requirement.jsonl`, #62 이후 3,499개, sha256 `3864758c77d4c3fe2e83437388e28b146670fdbd598b04003627ca7459906b7f` (앞 12자 `3864758c77d4`, PR #66 확인 실행 기록과 같음). #16 모델 선정은 그 전 파일(`e07f4fbbe181`, 3,514개) 기준이다 — 두 파일 차이는 의미 글자 없는 블록 15개
+- **증분 색인 판정** (`uv run python -m rfp_pm_agent.ingest.index_chunks`): 인덱스에 없음 → create / `content_hash` 다름 → update(content) / `embedding_model` 다름 → update(model) / 둘 다 같음 → skip(TEI 호출 없음) / 인덱스에만 있음 → delete. 삭제 대상이 인덱스 문서 수의 5%를 넘으면 멈추고 `--allow-mass-delete`로만 허용한다. 실행 방법은 docs/development.md
+
 - **별칭(alias) 운영**: 코드는 항상 `rfp_chunks`(별칭)만 부르고, 실제 인덱스는 `rfp_chunks_v1_kure`, `rfp_chunks_v1_bgem3`처럼 **모델별로 분리** → 이후 모델 교체를 **검색 중단 없이 별칭 전환만으로** 처리
-- **채택 모델 (#16, 2026-09-27)**: 임베딩 **KURE-v1**([ADR-0001](adr/0001-embedding-model.md)), 리랭커 bge-reranker-v2-m3 N=20([ADR-0002](adr/0002-reranker.md)). 별칭 `rfp_chunks` → `rfp_chunks_v1_kure`로 시작한다. 인덱스·별칭 생성과 색인은 **#17**에서 한다
-  - #16 모델 선정은 OpenSearch가 아니라 **메모리 내 코사인 검색**(`search/dense.py`, #17에서 대체되는 임시 구현)으로 측정했다. 모델별 벡터는 `data/cache/embeddings/`(git 제외)에 따로 두었다 — 별칭 전환 방식은 아직 쓰이지 않았다
-- `engine: lucene` — 소규모 데이터에 충분하고, 필터를 k-NN 탐색 안에서 적용하는 방식을 지원 (RBAC 사전 필터에 사용). 세부 옵션은 구현 시 공식 문서로 확인
+- **채택 모델 (#16, 2026-09-27)**: 임베딩 **KURE-v1**([ADR-0001](adr/0001-embedding-model.md)), 리랭커 bge-reranker-v2-m3 N=20([ADR-0002](adr/0002-reranker.md)). 별칭 `rfp_chunks` → `rfp_chunks_v1_kure`로 시작한다. 인덱스·별칭 생성과 색인은 **#17**에서 한다. 색인 모듈은 인덱스가 없을 때만 만들고, 별칭이 아직 없을 때만 연결한다 — 별칭이 다른 인덱스를 가리키고 있으면 그대로 두고, 전환은 사람이 따로 한다
+  - #16 모델 선정은 OpenSearch가 아니라 **메모리 내 코사인 검색**(`search/dense.py`, 임시 구현. OpenSearch k-NN 검색으로 바꾸는 것은 #18 — #17은 색인까지만 한다)으로 측정했다. 모델별 벡터는 `data/cache/embeddings/`(git 제외)에 따로 두었다 — 별칭 전환 방식은 아직 쓰이지 않았다
+- `engine: lucene` — 소규모 데이터에 충분하고, 필터를 k-NN 탐색 안에서 적용하는 방식을 지원 (RBAC 사전 필터에 사용)
 - **요구사항 ID 정확 일치 질문**("SFR-012가 뭐야?")은 `requirement_id` keyword 필드 직접 조회를 우선
 - 하이브리드: OpenSearch 검색 파이프라인의 **RRF**(2.19+) 사용 + 비교용으로 **앱 코드 RRF**도 구현 (f1-ragops 경험 재사용)
 
@@ -389,6 +414,7 @@ projects ─┬─< project_members >── users
 | `AS_OF_DATE` | `2026-09-21` | 합성 세계의 "오늘" |
 | `OPENSEARCH_URL` | `http://localhost:9200` | |
 | `OPENSEARCH_INDEX_ALIAS` | `rfp_chunks` | |
+| `OPENSEARCH_INDEX_NAME` | `rfp_chunks_v1_kure` | 색인 모듈이 쓰는 실제 인덱스(모델별). 검색 코드는 별칭만 쓴다 (#17) |
 | `POSTGRES_DSN` | `postgresql+psycopg://app:app@localhost:5432/si` | |
 | `POSTGRES_READONLY_DSN` | `postgresql+psycopg://agent_ro:...@localhost:5432/si` | 에이전트 툴 전용 읽기 계정 |
 | `NARA_API_KEY` | (비밀) | 나라장터 입찰공고정보서비스(공공데이터포털) 인증키 |

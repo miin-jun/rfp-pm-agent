@@ -30,7 +30,7 @@ curl -i localhost:8080/health                 # 200이면 준비 완료
 
 # 1) 먼저 dry-run: 인덱스를 만들지도 쓰지도 않고, TEI는 /info만 부른다
 uv run python -m rfp_pm_agent.ingest.index_chunks --dry-run
-# 2) 실제 색인 — 결과 요약: create / update(content, model) / skip / delete / TEI 임베딩 입력 수 / 소요 시간 / 최종 _count
+# 2) 실제 색인 — 결과 요약: create / update(content, model, metadata) / skip / delete / TEI 임베딩 입력 수 / 소요 시간 / 최종 _count
 uv run python -m rfp_pm_agent.ingest.index_chunks
 ```
 

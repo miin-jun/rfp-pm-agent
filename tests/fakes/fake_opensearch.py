@@ -3,7 +3,7 @@
 색인 모듈(`ingest/index_chunks.py`)이 쓰는 호출만 흉내 낸다.
 - `indices.exists / create / exists_alias / get_alias / put_alias / refresh`
 - `search`: match_all + `_source` 필드 목록 + `sort` 1개 필드 + `search_after`
-- `bulk`: `index`(같은 _id가 있으면 "updated", 없으면 "created")와 `delete`
+- `bulk`: `index`(같은 _id가 있으면 "updated", 없으면 "created"), `update`(부분 update, 없으면 404)와 `delete`
   ("deleted" 또는 404 "not_found") — 응답 모양은 OpenSearch bulk 응답과 같다
 - `count`
 
@@ -124,6 +124,23 @@ class FakeOpenSearch:
                 items.append(
                     {op: {"_id": doc_id, "result": result, "status": 200 if existed else 201}}
                 )
+                i += 2
+            elif op == "update":
+                # 부분 update: {"doc": {...}}의 필드만 덮는다. 문서가 없으면 404 오류
+                partial = body[i + 1]["doc"]
+                if doc_id in docs:
+                    docs[doc_id].update(copy.deepcopy(partial))
+                    items.append({op: {"_id": doc_id, "result": "updated", "status": 200}})
+                else:
+                    items.append(
+                        {
+                            op: {
+                                "_id": doc_id,
+                                "status": 404,
+                                "error": {"type": "document_missing_exception"},
+                            }
+                        }
+                    )
                 i += 2
             elif op == "delete":
                 if doc_id in docs:

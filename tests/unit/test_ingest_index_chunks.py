@@ -10,6 +10,7 @@ OpenSearch는 `tests/fakes/fake_opensearch.py`, TEI는 `tests/fakes/fake_tei.py`
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -28,6 +29,7 @@ from rfp_pm_agent.ingest.index_chunks import (
     format_report,
     index_chunks,
     load_mapping,
+    metadata_hash,
 )
 from rfp_pm_agent.schemas.chunk import Chunk
 from rfp_pm_agent.schemas.document import Block, Document, Requirement
@@ -165,6 +167,7 @@ def test_created_documents_have_decided_fields(env: Env) -> None:
         "embedding",
         "embedding_model",
         "content_hash",
+        "metadata_hash",
         "indexed_at",
     }
     assert block["block_type"] == "table"
@@ -385,6 +388,7 @@ def test_mapping_matches_decision() -> None:
         "embedding",
         "embedding_model",
         "content_hash",
+        "metadata_hash",
         "indexed_at",
     }
     assert props["text"] == {"type": "text", "analyzer": "korean"}
@@ -464,3 +468,68 @@ def test_cli_help_renders() -> None:
 
     assert "--allow-mass-delete" in help_text
     assert "5%" in help_text
+
+
+# --- 12. 청크 1개의 page만 변경 → update 1(metadata), skip 4, TEI 0, page 새 값, embedding 그대로 ---
+
+
+def test_changed_page_only_updates_metadata_without_embedding(env: Env) -> None:
+    env.run(_chunks())
+    target = f"{DOC_ID}:block_requirement:b0002"
+    old = env.os.docs(ALIAS)[target]
+    old_embedding = list(old["embedding"])
+    old_content_hash = old["content_hash"]
+    # 가짜가 문서 dict를 그 자리에서 고치므로 비교할 값을 미리 복사해 둔다
+    old_metadata_hash = old["metadata_hash"]
+    env.documents[DOC_ID].blocks[1].pdf_page = 7
+
+    report = env.run(_chunks())
+
+    assert report.updated_metadata == 1
+    assert report.updated_content == report.updated_model == 0
+    assert report.skipped == 4
+    assert len(env.tei.embed_inputs) == 0
+    new = env.os.docs(ALIAS)[target]
+    assert new["page"] == 7
+    assert new["embedding"] == old_embedding
+    assert new["content_hash"] == old_content_hash
+    assert new["metadata_hash"] != old_metadata_hash
+
+
+# --- 13. text와 page를 함께 변경 → update 1(content), TEI 1 (content가 우선) ---
+
+
+def test_changed_text_and_page_counts_as_content(env: Env) -> None:
+    env.run(_chunks())
+    chunks = _chunks()
+    chunks[1] = chunks[1].model_copy(update={"text": "구분 | 내용 (수정)"})
+    env.documents[DOC_ID].blocks[1].pdf_page = 7
+
+    report = env.run(chunks)
+
+    assert report.updated_content == 1
+    assert report.updated_metadata == 0
+    assert report.updated_model == 0
+    assert report.skipped == 4
+    assert len(env.tei.embed_inputs) == 1
+    doc = env.os.docs(ALIAS)[chunks[1].chunk_id]
+    assert doc["page"] == 7
+    assert doc["text"] == "구분 | 내용 (수정)"
+
+
+def test_metadata_hash_is_sha256_of_sorted_json() -> None:
+    fields = {
+        "doc_id": "d",
+        "method": "block_requirement",
+        "source_ids": ["b0001"],
+        "requirement_id": None,
+        "block_type": "paragraph",
+        "page": 0,
+    }
+    expected = hashlib.sha256(
+        json.dumps(fields, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()
+    ).hexdigest()
+
+    assert metadata_hash(fields) == expected
+    assert metadata_hash(dict(reversed(fields.items()))) == expected
+    assert metadata_hash({**fields, "page": 1}) != expected

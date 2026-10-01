@@ -37,6 +37,7 @@
       },
       "embedding_model": { "type": "keyword" },
       "content_hash": { "type": "keyword" },
+      "metadata_hash": { "type": "keyword" },
       "indexed_at": { "type": "date" }
     }
   }

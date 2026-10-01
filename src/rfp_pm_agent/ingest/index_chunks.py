@@ -5,19 +5,25 @@
    같은 기준). chunk_id 중복도 ValueError — 문서 `_id`로 쓰기 때문이다(#65)
 2. 청크마다 content_hash 계산 = sha256(TEI `/embed`에 실제로 보내는 문자열). 그 문자열은
    `EMBED_PASSAGE_PREFIX + text`다 — `TEIEmbeddingClient`가 붙이는 접두어와 같은 설정값을 쓴다
-3. embedding_model = "{모델ID}@{revision}". TEI `/info`의 model_sha가 있으면 그 값, null이면
+3. 청크마다 metadata_hash 계산 = 임베딩하지 않는 필드(`METADATA_FIELDS`)의 sha256.
+   직렬화 규칙은 `metadata_hash` 설명 참고
+4. embedding_model = "{모델ID}@{revision}". TEI `/info`의 model_sha가 있으면 그 값, null이면
    (TEI 1.9.4 기본) #16과 같은 방법으로 TEI 모델 볼륨의 snapshots/를 읽는다
-4. 인덱스가 없으면 만들고(매핑은 `index_mapping.json`), 별칭이 아직 없을 때만 연결한다.
+5. 인덱스가 없으면 만들고(매핑은 `index_mapping.json`), 별칭이 아직 없을 때만 연결한다.
    이미 있는 인덱스의 매핑은 바꾸지 않는다
-5. 인덱스에서 chunk_id·content_hash·embedding_model만 읽어 판정한다
-   - 인덱스에 없음 → create / content_hash 다름 → update(content) /
-     embedding_model 다름 → update(model) / 둘 다 같음 → skip / 인덱스에만 있음 → delete
-   - content_hash와 embedding_model이 둘 다 다르면 update(content)로 센다
-6. 삭제 대상이 인덱스 문서 수의 5%를 넘으면 MassDeleteError (`--allow-mass-delete`로만 허용).
+6. 인덱스에서 chunk_id·content_hash·embedding_model·metadata_hash만 읽어 판정한다. 위에서부터
+   처음 맞는 것 하나로 정한다(content > model > metadata)
+   - 인덱스에 없음 → create
+   - content_hash 다름 → update(content): 다시 임베딩하고 문서 전체를 다시 쓴다
+   - embedding_model 다름 → update(model): 위와 같음
+   - metadata_hash만 다름 → update(metadata): 벡터는 그대로 두고 메타데이터 필드와
+     metadata_hash만 부분 update한다. TEI를 부르지 않는다. indexed_at도 그대로 둔다
+   - 셋 다 같음 → skip / 인덱스에만 있음 → delete
+7. 삭제 대상이 인덱스 문서 수의 5%를 넘으면 MassDeleteError (`--allow-mass-delete`로만 허용).
    이 검사는 임베딩·적재 전에 하므로, 걸리면 인덱스는 바뀌지 않는다
-7. create·update 대상만 `TEI_MAX_CLIENT_BATCH_SIZE`(기본 32)개씩 임베딩해 bulk로 적재하고,
-   그 다음 stale 문서를 지운다
-8. bulk 응답을 항목별로 확인한다. create로 보낸 문서가 "updated"로 돌아오면(검색에는 안 보였는데
+8. create·update(content·model) 대상만 `TEI_MAX_CLIENT_BATCH_SIZE`(기본 32)개씩 임베딩해 bulk로
+   적재하고, update(metadata)를 부분 update로 보낸 뒤, stale 문서를 지운다
+9. bulk 응답을 항목별로 확인한다. create로 보낸 문서가 "updated"로 돌아오면(검색에는 안 보였는데
    같은 _id가 이미 있었음) 오류로 친다. 적재 단계에서 오류가 하나라도 있으면 삭제 전에 멈춘다
 
 읽기·쓰기는 별칭이 아니라 실제 인덱스 이름(`OPENSEARCH_INDEX_NAME`)으로 한다. 이 모듈은 모델별
@@ -64,7 +70,8 @@ DEFAULT_CHUNKS_FILE = Path("data/chunks/block_requirement.jsonl")
 # 삭제 대상이 인덱스 문서 수의 이 비율을 넘으면 멈춘다 (이슈 #17 결정 4)
 MASS_DELETE_RATIO = 0.05
 FETCH_PAGE_SIZE = 1000
-DELETE_BATCH_SIZE = 500
+# 삭제·메타데이터 부분 update는 임베딩이 없어 TEI 배치 크기와 상관없이 이만큼씩 보낸다
+WRITE_BATCH_SIZE = 500
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +102,24 @@ def content_hash(embed_text: str) -> str:
     return hashlib.sha256(embed_text.encode("utf-8")).hexdigest()
 
 
+# metadata_hash의 입력 필드. 문서에 저장하지만 임베딩하지 않는 필드다. chunk_id는 문서 _id(판정의
+# 열쇠)라서, text는 content_hash가 덮어서, embedding·embedding_model·content_hash·indexed_at은
+# 색인 과정이 만든 값이라서 넣지 않는다. 매핑에 임베딩하지 않는 필드를 추가하면 여기에도 넣는다.
+METADATA_FIELDS = ("doc_id", "method", "source_ids", "requirement_id", "block_type", "page")
+
+
+def metadata_hash(fields: Mapping[str, Any]) -> str:
+    """`METADATA_FIELDS`만 골라 JSON으로 직렬화한 문자열의 sha256 16진수 64자.
+
+    직렬화: `json.dumps(..., sort_keys=True, ensure_ascii=False, separators=(",", ":"))`를
+    UTF-8로 인코딩한다. 키를 정렬하므로 dict 순서와 무관하고, 없는 필드는 null로 넣는다
+    (필드가 빠진 것과 null을 구별하지 않는다). source_ids는 목록 순서 그대로 비교한다.
+    """
+    selected = {name: fields.get(name) for name in METADATA_FIELDS}
+    serialized = json.dumps(selected, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
 def load_mapping() -> dict[str, Any]:
     """인덱스 settings·mappings (docs/data-design.md 5절을 옮긴 JSON)."""
     raw = resources.files("rfp_pm_agent.ingest").joinpath("index_mapping.json").read_text("utf-8")
@@ -103,10 +128,18 @@ def load_mapping() -> dict[str, Any]:
 
 
 class IndexedMeta(BaseModel):
-    """인덱스에 이미 있는 문서에서 판정에 쓰는 두 값."""
+    """인덱스에 이미 있는 문서에서 판정에 쓰는 세 값. 없는 필드는 빈 문자열로 읽는다."""
 
     content_hash: str
     embedding_model: str
+    metadata_hash: str = ""
+
+
+class ChunkHashes(BaseModel):
+    """청크 파일 쪽에서 계산한 두 해시."""
+
+    content_hash: str
+    metadata_hash: str
 
 
 class IndexPlan(BaseModel):
@@ -115,6 +148,7 @@ class IndexPlan(BaseModel):
     create: list[str] = Field(default_factory=list)
     update_content: list[str] = Field(default_factory=list)
     update_model: list[str] = Field(default_factory=list)
+    update_metadata: list[str] = Field(default_factory=list)
     skip: list[str] = Field(default_factory=list)
     delete: list[str] = Field(default_factory=list)
 
@@ -131,6 +165,7 @@ class IndexReport(BaseModel):
     created: int
     updated_content: int
     updated_model: int
+    updated_metadata: int
     skipped: int
     deleted: int
     delete_ids: list[str]
@@ -142,18 +177,23 @@ class IndexReport(BaseModel):
 
 
 def plan_index(
-    hashes: Mapping[str, str], embedding_model: str, indexed: Mapping[str, IndexedMeta]
+    hashes: Mapping[str, ChunkHashes], embedding_model: str, indexed: Mapping[str, IndexedMeta]
 ) -> IndexPlan:
-    """청크별 content_hash와 인덱스 상태를 비교해 create/update/skip/delete를 정한다."""
+    """청크별 해시와 인덱스 상태를 비교해 create/update/skip/delete를 정한다.
+
+    우선순위는 content > model > metadata다 (모듈 설명 6번).
+    """
     plan = IndexPlan()
     for chunk_id, digest in hashes.items():
         meta = indexed.get(chunk_id)
         if meta is None:
             plan.create.append(chunk_id)
-        elif meta.content_hash != digest:
+        elif meta.content_hash != digest.content_hash:
             plan.update_content.append(chunk_id)
         elif meta.embedding_model != embedding_model:
             plan.update_model.append(chunk_id)
+        elif meta.metadata_hash != digest.metadata_hash:
+            plan.update_metadata.append(chunk_id)
         else:
             plan.skip.append(chunk_id)
     plan.delete = sorted(set(indexed) - set(hashes))
@@ -236,6 +276,16 @@ def source_fields(chunk: Chunk, documents: Mapping[str, Document]) -> dict[str, 
     raise ValueError(f"{chunk.chunk_id}의 원본 조각 {source_id}를 파싱 결과에서 찾지 못했다")
 
 
+def metadata_fields(chunk: Chunk, documents: Mapping[str, Document]) -> dict[str, Any]:
+    """문서에 저장하는 메타데이터 필드 전부 (`METADATA_FIELDS`와 같은 키)."""
+    return {
+        "doc_id": chunk.doc_id,
+        "method": chunk.method,
+        "source_ids": chunk.source_ids,
+        **source_fields(chunk, documents),
+    }
+
+
 def ensure_index(client: OpenSearch, index_name: str, alias: str) -> bool:
     """인덱스가 없으면 만들고 True. 이미 있으면 매핑을 건드리지 않고 False.
 
@@ -268,7 +318,7 @@ def fetch_indexed(client: OpenSearch, index_name: str) -> dict[str, IndexedMeta]
     """인덱스의 모든 문서에서 content_hash·embedding_model만 읽는다 (chunk_id 순 search_after)."""
     body: dict[str, Any] = {
         "size": FETCH_PAGE_SIZE,
-        "_source": ["content_hash", "embedding_model"],
+        "_source": ["content_hash", "embedding_model", "metadata_hash"],
         "sort": [{"chunk_id": "asc"}],
         "query": {"match_all": {}},
     }
@@ -280,6 +330,7 @@ def fetch_indexed(client: OpenSearch, index_name: str) -> dict[str, IndexedMeta]
             indexed[hit["_id"]] = IndexedMeta(
                 content_hash=str(source.get("content_hash", "")),
                 embedding_model=str(source.get("embedding_model", "")),
+                metadata_hash=str(source.get("metadata_hash", "")),
             )
         if len(hits) < FETCH_PAGE_SIZE:
             return indexed
@@ -321,23 +372,21 @@ class BulkTally:
 
 def _document_body(
     chunk: Chunk,
-    fields: Mapping[str, Any],
+    metadata: Mapping[str, Any],
     vector: list[float],
     *,
     embedding_model: str,
-    digest: str,
+    digest: ChunkHashes,
     indexed_at: str,
 ) -> dict[str, Any]:
     return {
         "chunk_id": chunk.chunk_id,
-        "doc_id": chunk.doc_id,
-        "method": chunk.method,
-        "source_ids": chunk.source_ids,
         "text": chunk.text,
-        **fields,
+        **metadata,
         "embedding": vector,
         "embedding_model": embedding_model,
-        "content_hash": digest,
+        "content_hash": digest.content_hash,
+        "metadata_hash": digest.metadata_hash,
         "indexed_at": indexed_at,
     }
 
@@ -368,9 +417,13 @@ def index_chunks(
     if not index_name:
         raise ValueError("인덱스 이름이 비어 있다 (OPENSEARCH_INDEX_NAME)")
     check_chunks(chunks)
-    fields_by_id = {c.chunk_id: source_fields(c, documents) for c in chunks}
+    metadata_by_id = {c.chunk_id: metadata_fields(c, documents) for c in chunks}
     hashes = {
-        c.chunk_id: content_hash(embed_input(c.text, config.embed_passage_prefix)) for c in chunks
+        c.chunk_id: ChunkHashes(
+            content_hash=content_hash(embed_input(c.text, config.embed_passage_prefix)),
+            metadata_hash=metadata_hash(metadata_by_id[c.chunk_id]),
+        )
+        for c in chunks
     }
     embedding_model = resolve_embedding_model(
         embedder.info(), config, revision_reader or volume_revision_reader(config)
@@ -399,6 +452,7 @@ def index_chunks(
             created=len(plan.create),
             updated_content=len(plan.update_content),
             updated_model=len(plan.update_model),
+            updated_metadata=len(plan.update_metadata),
             skipped=len(plan.skip),
             deleted=len(plan.delete),
             delete_ids=plan.delete,
@@ -436,7 +490,7 @@ def index_chunks(
             operations.append(
                 _document_body(
                     chunk,
-                    fields_by_id[chunk.chunk_id],
+                    metadata_by_id[chunk.chunk_id],
                     vector,
                     embedding_model=embedding_model,
                     digest=hashes[chunk.chunk_id],
@@ -446,7 +500,17 @@ def index_chunks(
         tally.add(client.bulk(body=operations), {cid: expected_result[cid] for cid in batch_ids})
     tally.raise_if_errors("적재")
 
-    for delete_ids in batched(plan.delete, DELETE_BATCH_SIZE):
+    # 메타데이터만 바뀐 문서: 벡터·content_hash·indexed_at은 두고 메타데이터 필드만 덮는다
+    for update_ids in batched(plan.update_metadata, WRITE_BATCH_SIZE):
+        operations = []
+        for cid in update_ids:
+            operations.append({"update": {"_index": index_name, "_id": cid}})
+            partial = {**metadata_by_id[cid], "metadata_hash": hashes[cid].metadata_hash}
+            operations.append({"doc": partial})
+        tally.add(client.bulk(body=operations), dict.fromkeys(update_ids, "updated"))
+    tally.raise_if_errors("메타데이터 갱신")
+
+    for delete_ids in batched(plan.delete, WRITE_BATCH_SIZE):
         operations = [{"delete": {"_index": index_name, "_id": cid}} for cid in delete_ids]
         tally.add(client.bulk(body=operations), dict.fromkeys(delete_ids, "deleted"))
     tally.raise_if_errors("삭제")
@@ -460,12 +524,14 @@ def format_report(report: IndexReport) -> str:
     """사람이 읽는 요약. dry-run이면 삭제 대상 ID를 모두 적는다."""
     head = "[dry-run] 색인 계획 (인덱스는 바뀌지 않았다)" if report.dry_run else "색인 결과"
     targets = ", ".join(report.alias_targets) or "(없음)"
+    n_updated = report.updated_content + report.updated_model + report.updated_metadata
     lines = [
         f"{head} — {report.index_name} (별칭 {report.alias} → {targets})",
         f"embedding_model: {report.embedding_model}",
         (
-            f"create {report.created} / update {report.updated_content + report.updated_model} "
-            f"(content {report.updated_content}, model {report.updated_model}) / "
+            f"create {report.created} / update {n_updated} "
+            f"(content {report.updated_content}, model {report.updated_model}, "
+            f"metadata {report.updated_metadata}) / "
             f"skip {report.skipped} / delete {report.deleted}"
         ),
         (

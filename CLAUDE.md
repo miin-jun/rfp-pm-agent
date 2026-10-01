@@ -110,7 +110,7 @@ Claude는 구현하지 말고, 설계 논의·테스트 작성·리뷰·리팩�
 
 ## 알려진 함정
 - OpenSearch 컨테이너가 바로 죽으면: WSL에서 `vm.max_map_count=262144` 설정 필요
-- `sysctl -w vm.max_map_count=262144`는 임시 설정이라 WSL 재시작 시 초기화된다. 영구 적용은 README "알려진 함정" 참고
+- `sysctl -w vm.max_map_count=262144`는 임시 설정이라 WSL 재시작 시 초기화된다. 영구 적용은 docs/development.md "알려진 함정" 참고
 - OpenSearch 한국어 분석은 nori 플러그인이 설치된 이미지여야 함 (docker/opensearch/Dockerfile)
 - RunPod가 꺼져 있으면 `EMBED_BASE_URL`·`RERANK_BASE_URL`을 로컬 TEI 주소로 바꾼다
 - `agent_ro` 권한 검증: SELECT는 성공해야 하고, CREATE TABLE 등 쓰기 시도는 permission denied로 **실패해야 정상**

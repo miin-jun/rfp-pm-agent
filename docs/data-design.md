@@ -173,7 +173,7 @@ Document
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| `chunk_id` | keyword | `{doc_id}:{block_id}:{n}` |
+| `chunk_id` | keyword | `{doc_id}:{method}:{source_id}`. method는 block / requirement / block_requirement, source_id는 블록 ID(예: b0001) 또는 요구사항 ID. 블록을 더 나누지 않으므로 순번 없음. 파일 안에서 고유함을 확인(#65: 3,077 / 3,499 / 422 모두 중복 0) |
 | `doc_id` | keyword | |
 | `project_id` | keyword | PMS 프로젝트와 연결 (RFP 1건 = 프로젝트 1개) |
 | `text` | text (nori) | 원문 (답변 근거로 보여줄 텍스트) |

@@ -1,53 +1,87 @@
 # rfp-pm-agent
 
-> **처음 보거나 헷갈리면 여기부터**: [`docs/project-overview.md`](docs/project-overview.md)
+공공 SI 사업 제안요청서(RFP)와 합성 PMS 데이터를 근거로 "이번 주 지연된 업무", "미해결 Risk", "관련 산출물" 같은 질문에 출처를 달아 답하는 에이전트. **개발 중**이다. 지금은 수집·파싱·청킹과 검색 모델 선정까지 끝났다.
 
-공공 SI 사업 제안요청서(RFP)와 RFP 기반 합성 PMS 데이터를 근거로, "이번 주 지연된 업무", "미해결 Risk", "관련 산출물" 같은 질문에 출처를 달아 답하는 에이전트. 설계 배경은 `docs/`를 참고.
+## 배경
 
-## 실행 방법
+- 제안요청서(RFP)는 발주기관이 나라장터 입찰공고에 첨부하는 문서다. 사업 범위와 요구사항을 적는다
+- 요구사항은 `SFR`(기능)·`PER`(성능)·`SER`(보안) 같은 분류 코드가 붙은 정의표로 정리된다. 살펴본 샘플의 정의표에는 산출정보(제출할 산출물) 칸이 있었다
+- 사업이 시작된 뒤에도 PM·PL이 요구사항 원문을 다시 찾는다 (**가정**). 지연된 업무가 어느 요구사항에 걸려 있는지, 요구사항별 산출물이 나왔는지 확인할 때다
 
-(추후 이슈에서 채움 — Docker Compose, API, MCP 서버 실행 방법)
+> 배경과 문제 정의는 공공 SW사업 제안요청서 양식, 나라장터 공고, SW사업 관리 방법론을 조사해 정리했다. 실제 SI 프로젝트 수행 경험에서 나온 내용이 아니다.
 
-```bash
-uv sync
-```
+## 문제 정의
 
-임베딩·리랭커 서버(TEI, GPU 필요). `.env`에 `EMBED_MODEL_ID`·`RERANK_MODEL_ID`가 있어야 한다 — 없으면 TEI뿐 아니라 postgres·opensearch만 띄우는 `docker compose up -d`도 `required variable ... is missing a value`로 실패한다(compose가 파일 전체를 먼저 변수 치환하기 때문).
+| 어려운 점 | 근거 |
+|---|---|
+| 요구사항과 진행 상황(WBS·일정·Risk·산출물)을 따로 관리해 사람이 손으로 대조한다. 누락과 범위 분쟁이 생긴다 | 조사로 정리한 가정 |
+| 파일 형식이 제각각이다 | 수집한 40건: HWP 22 · HWPX 9 · PDF 9 |
+| 요구사항이 표 안에 있고 분량이 많다 | PDF 1건(129쪽)에 요구사항 정의표 71개. 그중 15개는 표가 페이지 경계에서 잘렸다 |
+| 문서마다 표기가 다르다 | 인터페이스 요구사항 코드가 문서에 따라 `SIR` 또는 `INR`이다 |
 
-```bash
-docker compose up -d tei-embed tei-rerank     # 첫 기동은 모델 다운로드(약 4.5GB)로 수 분
-curl -i localhost:8080/health                 # 200이면 준비 완료 (리랭커는 8081)
-uv run pytest tests/integration -m tei -q     # 실제 TEI 호출 테스트 (꺼져 있으면 실패)
-```
+## 목적
 
-## 알려진 함정
+요구사항 원문(RFP)과 진행 데이터(PMS)를 질문 하나로 함께 조회하고, 답마다 출처(문서·페이지·요구사항 ID)를 단다. 근거를 찾지 못하면 "문서에서 찾을 수 없음"이라고 답한다.
 
-- **WSL2에서 OpenSearch 컨테이너가 계속 재시작되거나 바로 죽는 경우**: 커널의 `vm.max_map_count`가 기본값(65530)이라 OpenSearch(Lucene)가 요구하는 최소값(262144)에 못 미쳐서 발생합니다.
-  - 임시 적용 (WSL 재시작 시 초기화됨):
-    ```bash
-    sudo sysctl -w vm.max_map_count=262144
-    ```
-  - 영구 적용 (WSL2, `/etc/sysctl.conf`에 추가):
-    ```bash
-    echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf
-    sudo sysctl -p
-    ```
-    Windows 쪽에서 WSL을 재시작(`wsl --shutdown`)해도 유지되지 않는 환경이라면, Windows 사용자 홈의 `.wslconfig`에 아래를 추가하고 `wsl --shutdown` 후 다시 켭니다.
-    ```ini
-    [wsl2]
-    kernelCommandLine = "sysctl.vm.max_map_count=262144"
-    ```
-  - **확인됨**: `sudo sysctl -w`는 그 부팅 세션에만 적용되는 임시 설정이다. WSL을 재시작하면 값이 초기화되므로, 매번 새로 켤 때마다 다시 설정하지 않으려면 위 영구 적용법(`/etc/sysctl.conf` 또는 `.wslconfig`)을 반드시 함께 적용한다.
+## 주요 사용자 (가정)
 
-- **`agent_ro` 읽기 전용 계정 권한 검증 방법**: `psql`로 `agent_ro`에 접속해 `SELECT`는 성공하고 `CREATE TABLE`은 `permission denied`로 **실패해야 정상**입니다. 실패하지 않고 성공한다면 `docker/postgres/init/01_create_readonly_user.sh`의 권한 부여가 의도보다 넓게 된 것이니 다시 확인합니다.
+사용자 조사는 하지 않았다. 설계 문서의 역할(`pm`·`developer`·`client`·`partner`) 중 아래 둘을 주 사용자로 가정한다.
 
-- **TEI 컨테이너가 137로 종료되는 경우**: `docker inspect -f '{{.State.OOMKilled}}' rfp-pm-agent-tei-embed`가 `true`면 WSL 호스트 RAM 부족입니다. `.env`의 `TEI_TOKENIZATION_WORKERS`(compose 기본 2)를 확인합니다. 미지정(워커 19개)으로 두 서버를 띄웠을 때 이 증상이 났습니다.
+| 사용자 | 쓰는 상황 |
+|---|---|
+| SI 프로젝트 PM·PL | 지연 업무와 관련 요구사항, 미해결 Risk 확인 |
+| 개발자 | 맡은 업무에 연결된 요구사항 원문 확인 |
+
+## 주요 기능
+
+| 기능 | 상태 | 이슈 |
+|---|---|---|
+| 나라장터 제안요청서 수집 (조회 구간 분할, 중복 방지) | ✅ 완료 | #10, #50 |
+| 파싱: PDF·HWP → 공통 스키마 (요구사항 정의표 추출) | ✅ 완료 | #11, #52 |
+| 파싱: HWPX | ⏳ 예정 (M2, 지금은 `unsupported_format`으로 건너뜀) | 이슈 없음 |
+| 청킹 3가지 (block / requirement / block_requirement) | ✅ 완료 | #13, #62 |
+| 임베딩·리랭커 서버 (TEI) | ✅ 로컬 완료 · ⏳ RunPod 예정 | #14, #56 |
+| 검색 평가 세트 qa_v2 (57문항, 사람 검수) | ✅ 완료 | #15 |
+| 임베딩·리랭커 모델 선정 | ✅ 완료 | #16 |
+| OpenSearch 색인 (nori + k-NN) | ⏳ 예정 | #17 |
+| 하이브리드 검색 (BM25 + 벡터 + RRF + 리랭킹) | ⏳ 예정 | #18 |
+| 출처 달린 답변, 근거 없으면 거절 | ⏳ 예정 | #19 |
+| 합성 PMS 데이터, PMS 조회 툴 | ⏳ 예정 | #20, #21 |
+| LangGraph 에이전트 | ⏳ 예정 | #22 |
+| FastAPI, MCP 서버 (읽기 전용 툴) | ⏳ 예정 | #23, #24 |
+| 평가 게이트, RTM, 데모 화면 | ⏳ 예정 | #25, #39, #40 |
+
+상태는 2026-09-28 GitHub 이슈 기준이다. 진행 중(🔄)인 이슈는 없다.
+
+## 지금까지의 결과
+
+임베딩·리랭커 선정(#16) 결과다. 평가 세트 `data/eval/qa_v2.jsonl` 57문항 중 답이 있는 51문항으로 1회 측정했다.
+
+| 방식 | Recall@10 (전부 적중) | MRR | NDCG@10 |
+|---|---|---|---|
+| BM25 (글자 bigram) | 15/51 | 0.120 | 0.164 |
+| KURE-v1 | 30/51 | 0.317 | 0.380 |
+| KURE-v1 + bge-reranker-v2-m3 (상위 20개 재정렬) | 31/51 | 0.474 | 0.506 |
+
+- 임베딩 후보 3개(KURE-v1·bge-m3·multilingual-e5-large)는 McNemar 검정으로 동률이었다. 미리 정한 규칙을 그대로 적용하면 e5였지만, 결과를 본 뒤 잘림 없음(최대 8192토큰)과 리랭크 지연을 근거로 KURE-v1을 골랐다: [ADR-0001](docs/adr/0001-embedding-model.md)
+- 리랭커를 붙이면 MRR 0.317 → 0.474, 추가 지연 p95 483ms(로컬 RTX 4050): [ADR-0002](docs/adr/0002-reranker.md)
+- 벡터 검색 수치는 OpenSearch가 아니라 메모리 안 코사인 검색(`src/rfp_pm_agent/search/dense.py`)으로 쟀다. 하이브리드 검색 수치는 아직 없다
+
+## 데이터
+
+| 데이터 | 성격 | 내용 |
+|---|---|---|
+| 제안요청서 원문 | **실제 데이터** | 나라장터 입찰공고정보서비스 API로 받은 공개 공고 첨부파일 40건. 파싱 성공 28건, 요구사항 정의표가 있는 문서 11건 (2026-09-22 기준) |
+| PMS (WBS·일정·Risk·Issue·산출물) | **합성 데이터** | 제안요청서 요구사항에 맞춰 코드와 LLM으로 만든다. 지연·Risk는 코드가 일부러 심어 평가 정답을 미리 안다. 아직 만들지 않았다 (#20) |
+| 검색 평가 세트 | 사람이 검수 | `data/eval/qa_v2.jsonl` |
+
+- 답변 속 PMS 수치(지연 일수 등)는 가짜이고, 요구사항 인용은 실제 문서에서 나온다
+- 원본 파일은 git에 넣지 않는다. 수집 기록 `data/raw/manifest.jsonl`만 커밋한다
 
 ## 문서
 
-- `docs/project-overview.md` — 오리엔테이션 (처음 보거나 헷갈리면 여기부터)
-- `docs/architecture.md` — 전체 구조, 단계(Phase), 결정 로그
-- `docs/tech-stack.md` — 기술 스택과 선정 근거
-- `docs/data-design.md` — 스키마, 판단 규칙, 평가 세트 형식
-- `docs/github-setup.md` — 마일스톤·라벨·이슈
-- `docs/harness.md` — 하네스(규칙·권한·훅) 설계
+실행 방법과 개발 환경은 [docs/development.md](docs/development.md) 참고.
+
+- [아키텍처](docs/architecture.md): 전체 구조, 단계(Phase), 결정 로그
+- [데이터 설계](docs/data-design.md): 스키마, "지연" 등 판단 규칙, 평가 세트 형식
+- ADR: [0001 임베딩 모델](docs/adr/0001-embedding-model.md) · [0002 리랭커](docs/adr/0002-reranker.md)

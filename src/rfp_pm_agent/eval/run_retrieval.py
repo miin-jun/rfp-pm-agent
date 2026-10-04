@@ -28,7 +28,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import re
 import subprocess
 import sys
 import time
@@ -41,10 +40,15 @@ import numpy as np
 
 from rfp_pm_agent.clients.embedding import TEIEmbeddingClient
 from rfp_pm_agent.clients.reranker import TEIRerankerClient
+from rfp_pm_agent.clients.tei_revision import (
+    DEFAULT_COMPOSE_FILE,
+    tei_image_tag,
+    volume_revision_reader,
+)
 from rfp_pm_agent.config import ClientsConfig
 from rfp_pm_agent.eval.qa_v2 import DEFAULT_QA_V2, load_questions_v2
 from rfp_pm_agent.eval.retrieval import V2_TOP_K, mcnemar_exact_p, score_run_v2
-from rfp_pm_agent.eval.run_chunk_eval import load_chunks
+from rfp_pm_agent.ingest.chunking import load_chunks
 from rfp_pm_agent.schemas.eval import (
     EvalQuestionV2,
     LatencyStats,
@@ -67,7 +71,6 @@ from rfp_pm_agent.search.tokenize import get_tokenizer
 
 DEFAULT_CHUNKS_FILE = Path("data/chunks/block_requirement.jsonl")
 DEFAULT_OUT_DIR = Path("data/eval/results/model_selection")
-DEFAULT_COMPOSE_FILE = Path("docker-compose.yml")
 
 # 이슈 #16 결정 규칙에서 고정한 값
 DEFAULT_RERANK_N = 20
@@ -115,57 +118,6 @@ def gpu_snapshot() -> dict[str, str] | None:
         return None
     name, driver, used = (part.strip() for part in out.splitlines()[0].split(","))
     return {"name": name, "driver": driver, "memory_used_mib": used}
-
-
-def tei_image_tag(compose_file: Path) -> str | None:
-    """docker-compose.yml에 적힌 TEI 이미지 태그. 실제로 떠 있는 컨테이너 이미지는 아니다."""
-    if not compose_file.exists():
-        return None
-    match = re.search(r"image:\s*(\S*text-embeddings-inference\S*)", compose_file.read_text())
-    return match.group(1) if match else None
-
-
-def parse_snapshot_listing(model_id: str, listing: str) -> str:
-    """`snapshots/` 목록에서 revision 해시 하나를 고른다. 0개거나 2개 이상이면 ValueError.
-
-    2개 이상이면 어느 스냅샷이 로드됐는지 이 목록만으로는 알 수 없으므로 추측하지 않는다.
-    """
-    entries = [line.strip() for line in listing.splitlines() if line.strip()]
-    if len(entries) != 1:
-        raise ValueError(
-            f"{model_id}의 TEI 스냅샷이 {len(entries)}개다({entries}) — revision을 정할 수 없다"
-        )
-    return entries[0]
-
-
-def read_snapshot_revision(model_id: str, *, volume: str, image: str) -> str:
-    """TEI 모델 볼륨의 models--<org>--<name>/snapshots/ 아래 해시를 읽는다.
-
-    볼륨은 root 소유라 WSL에서 바로 읽을 수 없어, TEI 이미지로 `ls`만 하는 일회용 컨테이너를
-    띄운다(이미지는 이미 받아 둔 것을 쓴다). 실패하면 RuntimeError — revision 없이 실행하지 않는다.
-    """
-    folder = "models--" + model_id.replace("/", "--")
-    try:
-        out = subprocess.run(
-            [
-                "docker",
-                "run",
-                "--rm",
-                "--entrypoint",
-                "ls",
-                "-v",
-                f"{volume}:/data:ro",
-                image,
-                f"/data/{folder}/snapshots",
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=60,
-        ).stdout
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise RuntimeError(f"{model_id}의 스냅샷 revision을 읽지 못했다: {exc}") from exc
-    return parse_snapshot_listing(model_id, out)
 
 
 def latency_stats(samples_ms: Sequence[float]) -> LatencyStats | None:
@@ -298,7 +250,7 @@ def run(
 
     embedder·reranker를 주지 않으면 config(없으면 환경변수)로 TEI 클라이언트를 만든다.
     테스트는 가짜 transport를 넣은 클라이언트를 준다. revision_reader(모델 ID → 스냅샷
-    해시)를 주지 않으면 TEI 볼륨을 docker로 읽는다(`read_snapshot_revision`).
+    해시)를 주지 않으면 TEI 볼륨을 docker로 읽는다(`clients.tei_revision`).
     """
     questions = load_questions_v2(qa_file)
     chunks = load_chunks(chunks_file)
@@ -324,10 +276,7 @@ def run(
                 raise ValueError(
                     f"{compose_file}에서 TEI 이미지를 찾지 못해 revision을 읽을 수 없다"
                 )
-            image = tei_image
-
-            def revision_reader(model_id: str) -> str:
-                return read_snapshot_revision(model_id, volume=cfg.tei_models_volume, image=image)
+            revision_reader = volume_revision_reader(cfg, compose_file)
 
         info = server_info(embedder.info())
         if cfg.embed_model_id and info.model_id != cfg.embed_model_id:

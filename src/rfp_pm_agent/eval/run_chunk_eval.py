@@ -22,7 +22,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from rfp_pm_agent.eval.retrieval import TOP_K, ceiling_only, score_run
-from rfp_pm_agent.schemas.chunk import Chunk
+from rfp_pm_agent.ingest.chunking import load_chunks
 from rfp_pm_agent.schemas.eval import (
     EvalQuestion,
     RunRecord,
@@ -53,12 +53,6 @@ def load_questions(path: Path) -> list[EvalQuestion]:
     """평가 세트 jsonl을 읽어 검증한다. 형식이 어긋나면 그 줄에서 멈춘다."""
     with path.open(encoding="utf-8") as f:
         return [EvalQuestion.model_validate_json(line) for line in f if line.strip()]
-
-
-def load_chunks(path: Path) -> list[Chunk]:
-    """청크 jsonl을 읽어 검증한다."""
-    with path.open(encoding="utf-8") as f:
-        return [Chunk.model_validate_json(line) for line in f if line.strip()]
 
 
 def append_run(path: Path, record: RunRecord) -> None:

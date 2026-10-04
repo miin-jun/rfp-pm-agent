@@ -124,6 +124,12 @@ def write_chunks(chunks: Iterable[Chunk], path: Path) -> int:
     return written
 
 
+def load_chunks(path: Path) -> list[Chunk]:
+    """`write_chunks`가 쓴 청크 jsonl을 읽어 검증한다."""
+    with path.open(encoding="utf-8") as f:
+        return [Chunk.model_validate_json(line) for line in f if line.strip()]
+
+
 def count_dropped_blocks(docs: Iterable[Document]) -> int:
     """의미 글자(L·N)가 없어 청크에서 버려지는 블록 수 (#62)."""
     return sum(1 for doc in docs for block in doc.blocks if not has_meaningful_char(block.text))

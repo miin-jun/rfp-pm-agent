@@ -59,14 +59,9 @@ from opensearchpy import OpenSearch
 from pydantic import BaseModel, Field
 
 from rfp_pm_agent.clients.embedding import InputType, TEIEmbeddingClient
+from rfp_pm_agent.clients.tei_revision import volume_revision_reader
 from rfp_pm_agent.config import ClientsConfig, OpenSearchConfig
-from rfp_pm_agent.eval.run_chunk_eval import load_chunks
-from rfp_pm_agent.eval.run_retrieval import (
-    DEFAULT_COMPOSE_FILE,
-    read_snapshot_revision,
-    tei_image_tag,
-)
-from rfp_pm_agent.ingest.chunking import DEFAULT_PARSED_DIR, has_meaningful_char
+from rfp_pm_agent.ingest.chunking import DEFAULT_PARSED_DIR, has_meaningful_char, load_chunks
 from rfp_pm_agent.schemas.chunk import Chunk
 from rfp_pm_agent.schemas.document import Document
 
@@ -225,23 +220,6 @@ def resolve_embedding_model(
         )
     revision = info.get("model_sha") or revision_reader(model_id)
     return f"{model_id}@{revision}"
-
-
-def volume_revision_reader(config: ClientsConfig) -> Callable[[str], str]:
-    """TEI 모델 볼륨의 snapshots/에서 revision을 읽는 함수 (#16 run_retrieval과 같은 방법).
-
-    `docker run --rm`으로 `ls`만 하는 일회용 컨테이너를 띄운다(볼륨은 읽기 전용으로 붙인다).
-    """
-
-    def read(model_id: str) -> str:
-        image = tei_image_tag(DEFAULT_COMPOSE_FILE)
-        if image is None:
-            raise ValueError(
-                f"{DEFAULT_COMPOSE_FILE}에서 TEI 이미지를 찾지 못해 revision을 읽을 수 없다"
-            )
-        return read_snapshot_revision(model_id, volume=config.tei_models_volume, image=image)
-
-    return read
 
 
 def check_chunks(chunks: Sequence[Chunk]) -> None:

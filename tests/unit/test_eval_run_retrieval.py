@@ -13,6 +13,7 @@ import pytest
 
 from rfp_pm_agent.clients.embedding import EMBEDDING_DIM, TEIEmbeddingClient
 from rfp_pm_agent.clients.reranker import TEIRerankerClient
+from rfp_pm_agent.clients.tei_revision import parse_snapshot_listing
 from rfp_pm_agent.eval import run_retrieval
 from rfp_pm_agent.eval.qa_v2 import with_gold, write_questions_v2
 from rfp_pm_agent.schemas.chunk import Chunk
@@ -290,7 +291,7 @@ def test_compare는_없는_run_id를_거부한다(tmp_path: Path) -> None:
 def test_스냅샷이_하나면_그_해시를_revision으로_쓴다() -> None:
     listing = "8b418a58414668e75532ed045c22d9ca018ae2b2\n"
     assert (
-        run_retrieval.parse_snapshot_listing("nlpai-lab/KURE-v1", listing)
+        parse_snapshot_listing("nlpai-lab/KURE-v1", listing)
         == "8b418a58414668e75532ed045c22d9ca018ae2b2"
     )
 
@@ -298,7 +299,7 @@ def test_스냅샷이_하나면_그_해시를_revision으로_쓴다() -> None:
 @pytest.mark.parametrize("listing", ["", "aaa\nbbb\n"])
 def test_스냅샷이_0개거나_2개_이상이면_추측하지_않고_거부한다(listing: str) -> None:
     with pytest.raises(ValueError, match="revision을 정할 수 없다"):
-        run_retrieval.parse_snapshot_listing("org/model", listing)
+        parse_snapshot_listing("org/model", listing)
 
 
 def test_revision을_못_읽으면_색인하지_않는다(tmp_path: Path) -> None:

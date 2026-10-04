@@ -193,3 +193,30 @@ def test_opensearch_config_index_name_defaults_to_empty(monkeypatch: pytest.Monk
     monkeypatch.delenv("OPENSEARCH_INDEX_NAME", raising=False)
 
     assert OpenSearchConfig.from_env().index_name == ""
+
+
+def test_dotenv_path_does_not_depend_on_cwd(tmp_path: Path) -> None:
+    """레포 밖 디렉터리에서 실행해도 레포 루트의 .env를 읽으려 해야 한다 (#18).
+
+    `python -m rfp_pm_agent.ingest.index_chunks`는 부모 패키지 `rfp_pm_agent.ingest`를
+    먼저 import하는데, 그 `__init__`이 config를 불러오는 시점에는 `__main__`에 `__file__`이
+    없다. 그때 인자 없는 `load_dotenv()`는 현재 디렉터리부터 .env를 찾아서, 레포 밖에서
+    실행하면 .env를 못 읽고 기본값으로 동작했다. `python -c`가 같은 조건을 만든다.
+    실제 .env 내용에 기대지 않도록 load_dotenv를 가로채 인자만 확인한다.
+    """
+    import subprocess
+    import sys
+
+    script = (
+        "import dotenv\n"
+        "calls = []\n"
+        "dotenv.load_dotenv = lambda *a, **k: calls.append((a, k)) or True\n"
+        "import rfp_pm_agent.config\n"
+        "print(repr(calls))\n"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", script], cwd=tmp_path, capture_output=True, text=True, check=True
+    ).stdout
+    repo_root = Path(__file__).resolve().parents[2]
+    expected = str(repo_root / ".env")
+    assert expected in out, out

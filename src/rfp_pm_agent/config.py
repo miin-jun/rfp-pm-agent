@@ -10,19 +10,29 @@ URL·키·모델명·타임아웃을 하드코딩하지 않는다. 이슈마다 
 한 줄로 이 모듈이 처음 import될 때 `.env`를 한 번 읽는다. 이미 설정된 환경변수
 (쉘 export, CI secrets 등)는 덮지 않고, `.env` 파일이 없어도 예외 없이 넘어간다
 (python-dotenv 기본 동작 — 예외를 던지지 않음).
+
+.env 경로는 이 파일 위치로 정한다(#18). 인자 없는 `load_dotenv()`는 `__main__`에
+`__file__`이 없으면 현재 디렉터리부터 찾는데, `python -m rfp_pm_agent.ingest.index_chunks`는
+부모 패키지 `__init__`이 config를 불러오는 시점이 바로 그 상태라 레포 밖에서 실행하면
+.env를 못 읽고 기본값으로 동작했다.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-load_dotenv(override=False)
+# 이 파일은 src/rfp_pm_agent/ 아래에 있으므로 parents[2]가 레포 루트다(uv sync의 편집 설치 기준)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DOTENV_PATH = REPO_ROOT / ".env"
+
+load_dotenv(DOTENV_PATH, override=False)
 
 
 def _get_float(name: str, default: float) -> float:

@@ -15,12 +15,10 @@ import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
-from rfp_pm_agent.config import ClientsConfig
+from rfp_pm_agent.config import REPO_ROOT, ClientsConfig
 
 # 레포 루트 기준 절대 경로. 상대 경로였을 때는 레포 루트가 아닌 곳에서 CLI를 실행하면
-# compose 파일을 못 찾아 revision 읽기가 실패했다(#18 댓글). 이 파일은
-# src/rfp_pm_agent/clients/ 아래에 있으므로 parents[3]이 레포 루트다(uv sync의 편집 설치 기준)
-REPO_ROOT = Path(__file__).resolve().parents[3]
+# compose 파일을 못 찾아 revision 읽기가 실패했다(#18 댓글)
 DEFAULT_COMPOSE_FILE = REPO_ROOT / "docker-compose.yml"
 
 

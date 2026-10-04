@@ -18,8 +18,16 @@ qa_v2(57문항, 답 있음 51)를 block_requirement 청크로 검색해 채점�
 MRR·NDCG 함수는 소유자가 구현했다(retrieval.py). 그 전에 남긴 기록은 그 칸이 비어 있다.
 LLM을 부르지 않으므로 비용은 $0이다.
 
+OpenSearch 모드(#18 PR ①): `--os-bm25`·`--os-knn`은 메모리 색인 대신 별칭(`OPENSEARCH_INDEX_ALIAS`)을
+검색한다(`search/opensearch.py`). 채점의 정답 묶음은 여전히 `--chunks` 파일에서 뽑으므로, 실행 전에
+별칭이 가리키는 인덱스의 chunk_id 집합이 청크 파일과 같은지 확인하고 다르면 멈춘다. `--os-knn`은
+인덱스 문서의 embedding_model이 지금 TEI 서버의 "{모델ID}@{revision}"과 같은지도 확인한다 —
+다른 모델 벡터로 만든 질의를 섞어 검색하지 않기 위해서다. 리랭크 조합은 PR ②에서 연결한다.
+
 CLI: `uv run python -m rfp_pm_agent.eval.run_retrieval --bm25`
      `uv run python -m rfp_pm_agent.eval.run_retrieval --dense [--rerank]`
+     `uv run python -m rfp_pm_agent.eval.run_retrieval --os-bm25`
+     `uv run python -m rfp_pm_agent.eval.run_retrieval --os-knn`
      `uv run python -m rfp_pm_agent.eval.run_retrieval --compare <run_id> <run_id> ...`
 """
 
@@ -37,6 +45,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from opensearchpy import OpenSearch
 
 from rfp_pm_agent.clients.embedding import TEIEmbeddingClient
 from rfp_pm_agent.clients.reranker import TEIRerankerClient
@@ -45,16 +54,24 @@ from rfp_pm_agent.clients.tei_revision import (
     tei_image_tag,
     volume_revision_reader,
 )
-from rfp_pm_agent.config import ClientsConfig
+from rfp_pm_agent.config import ClientsConfig, OpenSearchConfig
 from rfp_pm_agent.eval.qa_v2 import DEFAULT_QA_V2, load_questions_v2
 from rfp_pm_agent.eval.retrieval import V2_TOP_K, mcnemar_exact_p, score_run_v2
 from rfp_pm_agent.ingest.chunking import load_chunks
+from rfp_pm_agent.ingest.index_chunks import (
+    IndexedMeta,
+    alias_targets,
+    fetch_indexed,
+    resolve_embedding_model,
+)
+from rfp_pm_agent.schemas.chunk import Chunk
 from rfp_pm_agent.schemas.eval import (
     EvalQuestionV2,
     LatencyStats,
     QuestionResult,
     RetrievalRunRecord,
     RetrievalRunScore,
+    RetrieverName,
     SearchHit,
     ServerInfo,
     TokenizerName,
@@ -67,6 +84,7 @@ from rfp_pm_agent.search.dense import (
     file_sha256,
     rerank_hits,
 )
+from rfp_pm_agent.search.opensearch import bm25_search, knn_search, search_alias
 from rfp_pm_agent.search.tokenize import get_tokenizer
 
 DEFAULT_CHUNKS_FILE = Path("data/chunks/block_requirement.jsonl")
@@ -227,9 +245,33 @@ def format_scores(title: str, scores: RetrievalRunScore) -> str:
     return "\n".join(lines)
 
 
+def check_alias_index(
+    client: OpenSearch, alias: str, chunks: Sequence[Chunk]
+) -> tuple[str, dict[str, IndexedMeta]]:
+    """별칭이 가리키는 실제 인덱스 이름과 그 인덱스 문서의 메타를 돌려준다.
+
+    별칭이 인덱스 하나를 가리키지 않거나, 인덱스의 chunk_id 집합이 청크 파일과 다르면 ValueError.
+    채점은 청크 파일에서 정답을 뽑으므로, 둘이 다르면 점수가 검색이 아니라 데이터 차이를 잰다.
+    """
+    targets = alias_targets(client, alias)
+    if len(targets) != 1:
+        raise ValueError(f"별칭 {alias}가 가리키는 인덱스가 {targets}다 — 하나여야 한다")
+    [index_name] = targets
+    indexed = fetch_indexed(client, index_name)
+    chunk_ids = {c.chunk_id for c in chunks}
+    missing = sorted(chunk_ids - set(indexed))
+    extra = sorted(set(indexed) - chunk_ids)
+    if missing or extra:
+        raise ValueError(
+            f"{index_name}의 문서가 청크 파일과 다르다: 인덱스에 없음 {len(missing)}개 "
+            f"{missing[:5]}, 인덱스에만 있음 {len(extra)}개 {extra[:5]}"
+        )
+    return index_name, indexed
+
+
 def run(
     *,
-    retriever: str,
+    retriever: RetrieverName,
     use_rerank: bool,
     qa_file: Path = DEFAULT_QA_V2,
     chunks_file: Path = DEFAULT_CHUNKS_FILE,
@@ -245,12 +287,14 @@ def run(
     embedder: TEIEmbeddingClient | None = None,
     reranker: TEIRerankerClient | None = None,
     revision_reader: Callable[[str], str] | None = None,
+    os_client: OpenSearch | None = None,
 ) -> RetrievalRunRecord:
     """검색 조건 하나를 돌려 채점하고 기록을 남긴다.
 
     embedder·reranker를 주지 않으면 config(없으면 환경변수)로 TEI 클라이언트를 만든다.
     테스트는 가짜 transport를 넣은 클라이언트를 준다. revision_reader(모델 ID → 스냅샷
-    해시)를 주지 않으면 TEI 볼륨을 docker로 읽는다(`clients.tei_revision`).
+    해시)를 주지 않으면 TEI 볼륨을 docker로 읽는다(`clients.tei_revision`). os_client를 주지
+    않으면 `OPENSEARCH_URL`로 OpenSearch 클라이언트를 만든다(os-bm25·os-knn).
     """
     questions = load_questions_v2(qa_file)
     chunks = load_chunks(chunks_file)
@@ -326,6 +370,53 @@ def run(
 
             name += f"+rerank-{rerank_info.model_id.split('/')[-1]}"
             record_fields |= {"rerank": rerank_info, "rerank_n": rerank_n}
+    elif retriever in ("os-bm25", "os-knn"):
+        if use_rerank:
+            raise ValueError("OpenSearch 모드 + 리랭크는 #18 PR ②에서 연결한다")
+        client = os_client or OpenSearch(hosts=[OpenSearchConfig.from_env().url])
+        alias = search_alias()
+        index_name, indexed_meta = check_alias_index(client, alias, chunks)
+        record_fields |= {
+            "index_alias": alias,
+            "index_name": index_name,
+            "index_doc_count": len(indexed_meta),
+        }
+        rerank = None
+        if retriever == "os-bm25":
+            search = lambda q: bm25_search(client, q, top_k)
+            name = "os-bm25"
+        else:
+            cfg = config or ClientsConfig.from_env()
+            query_embedder = embedder or TEIEmbeddingClient(cfg)
+            tei_image = tei_image_tag(compose_file)
+            if revision_reader is None:
+                if tei_image is None:
+                    raise ValueError(
+                        f"{compose_file}에서 TEI 이미지를 찾지 못해 revision을 읽을 수 없다"
+                    )
+                revision_reader = volume_revision_reader(cfg, compose_file)
+            raw_info = query_embedder.info()
+            # 색인과 같은 규칙(model_sha가 있으면 그 값, 없으면 볼륨 스냅샷)으로 만든 이름
+            query_model = resolve_embedding_model(raw_info, cfg, revision_reader)
+            index_models = {meta.embedding_model for meta in indexed_meta.values()}
+            if index_models != {query_model}:
+                raise ValueError(
+                    f"{index_name}의 embedding_model {sorted(index_models)}이 질의 임베딩 "
+                    f"서버({query_model})와 다르다"
+                )
+            info = server_info(raw_info)
+            info = info.model_copy(update={"snapshot_revision": query_model.split("@", 1)[1]})
+
+            def search(q: str) -> list[SearchHit]:
+                [vector] = query_embedder.embed([q], input_type="query")
+                return knn_search(client, vector, top_k)
+
+            name = f"os-knn-{info.model_id.split('/')[-1]}"
+            record_fields |= {
+                "embed": info,
+                "query_prefix": cfg.embed_query_prefix,
+                "tei_image": tei_image,
+            }
     else:
         raise ValueError(f"알 수 없는 retriever: {retriever}")
 
@@ -346,7 +437,7 @@ def run(
         qa_file=str(qa_file),
         chunks_file=str(chunks_file),
         chunk_count=len(chunks),
-        retriever="bm25" if retriever == "bm25" else "dense",
+        retriever=retriever,
         top_k=top_k,
         gpu=gpu_before["name"] if gpu_before else None,
         gpu_driver=gpu_before["driver"] if gpu_before else None,
@@ -443,6 +534,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--bm25", action="store_true", help="BM25 기준선 (TEI 불필요)")
     mode.add_argument("--dense", action="store_true", help="TEI 임베딩 서버로 벡터 검색")
+    mode.add_argument("--os-bm25", action="store_true", help="OpenSearch 별칭 BM25(nori) (#18)")
+    mode.add_argument("--os-knn", action="store_true", help="OpenSearch 별칭 k-NN (#18, TEI 필요)")
     mode.add_argument("--compare", nargs="+", metavar="RUN_ID", help="결정 규칙 적용")
     parser.add_argument("--rerank", action="store_true", help="--dense 결과 상위 N개를 리랭크")
     parser.add_argument("--rerank-n", type=int, default=DEFAULT_RERANK_N)
@@ -466,8 +559,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.compare:
         logger.info("%s", format_compare(compare(args.compare, args.out_dir)))
         return 0
+    retriever: RetrieverName = (
+        "bm25" if args.bm25 else "os-bm25" if args.os_bm25 else "os-knn" if args.os_knn else "dense"
+    )
     run(
-        retriever="bm25" if args.bm25 else "dense",
+        retriever=retriever,
         use_rerank=args.rerank,
         qa_file=args.qa,
         chunks_file=args.chunks,

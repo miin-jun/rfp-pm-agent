@@ -117,7 +117,6 @@ def test_search_alias_reads_env() -> None:
 # --- bm25_search (소유자 구현 전에는 NotImplementedError로 실패) ---
 
 
-@OWNER_TODO
 def test_bm25_search_sends_one_request_to_alias() -> None:
     client = RecordingSearchClient(RESPONSE)
     bm25_search(client, "사업 기간", top_k=10)
@@ -125,7 +124,6 @@ def test_bm25_search_sends_one_request_to_alias() -> None:
     assert client.calls[0]["index"] == TEST_ALIAS
 
 
-@OWNER_TODO
 def test_bm25_search_body_size_and_source() -> None:
     client = RecordingSearchClient(RESPONSE)
     bm25_search(client, "사업 기간", top_k=7)
@@ -134,7 +132,6 @@ def test_bm25_search_body_size_and_source() -> None:
     _assert_source_excludes_embedding(body)
 
 
-@OWNER_TODO
 def test_bm25_search_body_is_match_on_text() -> None:
     client = RecordingSearchClient(RESPONSE)
     bm25_search(client, "사업 기간은 언제까지인가", top_k=10)
@@ -146,7 +143,6 @@ def test_bm25_search_body_is_match_on_text() -> None:
     assert sent == "사업 기간은 언제까지인가"
 
 
-@OWNER_TODO
 def test_bm25_search_returns_converted_hits() -> None:
     client = RecordingSearchClient(RESPONSE)
     assert bm25_search(client, "사업 기간", top_k=10) == to_search_hits(RESPONSE)
@@ -157,7 +153,6 @@ def test_bm25_search_returns_converted_hits() -> None:
 VECTOR = [0.0, 0.6, 0.8]
 
 
-@OWNER_TODO
 def test_knn_search_sends_one_request_to_alias() -> None:
     client = RecordingSearchClient(RESPONSE)
     knn_search(client, VECTOR, top_k=10)
@@ -165,7 +160,6 @@ def test_knn_search_sends_one_request_to_alias() -> None:
     assert client.calls[0]["index"] == TEST_ALIAS
 
 
-@OWNER_TODO
 def test_knn_search_body_size_and_source() -> None:
     client = RecordingSearchClient(RESPONSE)
     knn_search(client, VECTOR, top_k=7)
@@ -174,7 +168,6 @@ def test_knn_search_body_size_and_source() -> None:
     _assert_source_excludes_embedding(body)
 
 
-@OWNER_TODO
 def test_knn_search_body_is_knn_on_embedding() -> None:
     client = RecordingSearchClient(RESPONSE)
     knn_search(client, VECTOR, top_k=10)
@@ -186,7 +179,6 @@ def test_knn_search_body_is_knn_on_embedding() -> None:
     assert knn["k"] >= 10
 
 
-@OWNER_TODO
 def test_knn_search_returns_converted_hits() -> None:
     client = RecordingSearchClient(RESPONSE)
     assert knn_search(client, VECTOR, top_k=10) == to_search_hits(RESPONSE)

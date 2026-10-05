@@ -79,7 +79,13 @@ def bm25_search(client: SearchClient, query: str, top_k: int) -> list[SearchHit]
     `_source`에서 `embedding` 제외, `query`는 `text` 필드의 `match`.
     반환: `to_search_hits(응답)` — `_score` 내림차순.
     """
-    raise NotImplementedError("#18 학습 모드: 소유자 구현")
+    body = {
+        "size": top_k,
+        "_source": {"excludes": ["embedding"]},
+        "query": {"match": {"text": query}},
+    }
+    response = client.search(index=search_alias(), body=body)
+    return to_search_hits(response)
 
 
 def knn_search(client: SearchClient, query_vector: list[float], top_k: int) -> list[SearchHit]:
@@ -95,4 +101,10 @@ def knn_search(client: SearchClient, query_vector: list[float], top_k: int) -> l
     `_source`에서 `embedding` 제외, `query`는 `{"knn": {"embedding": {"vector": ..., "k": ...}}}`.
     반환: `to_search_hits(응답)` — `_score` 내림차순.
     """
-    raise NotImplementedError("#18 학습 모드: 소유자 구현")
+    body = {
+        "size": top_k,
+        "_source": {"excludes": ["embedding"]},
+        "query": {"knn": {"embedding": {"vector": query_vector, "k": top_k}}},
+    }
+    response = client.search(index=search_alias(), body=body)
+    return to_search_hits(response)

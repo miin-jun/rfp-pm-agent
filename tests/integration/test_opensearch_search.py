@@ -159,7 +159,6 @@ def test_hybrid_with_temporary_rrf_pipeline_returns_rrf_scores(
 # --- 소유자 구현 함수 (구현 전에는 NotImplementedError로 xfail) ---
 
 
-@OWNER_TODO
 def test_bm25_search_via_alias(client: OpenSearch, alias_target: str) -> None:
     hits = bm25_search(client, QUERY, TOP_K)
     assert len(hits) == TOP_K
@@ -167,7 +166,6 @@ def test_bm25_search_via_alias(client: OpenSearch, alias_target: str) -> None:
     assert [h.score for h in hits] == sorted((h.score for h in hits), reverse=True)
 
 
-@OWNER_TODO
 def test_knn_search_finds_stored_doc_with_its_own_vector(
     client: OpenSearch, stored_doc: dict[str, Any]
 ) -> None:

@@ -40,6 +40,17 @@ uv run python -m rfp_pm_agent.ingest.index_chunks
 - TEI `/info`의 `model_sha`가 null이면(TEI 1.9.4 기본) revision을 읽으려고 `docker run --rm`으로 일회용 컨테이너를 띄워 모델 볼륨의 `snapshots/`를 본다 — dry-run에서도 같다
 - 인덱스가 이미 있으면 매핑은 바꾸지 않는다. 매핑을 바꿨다면 새 인덱스 이름으로 색인한 뒤 별칭을 옮긴다
 
+### 검색 평가 — OpenSearch (#18)
+
+색인이 끝난 별칭(`rfp_chunks`)을 qa_v2로 채점한다. BM25는 TEI 없이, k-NN은 `tei-embed`가 떠 있어야 돈다.
+기록은 `data/eval/results/hybrid/`에 남는다. 실행 전 확인 항목과 결과는 [hybrid-search-measurement.md](hybrid-search-measurement.md).
+
+```bash
+uv run python -m rfp_pm_agent.eval.run_retrieval --os-bm25
+uv run python -m rfp_pm_agent.eval.run_retrieval --os-knn
+uv run pytest tests/integration -m integration -q   # 실제 OpenSearch 검색 테스트 (읽기만 한다)
+```
+
 ## 알려진 함정
 
 - **WSL2에서 OpenSearch 컨테이너가 계속 재시작되거나 바로 죽는 경우**: 커널의 `vm.max_map_count`가 기본값(65530)이라 OpenSearch(Lucene)가 요구하는 최소값(262144)에 못 미쳐서 발생합니다.

@@ -39,8 +39,10 @@ data/raw/manual/{파일} ──► sha256 계산 ────┘         수동 
 RFP 요구사항 ──► PostgreSQL requirements  ──► 합성 WBS·Risk·Issue·산출물
 
 data/eval/*.jsonl        평가 세트 (git 포함, 사람 검수 기록 포함)
-data/eval/runs.jsonl     평가 실행 기록 (git 포함, 실행마다 한 줄 추가)
-data/eval/failures/**    틀린 질문의 상위 검색 결과 (git 포함, run_id로 runs.jsonl과 연결)
+data/eval/runs.jsonl     #13 청킹 비교 실행 기록 (git 포함, 실행마다 한 줄 추가)
+data/eval/failures/**    #13 틀린 질문의 상위 검색 결과 (git 포함, run_id로 runs.jsonl과 연결)
+data/eval/results/<실험>/ 검색 평가 기록 (git 포함): runs.jsonl · <run_id>.questions.jsonl · failures/<run_id>.jsonl
+                         model_selection/ = #16 모델 선정, hybrid/ = #18 OpenSearch 검색
 ```
 
 - **조회 구간 (이슈 #50)**: 기준 날짜는 KST(`+09:00`)다 — 나라장터 조회 시각이 한국 시각 기준이라는 가정이며 참고문서로는 확인하지 못했다. 구간(`--from`/`--to` 또는 `--lookback-days`)은 30일 단위로 나누고 경계는 1일 겹친다(겹친 날의 중복은 `doc_id`가 거른다). 구간마다 `totalCount`까지 모든 페이지를 받는다.
@@ -260,7 +262,7 @@ Document
 
 - **별칭(alias) 운영**: 코드는 항상 `rfp_chunks`(별칭)만 부르고, 실제 인덱스는 `rfp_chunks_v1_kure`, `rfp_chunks_v1_bgem3`처럼 **모델별로 분리** → 이후 모델 교체를 **검색 중단 없이 별칭 전환만으로** 처리
 - **채택 모델 (#16, 2026-09-27)**: 임베딩 **KURE-v1**([ADR-0001](adr/0001-embedding-model.md)), 리랭커 bge-reranker-v2-m3 N=20([ADR-0002](adr/0002-reranker.md)). 별칭 `rfp_chunks` → `rfp_chunks_v1_kure`로 시작한다. 인덱스·별칭 생성과 색인은 **#17**에서 한다. 색인 모듈은 인덱스가 없을 때만 만들고, 별칭이 아직 없을 때만 연결한다 — 별칭이 다른 인덱스를 가리키고 있으면 그대로 두고, 전환은 사람이 따로 한다
-  - #16 모델 선정은 OpenSearch가 아니라 **메모리 내 코사인 검색**(`search/dense.py`, 임시 구현. OpenSearch k-NN 검색으로 바꾸는 것은 #18 — #17은 색인까지만 한다)으로 측정했다. 모델별 벡터는 `data/cache/embeddings/`(git 제외)에 따로 두었다 — 별칭 전환 방식은 아직 쓰이지 않았다
+  - #16 모델 선정은 OpenSearch가 아니라 **메모리 내 코사인 검색**(`search/dense.py`, 임시 구현. #13·#16 재현용으로 남긴다)으로 측정했다. #18부터 서비스 검색은 OpenSearch 별칭을 부른다(`search/opensearch.py`의 `bm25_search`·`knn_search`, 측정은 [hybrid-search-measurement.md](hybrid-search-measurement.md)). 모델별 벡터는 `data/cache/embeddings/`(git 제외)에 따로 두었다 — 별칭 전환 방식은 아직 쓰이지 않았다
 - `engine: lucene` — 소규모 데이터에 충분하고, 필터를 k-NN 탐색 안에서 적용하는 방식을 지원 (RBAC 사전 필터에 사용)
 - **요구사항 ID 정확 일치 질문**("SFR-012가 뭐야?")은 `requirement_id` keyword 필드 직접 조회를 우선
 - 하이브리드: OpenSearch 검색 파이프라인의 **RRF**(2.19+) 사용 + 비교용으로 **앱 코드 RRF**도 구현 (f1-ragops 경험 재사용)

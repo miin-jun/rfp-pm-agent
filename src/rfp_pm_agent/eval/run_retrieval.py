@@ -5,7 +5,7 @@ qa_v2(57문항, 답 있음 51)를 block_requirement 청크로 검색해 채점�
 모델 하나만 띄우므로(learning-log 2026-09-24, RAM), 모델을 바꿀 때마다 서버를 다시 띄우고
 이 명령을 다시 실행한다. 측정 절차는 docs/model-selection-measurement.md.
 
-기록 (data/eval/results/model_selection/):
+기록 (data/eval/results/model_selection/, os 모드는 data/eval/results/hybrid/ — `--out-dir`로 바꿀 수 있다):
 - runs.jsonl: 실행 한 줄(RetrievalRunRecord) — 모델 ID·revision, TEI 버전·이미지, GPU,
   접두어, 자르기 여부·자른 청크 수, 색인 시간, 지연 p50·p95, 집계 점수
 - {run_id}.questions.jsonl: 답 있는 문항별 결과 — 실행 간 McNemar 비교에 쓴다
@@ -18,8 +18,16 @@ qa_v2(57문항, 답 있음 51)를 block_requirement 청크로 검색해 채점�
 MRR·NDCG 함수는 소유자가 구현했다(retrieval.py). 그 전에 남긴 기록은 그 칸이 비어 있다.
 LLM을 부르지 않으므로 비용은 $0이다.
 
+OpenSearch 모드(#18 PR ①): `--os-bm25`·`--os-knn`은 메모리 색인 대신 별칭(`OPENSEARCH_INDEX_ALIAS`)을
+검색한다(`search/opensearch.py`). 채점의 정답 묶음은 여전히 `--chunks` 파일에서 뽑으므로, 실행 전에
+별칭이 가리키는 인덱스의 chunk_id 집합이 청크 파일과 같은지 확인하고 다르면 멈춘다. `--os-knn`은
+인덱스 문서의 embedding_model이 지금 TEI 서버의 "{모델ID}@{revision}"과 같은지도 확인한다 —
+다른 모델 벡터로 만든 질의를 섞어 검색하지 않기 위해서다. 리랭크 조합은 PR ②에서 연결한다.
+
 CLI: `uv run python -m rfp_pm_agent.eval.run_retrieval --bm25`
      `uv run python -m rfp_pm_agent.eval.run_retrieval --dense [--rerank]`
+     `uv run python -m rfp_pm_agent.eval.run_retrieval --os-bm25`
+     `uv run python -m rfp_pm_agent.eval.run_retrieval --os-knn`
      `uv run python -m rfp_pm_agent.eval.run_retrieval --compare <run_id> <run_id> ...`
 """
 
@@ -28,29 +36,46 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import re
 import subprocess
 import sys
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+from opensearchpy import OpenSearch
 
 from rfp_pm_agent.clients.embedding import TEIEmbeddingClient
 from rfp_pm_agent.clients.reranker import TEIRerankerClient
-from rfp_pm_agent.config import ClientsConfig
+from rfp_pm_agent.clients.tei_revision import (
+    DEFAULT_COMPOSE_FILE,
+    tei_image_tag,
+    volume_revision_reader,
+)
+from rfp_pm_agent.config import ClientsConfig, OpenSearchConfig
 from rfp_pm_agent.eval.qa_v2 import DEFAULT_QA_V2, load_questions_v2
 from rfp_pm_agent.eval.retrieval import V2_TOP_K, mcnemar_exact_p, score_run_v2
-from rfp_pm_agent.eval.run_chunk_eval import load_chunks
+from rfp_pm_agent.ingest.chunking import DEFAULT_PARSED_DIR, load_chunks
+from rfp_pm_agent.ingest.index_chunks import (
+    ChunkHashes,
+    IndexedMeta,
+    alias_targets,
+    chunk_hashes,
+    fetch_indexed,
+    load_documents,
+    resolve_embedding_model,
+)
+from rfp_pm_agent.schemas.chunk import Chunk
+from rfp_pm_agent.schemas.document import Document
 from rfp_pm_agent.schemas.eval import (
     EvalQuestionV2,
     LatencyStats,
     QuestionResult,
     RetrievalRunRecord,
     RetrievalRunScore,
+    RetrieverName,
     SearchHit,
     ServerInfo,
     TokenizerName,
@@ -63,11 +88,13 @@ from rfp_pm_agent.search.dense import (
     file_sha256,
     rerank_hits,
 )
+from rfp_pm_agent.search.opensearch import bm25_search, knn_search, search_alias
 from rfp_pm_agent.search.tokenize import get_tokenizer
 
 DEFAULT_CHUNKS_FILE = Path("data/chunks/block_requirement.jsonl")
 DEFAULT_OUT_DIR = Path("data/eval/results/model_selection")
-DEFAULT_COMPOSE_FILE = Path("docker-compose.yml")
+# #18 OpenSearch 모드의 기록 위치. #16 모델 선정 기록과 섞지 않는다
+DEFAULT_HYBRID_OUT_DIR = Path("data/eval/results/hybrid")
 
 # 이슈 #16 결정 규칙에서 고정한 값
 DEFAULT_RERANK_N = 20
@@ -115,57 +142,6 @@ def gpu_snapshot() -> dict[str, str] | None:
         return None
     name, driver, used = (part.strip() for part in out.splitlines()[0].split(","))
     return {"name": name, "driver": driver, "memory_used_mib": used}
-
-
-def tei_image_tag(compose_file: Path) -> str | None:
-    """docker-compose.yml에 적힌 TEI 이미지 태그. 실제로 떠 있는 컨테이너 이미지는 아니다."""
-    if not compose_file.exists():
-        return None
-    match = re.search(r"image:\s*(\S*text-embeddings-inference\S*)", compose_file.read_text())
-    return match.group(1) if match else None
-
-
-def parse_snapshot_listing(model_id: str, listing: str) -> str:
-    """`snapshots/` 목록에서 revision 해시 하나를 고른다. 0개거나 2개 이상이면 ValueError.
-
-    2개 이상이면 어느 스냅샷이 로드됐는지 이 목록만으로는 알 수 없으므로 추측하지 않는다.
-    """
-    entries = [line.strip() for line in listing.splitlines() if line.strip()]
-    if len(entries) != 1:
-        raise ValueError(
-            f"{model_id}의 TEI 스냅샷이 {len(entries)}개다({entries}) — revision을 정할 수 없다"
-        )
-    return entries[0]
-
-
-def read_snapshot_revision(model_id: str, *, volume: str, image: str) -> str:
-    """TEI 모델 볼륨의 models--<org>--<name>/snapshots/ 아래 해시를 읽는다.
-
-    볼륨은 root 소유라 WSL에서 바로 읽을 수 없어, TEI 이미지로 `ls`만 하는 일회용 컨테이너를
-    띄운다(이미지는 이미 받아 둔 것을 쓴다). 실패하면 RuntimeError — revision 없이 실행하지 않는다.
-    """
-    folder = "models--" + model_id.replace("/", "--")
-    try:
-        out = subprocess.run(
-            [
-                "docker",
-                "run",
-                "--rm",
-                "--entrypoint",
-                "ls",
-                "-v",
-                f"{volume}:/data:ro",
-                image,
-                f"/data/{folder}/snapshots",
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=60,
-        ).stdout
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise RuntimeError(f"{model_id}의 스냅샷 revision을 읽지 못했다: {exc}") from exc
-    return parse_snapshot_listing(model_id, out)
 
 
 def latency_stats(samples_ms: Sequence[float]) -> LatencyStats | None:
@@ -275,13 +251,69 @@ def format_scores(title: str, scores: RetrievalRunScore) -> str:
     return "\n".join(lines)
 
 
+def default_out_dir(retriever: RetrieverName) -> Path:
+    """`--out-dir`를 주지 않았을 때의 기록 위치. os 모드는 hybrid, 나머지는 #16 model_selection."""
+    return DEFAULT_HYBRID_OUT_DIR if retriever.startswith("os-") else DEFAULT_OUT_DIR
+
+
+def _mismatched(
+    indexed: Mapping[str, IndexedMeta], expected: Mapping[str, ChunkHashes], field: str
+) -> list[str]:
+    return sorted(
+        cid for cid, h in expected.items() if getattr(indexed[cid], field) != getattr(h, field)
+    )
+
+
+def check_alias_index(
+    client: OpenSearch,
+    alias: str,
+    chunks: Sequence[Chunk],
+    documents: Mapping[str, Document],
+    passage_prefix: str,
+) -> tuple[str, dict[str, IndexedMeta]]:
+    """별칭이 가리키는 실제 인덱스 이름과 그 인덱스 문서의 메타를 돌려준다.
+
+    채점은 청크 파일에서 정답을 뽑으므로, 인덱스가 청크 파일과 다르면 점수가 검색이 아니라
+    데이터 차이를 잰다. 아래 중 하나라도 맞으면 ValueError로 멈춘다.
+    - 별칭이 인덱스 하나를 가리키지 않는다
+    - 인덱스의 chunk_id 집합이 청크 파일과 다르다
+    - content_hash가 다르다: chunk_id는 같은데 text(또는 EMBED_PASSAGE_PREFIX)가 색인 때와 다르다.
+      파서를 고친 뒤 다시 색인하지 않은 경우다
+    - metadata_hash가 다르다: doc_id·page 등 메타데이터가 파싱 결과와 다르다
+    해시는 색인 모듈과 같은 함수(`index_chunks.chunk_hashes`)로 계산한다.
+    """
+    targets = alias_targets(client, alias)
+    if len(targets) != 1:
+        raise ValueError(f"별칭 {alias}가 가리키는 인덱스가 {targets}다 — 하나여야 한다")
+    [index_name] = targets
+    indexed = fetch_indexed(client, index_name)
+    chunk_ids = {c.chunk_id for c in chunks}
+    missing = sorted(chunk_ids - set(indexed))
+    extra = sorted(set(indexed) - chunk_ids)
+    if missing or extra:
+        raise ValueError(
+            f"{index_name}의 문서가 청크 파일과 다르다: 인덱스에 없음 {len(missing)}개 "
+            f"{missing[:5]}, 인덱스에만 있음 {len(extra)}개 {extra[:5]}"
+        )
+    expected = chunk_hashes(chunks, documents, passage_prefix)
+    for field in ("content_hash", "metadata_hash"):
+        differ = _mismatched(indexed, expected, field)
+        if differ:
+            raise ValueError(
+                f"{index_name}의 {field}가 청크 파일과 다른 문서 {len(differ)}개 {differ[:5]} — "
+                "청크 파일·파싱 결과로 다시 색인한 뒤 측정한다"
+            )
+    return index_name, indexed
+
+
 def run(
     *,
-    retriever: str,
+    retriever: RetrieverName,
     use_rerank: bool,
     qa_file: Path = DEFAULT_QA_V2,
     chunks_file: Path = DEFAULT_CHUNKS_FILE,
-    out_dir: Path = DEFAULT_OUT_DIR,
+    parsed_dir: Path = DEFAULT_PARSED_DIR,
+    out_dir: Path | None = None,
     cache_dir: Path = DEFAULT_CACHE_DIR,
     compose_file: Path = DEFAULT_COMPOSE_FILE,
     tokenizer: TokenizerName = "bigram",
@@ -293,13 +325,17 @@ def run(
     embedder: TEIEmbeddingClient | None = None,
     reranker: TEIRerankerClient | None = None,
     revision_reader: Callable[[str], str] | None = None,
+    os_client: OpenSearch | None = None,
 ) -> RetrievalRunRecord:
     """검색 조건 하나를 돌려 채점하고 기록을 남긴다.
 
     embedder·reranker를 주지 않으면 config(없으면 환경변수)로 TEI 클라이언트를 만든다.
     테스트는 가짜 transport를 넣은 클라이언트를 준다. revision_reader(모델 ID → 스냅샷
-    해시)를 주지 않으면 TEI 볼륨을 docker로 읽는다(`read_snapshot_revision`).
+    해시)를 주지 않으면 TEI 볼륨을 docker로 읽는다(`clients.tei_revision`). os_client를 주지
+    않으면 `OPENSEARCH_URL`로 OpenSearch 클라이언트를 만든다(os-bm25·os-knn). os 모드는 parsed_dir의
+    파싱 결과로 인덱스 메타데이터를 대조한다. out_dir가 None이면 `default_out_dir(retriever)`.
     """
+    out_dir = out_dir if out_dir is not None else default_out_dir(retriever)
     questions = load_questions_v2(qa_file)
     chunks = load_chunks(chunks_file)
     ran_at = datetime.now(UTC)
@@ -324,10 +360,7 @@ def run(
                 raise ValueError(
                     f"{compose_file}에서 TEI 이미지를 찾지 못해 revision을 읽을 수 없다"
                 )
-            image = tei_image
-
-            def revision_reader(model_id: str) -> str:
-                return read_snapshot_revision(model_id, volume=cfg.tei_models_volume, image=image)
+            revision_reader = volume_revision_reader(cfg, compose_file)
 
         info = server_info(embedder.info())
         if cfg.embed_model_id and info.model_id != cfg.embed_model_id:
@@ -377,6 +410,56 @@ def run(
 
             name += f"+rerank-{rerank_info.model_id.split('/')[-1]}"
             record_fields |= {"rerank": rerank_info, "rerank_n": rerank_n}
+    elif retriever in ("os-bm25", "os-knn"):
+        if use_rerank:
+            raise ValueError("OpenSearch 모드 + 리랭크는 #18 PR ②에서 연결한다")
+        cfg = config or ClientsConfig.from_env()
+        client = os_client or OpenSearch(hosts=[OpenSearchConfig.from_env().url])
+        alias = search_alias()
+        documents = load_documents((c.doc_id for c in chunks), parsed_dir)
+        index_name, indexed_meta = check_alias_index(
+            client, alias, chunks, documents, cfg.embed_passage_prefix
+        )
+        record_fields |= {
+            "index_alias": alias,
+            "index_name": index_name,
+            "index_doc_count": len(indexed_meta),
+        }
+        rerank = None
+        if retriever == "os-bm25":
+            search = lambda q: bm25_search(client, q, top_k)
+            name = "os-bm25"
+        else:
+            query_embedder = embedder or TEIEmbeddingClient(cfg)
+            tei_image = tei_image_tag(compose_file)
+            if revision_reader is None:
+                if tei_image is None:
+                    raise ValueError(
+                        f"{compose_file}에서 TEI 이미지를 찾지 못해 revision을 읽을 수 없다"
+                    )
+                revision_reader = volume_revision_reader(cfg, compose_file)
+            raw_info = query_embedder.info()
+            # 색인과 같은 규칙(model_sha가 있으면 그 값, 없으면 볼륨 스냅샷)으로 만든 이름
+            query_model = resolve_embedding_model(raw_info, cfg, revision_reader)
+            index_models = {meta.embedding_model for meta in indexed_meta.values()}
+            if index_models != {query_model}:
+                raise ValueError(
+                    f"{index_name}의 embedding_model {sorted(index_models)}이 질의 임베딩 "
+                    f"서버({query_model})와 다르다"
+                )
+            info = server_info(raw_info)
+            info = info.model_copy(update={"snapshot_revision": query_model.split("@", 1)[1]})
+
+            def search(q: str) -> list[SearchHit]:
+                [vector] = query_embedder.embed([q], input_type="query")
+                return knn_search(client, vector, top_k)
+
+            name = f"os-knn-{info.model_id.split('/')[-1]}"
+            record_fields |= {
+                "embed": info,
+                "query_prefix": cfg.embed_query_prefix,
+                "tei_image": tei_image,
+            }
     else:
         raise ValueError(f"알 수 없는 retriever: {retriever}")
 
@@ -397,7 +480,7 @@ def run(
         qa_file=str(qa_file),
         chunks_file=str(chunks_file),
         chunk_count=len(chunks),
-        retriever="bm25" if retriever == "bm25" else "dense",
+        retriever=retriever,
         top_k=top_k,
         gpu=gpu_before["name"] if gpu_before else None,
         gpu_driver=gpu_before["driver"] if gpu_before else None,
@@ -494,12 +577,25 @@ def build_arg_parser() -> argparse.ArgumentParser:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--bm25", action="store_true", help="BM25 기준선 (TEI 불필요)")
     mode.add_argument("--dense", action="store_true", help="TEI 임베딩 서버로 벡터 검색")
+    mode.add_argument("--os-bm25", action="store_true", help="OpenSearch 별칭 BM25(nori) (#18)")
+    mode.add_argument("--os-knn", action="store_true", help="OpenSearch 별칭 k-NN (#18, TEI 필요)")
     mode.add_argument("--compare", nargs="+", metavar="RUN_ID", help="결정 규칙 적용")
     parser.add_argument("--rerank", action="store_true", help="--dense 결과 상위 N개를 리랭크")
     parser.add_argument("--rerank-n", type=int, default=DEFAULT_RERANK_N)
     parser.add_argument("--qa", type=Path, default=DEFAULT_QA_V2)
     parser.add_argument("--chunks", type=Path, default=DEFAULT_CHUNKS_FILE)
-    parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
+    parser.add_argument(
+        "--parsed-dir",
+        type=Path,
+        default=DEFAULT_PARSED_DIR,
+        help="os 모드에서 인덱스 메타데이터를 대조할 파싱 결과",
+    )
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=None,
+        help=f"기록 위치 (기본: os 모드 {DEFAULT_HYBRID_OUT_DIR}, 나머지 {DEFAULT_OUT_DIR})",
+    )
     parser.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE_DIR)
     parser.add_argument("--tokenizer", choices=["bigram", "whitespace"], default="bigram")
     parser.add_argument("--warmup", type=int, default=DEFAULT_WARMUP)
@@ -515,13 +611,18 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     args = build_arg_parser().parse_args(argv)
     if args.compare:
-        logger.info("%s", format_compare(compare(args.compare, args.out_dir)))
+        out_dir = args.out_dir if args.out_dir is not None else DEFAULT_OUT_DIR
+        logger.info("%s", format_compare(compare(args.compare, out_dir)))
         return 0
+    retriever: RetrieverName = (
+        "bm25" if args.bm25 else "os-bm25" if args.os_bm25 else "os-knn" if args.os_knn else "dense"
+    )
     run(
-        retriever="bm25" if args.bm25 else "dense",
+        retriever=retriever,
         use_rerank=args.rerank,
         qa_file=args.qa,
         chunks_file=args.chunks,
+        parsed_dir=args.parsed_dir,
         out_dir=args.out_dir,
         cache_dir=args.cache_dir,
         tokenizer=args.tokenizer,

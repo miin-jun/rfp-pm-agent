@@ -19,6 +19,8 @@ from pydantic import BaseModel, field_validator, model_validator
 
 QuestionType = Literal["요구사항", "일반"]
 TokenizerName = Literal["bigram", "whitespace"]
+# bm25·dense: #16 메모리 검색 / os-bm25·os-knn: OpenSearch 별칭 검색 (#18)
+RetrieverName = Literal["bm25", "dense", "os-bm25", "os-knn"]
 
 # v2 문항 유형 태그 (docs/data-design.md 9절). 한 문항에 여러 개가 붙을 수 있다
 QuestionTag = Literal[
@@ -225,9 +227,10 @@ class RetrievalRunRecord(BaseModel):
     run_id: str
     ran_at: str  # ISO 8601 (UTC)
     qa_file: str
+    # 정답 묶음(gold)을 뽑은 청크 파일. OpenSearch 모드에서도 채점은 이 파일로 한다
     chunks_file: str
     chunk_count: int
-    retriever: Literal["bm25", "dense"]
+    retriever: RetrieverName
     top_k: int  # 1차 검색에서 가져온 개수 (리랭크하면 rerank_n)
     # BM25
     tokenizer: TokenizerName | None = None
@@ -243,6 +246,10 @@ class RetrievalRunRecord(BaseModel):
     empty_chunk_ids: list[str] | None = None
     index_seconds: float | None = None
     vector_cache: str | None = None
+    # OpenSearch (#18): 부른 별칭, 실행 시점에 별칭이 가리킨 실제 인덱스, 그 인덱스의 문서 수
+    index_alias: str | None = None
+    index_name: str | None = None
+    index_doc_count: int | None = None
     # 리랭커
     rerank: ServerInfo | None = None
     rerank_n: int | None = None

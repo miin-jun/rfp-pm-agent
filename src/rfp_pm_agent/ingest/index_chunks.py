@@ -59,14 +59,9 @@ from opensearchpy import OpenSearch
 from pydantic import BaseModel, Field
 
 from rfp_pm_agent.clients.embedding import InputType, TEIEmbeddingClient
+from rfp_pm_agent.clients.tei_revision import volume_revision_reader
 from rfp_pm_agent.config import ClientsConfig, OpenSearchConfig
-from rfp_pm_agent.eval.run_chunk_eval import load_chunks
-from rfp_pm_agent.eval.run_retrieval import (
-    DEFAULT_COMPOSE_FILE,
-    read_snapshot_revision,
-    tei_image_tag,
-)
-from rfp_pm_agent.ingest.chunking import DEFAULT_PARSED_DIR, has_meaningful_char
+from rfp_pm_agent.ingest.chunking import DEFAULT_PARSED_DIR, has_meaningful_char, load_chunks
 from rfp_pm_agent.schemas.chunk import Chunk
 from rfp_pm_agent.schemas.document import Document
 
@@ -227,23 +222,6 @@ def resolve_embedding_model(
     return f"{model_id}@{revision}"
 
 
-def volume_revision_reader(config: ClientsConfig) -> Callable[[str], str]:
-    """TEI 모델 볼륨의 snapshots/에서 revision을 읽는 함수 (#16 run_retrieval과 같은 방법).
-
-    `docker run --rm`으로 `ls`만 하는 일회용 컨테이너를 띄운다(볼륨은 읽기 전용으로 붙인다).
-    """
-
-    def read(model_id: str) -> str:
-        image = tei_image_tag(DEFAULT_COMPOSE_FILE)
-        if image is None:
-            raise ValueError(
-                f"{DEFAULT_COMPOSE_FILE}에서 TEI 이미지를 찾지 못해 revision을 읽을 수 없다"
-            )
-        return read_snapshot_revision(model_id, volume=config.tei_models_volume, image=image)
-
-    return read
-
-
 def check_chunks(chunks: Sequence[Chunk]) -> None:
     """의미 글자 없는 청크(#62)와 chunk_id 중복(#65, `_id`로 씀)을 ValueError로 막는다."""
     no_letter_ids = [c.chunk_id for c in chunks if not has_meaningful_char(c.text)]
@@ -291,6 +269,31 @@ def metadata_fields(chunk: Chunk, documents: Mapping[str, Document]) -> dict[str
         "method": chunk.method,
         "source_ids": chunk.source_ids,
         **source_fields(chunk, documents),
+    }
+
+
+def chunk_hashes(
+    chunks: Sequence[Chunk],
+    documents: Mapping[str, Document],
+    passage_prefix: str,
+    metadata_by_id: Mapping[str, Mapping[str, Any]] | None = None,
+) -> dict[str, ChunkHashes]:
+    """청크마다 색인 판정에 쓰는 content_hash·metadata_hash (chunk_id → 해시, 청크 파일 순서).
+
+    content_hash는 접두어를 붙인 임베딩 입력(`embed_input`)의 해시, metadata_hash는
+    `metadata_fields`의 해시다. 이미 계산한 메타데이터가 있으면 metadata_by_id로 넘긴다.
+    평가(`eval/run_retrieval`)도 같은 함수로 인덱스가 청크 파일과 같은지 확인한다(#18).
+    """
+    return {
+        c.chunk_id: ChunkHashes(
+            content_hash=content_hash(embed_input(c.text, passage_prefix)),
+            metadata_hash=metadata_hash(
+                metadata_by_id[c.chunk_id]
+                if metadata_by_id is not None
+                else metadata_fields(c, documents)
+            ),
+        )
+        for c in chunks
     }
 
 
@@ -450,13 +453,7 @@ def index_chunks(
     check_index_name(client, index_name, alias)
     check_chunks(chunks)
     metadata_by_id = {c.chunk_id: metadata_fields(c, documents) for c in chunks}
-    hashes = {
-        c.chunk_id: ChunkHashes(
-            content_hash=content_hash(embed_input(c.text, config.embed_passage_prefix)),
-            metadata_hash=metadata_hash(metadata_by_id[c.chunk_id]),
-        )
-        for c in chunks
-    }
+    hashes = chunk_hashes(chunks, documents, config.embed_passage_prefix, metadata_by_id)
     embedding_model = resolve_embedding_model(
         embedder.info(), config, revision_reader or volume_revision_reader(config)
     )

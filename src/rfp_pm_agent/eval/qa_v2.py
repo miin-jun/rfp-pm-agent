@@ -34,8 +34,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from rfp_pm_agent.eval.retrieval import evidence_in_text, gold_chunk_ids, reachable
-from rfp_pm_agent.eval.run_chunk_eval import METHODS, load_chunks
-from rfp_pm_agent.ingest.chunking import DEFAULT_CHUNKS_DIR, DEFAULT_PARSED_DIR
+from rfp_pm_agent.eval.run_chunk_eval import METHODS
+from rfp_pm_agent.ingest.chunking import DEFAULT_CHUNKS_DIR, DEFAULT_PARSED_DIR, load_chunks
 from rfp_pm_agent.schemas.chunk import Chunk
 from rfp_pm_agent.schemas.document import Block, Document
 from rfp_pm_agent.schemas.eval import EvalQuestionV2, QuestionTag

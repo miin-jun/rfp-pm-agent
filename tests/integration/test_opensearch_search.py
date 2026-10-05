@@ -29,10 +29,6 @@ from rfp_pm_agent.search.opensearch import (
 
 pytestmark = pytest.mark.integration
 
-OWNER_TODO = pytest.mark.xfail(
-    raises=NotImplementedError, strict=True, reason="#18 학습 모드: 소유자 구현 전"
-)
-
 QUERY = "사업 기간은 언제까지인가"
 TOP_K = 10
 SOURCE_WITHOUT_EMBEDDING = {"excludes": list(EXCLUDED_SOURCE_FIELDS)}
@@ -156,7 +152,7 @@ def test_hybrid_with_temporary_rrf_pipeline_returns_rrf_scores(
     assert all(0 < score <= 2 / 61 + 1e-9 for score in scores), scores
 
 
-# --- 소유자 구현 함수 (구현 전에는 NotImplementedError로 xfail) ---
+# --- 소유자 구현 함수 (bm25_search·knn_search) ---
 
 
 def test_bm25_search_via_alias(client: OpenSearch, alias_target: str) -> None:

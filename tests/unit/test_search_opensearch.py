@@ -1,7 +1,7 @@
 """OpenSearch 단일 검색 단위 테스트 (이슈 #18 PR ①).
 
-`bm25_search`·`knn_search`의 본문은 소유자가 구현한다(학습 모드). 그 전에는 이 파일의
-body 검사 테스트가 NotImplementedError로 실패하는 것이 정상이다.
+`bm25_search`·`knn_search`의 본문은 소유자가 구현했다(학습 모드). 이 파일의 body 검사는
+구현 전에 먼저 고정해 둔 것이다.
 
 body 검사는 쿼리 작성 방식의 차이(축약형 `{"match": {"text": "..."}}` / 전체형
 `{"match": {"text": {"query": "..."}}}`, `_source`의 excludes / includes)를 모두 받아들이고,
@@ -17,12 +17,6 @@ import pytest
 from rfp_pm_agent.schemas.eval import SearchHit
 from rfp_pm_agent.search.opensearch import bm25_search, knn_search, search_alias, to_search_hits
 from tests.fakes.fake_search_client import RecordingSearchClient
-
-# 소유자 구현 전 표시. NotImplementedError로 실패할 때만 xfail이고, 다른 예외(AssertionError 등)는
-# 그대로 실패다. strict=True라 구현 뒤 통과하면 XPASS가 실패로 보고된다 — 그때 이 표시를 지운다
-OWNER_TODO = pytest.mark.xfail(
-    raises=NotImplementedError, strict=True, reason="#18 학습 모드: 소유자 구현 전"
-)
 
 # 코드가 별칭 이름을 하드코딩하지 않고 설정에서 읽는지 보려고 기본값과 다른 이름을 쓴다
 TEST_ALIAS = "test_alias_for_search"
@@ -114,7 +108,7 @@ def test_search_alias_reads_env() -> None:
     assert search_alias() == TEST_ALIAS
 
 
-# --- bm25_search (소유자 구현 전에는 NotImplementedError로 실패) ---
+# --- bm25_search ---
 
 
 def test_bm25_search_sends_one_request_to_alias() -> None:
@@ -148,7 +142,7 @@ def test_bm25_search_returns_converted_hits() -> None:
     assert bm25_search(client, "사업 기간", top_k=10) == to_search_hits(RESPONSE)
 
 
-# --- knn_search (소유자 구현 전에는 NotImplementedError로 실패) ---
+# --- knn_search ---
 
 VECTOR = [0.0, 0.6, 0.8]
 

@@ -39,7 +39,7 @@ import logging
 import subprocess
 import sys
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -57,14 +57,18 @@ from rfp_pm_agent.clients.tei_revision import (
 from rfp_pm_agent.config import ClientsConfig, OpenSearchConfig
 from rfp_pm_agent.eval.qa_v2 import DEFAULT_QA_V2, load_questions_v2
 from rfp_pm_agent.eval.retrieval import V2_TOP_K, mcnemar_exact_p, score_run_v2
-from rfp_pm_agent.ingest.chunking import load_chunks
+from rfp_pm_agent.ingest.chunking import DEFAULT_PARSED_DIR, load_chunks
 from rfp_pm_agent.ingest.index_chunks import (
+    ChunkHashes,
     IndexedMeta,
     alias_targets,
+    chunk_hashes,
     fetch_indexed,
+    load_documents,
     resolve_embedding_model,
 )
 from rfp_pm_agent.schemas.chunk import Chunk
+from rfp_pm_agent.schemas.document import Document
 from rfp_pm_agent.schemas.eval import (
     EvalQuestionV2,
     LatencyStats,
@@ -89,6 +93,8 @@ from rfp_pm_agent.search.tokenize import get_tokenizer
 
 DEFAULT_CHUNKS_FILE = Path("data/chunks/block_requirement.jsonl")
 DEFAULT_OUT_DIR = Path("data/eval/results/model_selection")
+# #18 OpenSearch 모드의 기록 위치. #16 모델 선정 기록과 섞지 않는다
+DEFAULT_HYBRID_OUT_DIR = Path("data/eval/results/hybrid")
 
 # 이슈 #16 결정 규칙에서 고정한 값
 DEFAULT_RERANK_N = 20
@@ -245,13 +251,36 @@ def format_scores(title: str, scores: RetrievalRunScore) -> str:
     return "\n".join(lines)
 
 
+def default_out_dir(retriever: RetrieverName) -> Path:
+    """`--out-dir`를 주지 않았을 때의 기록 위치. os 모드는 hybrid, 나머지는 #16 model_selection."""
+    return DEFAULT_HYBRID_OUT_DIR if retriever.startswith("os-") else DEFAULT_OUT_DIR
+
+
+def _mismatched(
+    indexed: Mapping[str, IndexedMeta], expected: Mapping[str, ChunkHashes], field: str
+) -> list[str]:
+    return sorted(
+        cid for cid, h in expected.items() if getattr(indexed[cid], field) != getattr(h, field)
+    )
+
+
 def check_alias_index(
-    client: OpenSearch, alias: str, chunks: Sequence[Chunk]
+    client: OpenSearch,
+    alias: str,
+    chunks: Sequence[Chunk],
+    documents: Mapping[str, Document],
+    passage_prefix: str,
 ) -> tuple[str, dict[str, IndexedMeta]]:
     """별칭이 가리키는 실제 인덱스 이름과 그 인덱스 문서의 메타를 돌려준다.
 
-    별칭이 인덱스 하나를 가리키지 않거나, 인덱스의 chunk_id 집합이 청크 파일과 다르면 ValueError.
-    채점은 청크 파일에서 정답을 뽑으므로, 둘이 다르면 점수가 검색이 아니라 데이터 차이를 잰다.
+    채점은 청크 파일에서 정답을 뽑으므로, 인덱스가 청크 파일과 다르면 점수가 검색이 아니라
+    데이터 차이를 잰다. 아래 중 하나라도 맞으면 ValueError로 멈춘다.
+    - 별칭이 인덱스 하나를 가리키지 않는다
+    - 인덱스의 chunk_id 집합이 청크 파일과 다르다
+    - content_hash가 다르다: chunk_id는 같은데 text(또는 EMBED_PASSAGE_PREFIX)가 색인 때와 다르다.
+      파서를 고친 뒤 다시 색인하지 않은 경우다
+    - metadata_hash가 다르다: doc_id·page 등 메타데이터가 파싱 결과와 다르다
+    해시는 색인 모듈과 같은 함수(`index_chunks.chunk_hashes`)로 계산한다.
     """
     targets = alias_targets(client, alias)
     if len(targets) != 1:
@@ -266,6 +295,14 @@ def check_alias_index(
             f"{index_name}의 문서가 청크 파일과 다르다: 인덱스에 없음 {len(missing)}개 "
             f"{missing[:5]}, 인덱스에만 있음 {len(extra)}개 {extra[:5]}"
         )
+    expected = chunk_hashes(chunks, documents, passage_prefix)
+    for field in ("content_hash", "metadata_hash"):
+        differ = _mismatched(indexed, expected, field)
+        if differ:
+            raise ValueError(
+                f"{index_name}의 {field}가 청크 파일과 다른 문서 {len(differ)}개 {differ[:5]} — "
+                "청크 파일·파싱 결과로 다시 색인한 뒤 측정한다"
+            )
     return index_name, indexed
 
 
@@ -275,7 +312,8 @@ def run(
     use_rerank: bool,
     qa_file: Path = DEFAULT_QA_V2,
     chunks_file: Path = DEFAULT_CHUNKS_FILE,
-    out_dir: Path = DEFAULT_OUT_DIR,
+    parsed_dir: Path = DEFAULT_PARSED_DIR,
+    out_dir: Path | None = None,
     cache_dir: Path = DEFAULT_CACHE_DIR,
     compose_file: Path = DEFAULT_COMPOSE_FILE,
     tokenizer: TokenizerName = "bigram",
@@ -294,8 +332,10 @@ def run(
     embedder·reranker를 주지 않으면 config(없으면 환경변수)로 TEI 클라이언트를 만든다.
     테스트는 가짜 transport를 넣은 클라이언트를 준다. revision_reader(모델 ID → 스냅샷
     해시)를 주지 않으면 TEI 볼륨을 docker로 읽는다(`clients.tei_revision`). os_client를 주지
-    않으면 `OPENSEARCH_URL`로 OpenSearch 클라이언트를 만든다(os-bm25·os-knn).
+    않으면 `OPENSEARCH_URL`로 OpenSearch 클라이언트를 만든다(os-bm25·os-knn). os 모드는 parsed_dir의
+    파싱 결과로 인덱스 메타데이터를 대조한다. out_dir가 None이면 `default_out_dir(retriever)`.
     """
+    out_dir = out_dir if out_dir is not None else default_out_dir(retriever)
     questions = load_questions_v2(qa_file)
     chunks = load_chunks(chunks_file)
     ran_at = datetime.now(UTC)
@@ -373,9 +413,13 @@ def run(
     elif retriever in ("os-bm25", "os-knn"):
         if use_rerank:
             raise ValueError("OpenSearch 모드 + 리랭크는 #18 PR ②에서 연결한다")
+        cfg = config or ClientsConfig.from_env()
         client = os_client or OpenSearch(hosts=[OpenSearchConfig.from_env().url])
         alias = search_alias()
-        index_name, indexed_meta = check_alias_index(client, alias, chunks)
+        documents = load_documents((c.doc_id for c in chunks), parsed_dir)
+        index_name, indexed_meta = check_alias_index(
+            client, alias, chunks, documents, cfg.embed_passage_prefix
+        )
         record_fields |= {
             "index_alias": alias,
             "index_name": index_name,
@@ -386,7 +430,6 @@ def run(
             search = lambda q: bm25_search(client, q, top_k)
             name = "os-bm25"
         else:
-            cfg = config or ClientsConfig.from_env()
             query_embedder = embedder or TEIEmbeddingClient(cfg)
             tei_image = tei_image_tag(compose_file)
             if revision_reader is None:
@@ -541,7 +584,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--rerank-n", type=int, default=DEFAULT_RERANK_N)
     parser.add_argument("--qa", type=Path, default=DEFAULT_QA_V2)
     parser.add_argument("--chunks", type=Path, default=DEFAULT_CHUNKS_FILE)
-    parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
+    parser.add_argument(
+        "--parsed-dir",
+        type=Path,
+        default=DEFAULT_PARSED_DIR,
+        help="os 모드에서 인덱스 메타데이터를 대조할 파싱 결과",
+    )
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=None,
+        help=f"기록 위치 (기본: os 모드 {DEFAULT_HYBRID_OUT_DIR}, 나머지 {DEFAULT_OUT_DIR})",
+    )
     parser.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE_DIR)
     parser.add_argument("--tokenizer", choices=["bigram", "whitespace"], default="bigram")
     parser.add_argument("--warmup", type=int, default=DEFAULT_WARMUP)
@@ -557,7 +611,8 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     args = build_arg_parser().parse_args(argv)
     if args.compare:
-        logger.info("%s", format_compare(compare(args.compare, args.out_dir)))
+        out_dir = args.out_dir if args.out_dir is not None else DEFAULT_OUT_DIR
+        logger.info("%s", format_compare(compare(args.compare, out_dir)))
         return 0
     retriever: RetrieverName = (
         "bm25" if args.bm25 else "os-bm25" if args.os_bm25 else "os-knn" if args.os_knn else "dense"
@@ -567,6 +622,7 @@ def main(argv: list[str] | None = None) -> int:
         use_rerank=args.rerank,
         qa_file=args.qa,
         chunks_file=args.chunks,
+        parsed_dir=args.parsed_dir,
         out_dir=args.out_dir,
         cache_dir=args.cache_dir,
         tokenizer=args.tokenizer,

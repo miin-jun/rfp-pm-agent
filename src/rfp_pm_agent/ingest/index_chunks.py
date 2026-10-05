@@ -272,6 +272,31 @@ def metadata_fields(chunk: Chunk, documents: Mapping[str, Document]) -> dict[str
     }
 
 
+def chunk_hashes(
+    chunks: Sequence[Chunk],
+    documents: Mapping[str, Document],
+    passage_prefix: str,
+    metadata_by_id: Mapping[str, Mapping[str, Any]] | None = None,
+) -> dict[str, ChunkHashes]:
+    """청크마다 색인 판정에 쓰는 content_hash·metadata_hash (chunk_id → 해시, 청크 파일 순서).
+
+    content_hash는 접두어를 붙인 임베딩 입력(`embed_input`)의 해시, metadata_hash는
+    `metadata_fields`의 해시다. 이미 계산한 메타데이터가 있으면 metadata_by_id로 넘긴다.
+    평가(`eval/run_retrieval`)도 같은 함수로 인덱스가 청크 파일과 같은지 확인한다(#18).
+    """
+    return {
+        c.chunk_id: ChunkHashes(
+            content_hash=content_hash(embed_input(c.text, passage_prefix)),
+            metadata_hash=metadata_hash(
+                metadata_by_id[c.chunk_id]
+                if metadata_by_id is not None
+                else metadata_fields(c, documents)
+            ),
+        )
+        for c in chunks
+    }
+
+
 def check_index_name(client: OpenSearch, index_name: str, alias: str) -> None:
     """인덱스 이름 자리에 별칭이 들어왔으면 ValueError (#17 리뷰 2번).
 
@@ -428,13 +453,7 @@ def index_chunks(
     check_index_name(client, index_name, alias)
     check_chunks(chunks)
     metadata_by_id = {c.chunk_id: metadata_fields(c, documents) for c in chunks}
-    hashes = {
-        c.chunk_id: ChunkHashes(
-            content_hash=content_hash(embed_input(c.text, config.embed_passage_prefix)),
-            metadata_hash=metadata_hash(metadata_by_id[c.chunk_id]),
-        )
-        for c in chunks
-    }
+    hashes = chunk_hashes(chunks, documents, config.embed_passage_prefix, metadata_by_id)
     embedding_model = resolve_embedding_model(
         embedder.info(), config, revision_reader or volume_revision_reader(config)
     )

@@ -16,8 +16,16 @@ from rfp_pm_agent.clients.reranker import TEIRerankerClient
 from rfp_pm_agent.clients.tei_revision import parse_snapshot_listing
 from rfp_pm_agent.eval import run_retrieval
 from rfp_pm_agent.eval.qa_v2 import with_gold, write_questions_v2
+from rfp_pm_agent.ingest.chunking import load_chunks
+from rfp_pm_agent.ingest.index_chunks import chunk_hashes, load_documents
 from rfp_pm_agent.schemas.chunk import Chunk
-from rfp_pm_agent.schemas.eval import EvalQuestionV2, QuestionResult, SearchHit
+from rfp_pm_agent.schemas.document import Block, Document
+from rfp_pm_agent.schemas.eval import (
+    EvalQuestionV2,
+    QuestionResult,
+    RetrievalRunRecord,
+    SearchHit,
+)
 from tests.unit.conftest import make_clients_config
 
 CHUNK_TEXTS = {
@@ -363,59 +371,107 @@ def test_빈_청크가_있으면_임베딩_전에_실패한다(tmp_path: Path) -
 
 
 # --- OpenSearch 모드 (#18 PR ①) ---
-# bm25_search·knn_search는 소유자 구현 전이라 NotImplementedError를 낸다. 여기서는 run()이
-# 그 함수를 어떤 인자로 부르고 무엇을 기록하는지(연결)만 보려고 가짜 함수로 바꿔 끼운다.
+# run()이 bm25_search·knn_search를 어떤 인자로 부르고 무엇을 기록하는지(연결)만 보려고
+# 두 함수를 가짜로 바꿔 끼운다. 쿼리 본문은 tests/unit/test_search_opensearch.py가 본다.
 
 OS_ALIAS = "test_alias_for_run"
 OS_INDEX = "test_index_v1_embed"
 QUERY_MODEL = "org/embed@sha1"  # _embed_transport가 model_sha "sha1"을 준다
 
 
-def _fake_os(chunks_file: Path, *, embedding_model: str = QUERY_MODEL, drop: int = 0) -> Any:
+def _write_parsed(tmp_path: Path) -> Path:
+    """_write_data의 청크(b1·b2·b3)가 가리키는 파싱 결과 d.json을 쓴다."""
+    parsed_dir = tmp_path / "parsed"
+    parsed_dir.mkdir(exist_ok=True)
+    doc = Document(
+        doc_id="d",
+        source_file="d.pdf",
+        bid_title="테스트 사업",
+        format="pdf",
+        parse_status="parsed",
+        has_requirements=False,
+        requirement_count=0,
+        declared_total=None,
+        summary_ids=[],
+        validation_warnings=[],
+        blocks=[
+            Block(block_id=sid, type="paragraph", text=text, source_order=n, pdf_page=n)
+            for n, (sid, text) in enumerate(CHUNK_TEXTS.items())
+        ],
+        requirements=[],
+    )
+    (parsed_dir / "d.json").write_text(doc.model_dump_json(), encoding="utf-8")
+    return parsed_dir
+
+
+def _fake_os(
+    chunks_file: Path,
+    parsed_dir: Path,
+    *,
+    embedding_model: str = QUERY_MODEL,
+    drop: int = 0,
+    passage_prefix: str = "",
+    overrides: dict[str, dict[str, str]] | None = None,
+) -> Any:
+    """청크 파일을 색인 모듈과 같은 규칙의 해시로 채운 가짜 인덱스. overrides로 문서 필드를 바꾼다."""
     from tests.fakes.fake_opensearch import FakeOpenSearch
 
     fake = FakeOpenSearch()
     fake.indices.create(index=OS_INDEX, body={})
     fake.indices.put_alias(index=OS_INDEX, name=OS_ALIAS)
-    chunks = [
-        Chunk.model_validate_json(line)
-        for line in chunks_file.read_text(encoding="utf-8").splitlines()
-    ]
+    chunks = load_chunks(chunks_file)
+    hashes = chunk_hashes(
+        chunks, load_documents((c.doc_id for c in chunks), parsed_dir), passage_prefix
+    )
     for chunk in chunks[drop:]:
         fake.docs(OS_INDEX)[chunk.chunk_id] = {
             "chunk_id": chunk.chunk_id,
-            "content_hash": "h",
+            "content_hash": hashes[chunk.chunk_id].content_hash,
             "embedding_model": embedding_model,
-            "metadata_hash": "m",
-        }
+            "metadata_hash": hashes[chunk.chunk_id].metadata_hash,
+        } | (overrides or {}).get(chunk.chunk_id, {})
     return fake
 
 
 def _keyword_hits(chunks_file: Path, query: str, top_k: int) -> list[SearchHit]:
     """질문 단어가 든 청크를 파일 순서로 돌려준다 (점수 계산은 흉내 내지 않는다)."""
-    chunks = [
-        Chunk.model_validate_json(line)
-        for line in chunks_file.read_text(encoding="utf-8").splitlines()
-    ]
     words = query.split()
     return [
         SearchHit(chunk_id=c.chunk_id, doc_id=c.doc_id, score=1.0, text=c.text)
-        for c in chunks
+        for c in load_chunks(chunks_file)
         if any(w in c.text for w in words)
     ][:top_k]
 
 
+def _run_os(tmp_path: Path, retriever: Any, fake: Any, **kwargs: Any) -> RetrievalRunRecord:
+    qa_file, chunks_file = tmp_path / "qa_v2.jsonl", tmp_path / "block_requirement.jsonl"
+    options: dict[str, Any] = {
+        "use_rerank": False,
+        "qa_file": qa_file,
+        "chunks_file": chunks_file,
+        "parsed_dir": tmp_path / "parsed",
+        "out_dir": tmp_path / "out",
+        "warmup": 0,
+        "repeats": 1,
+        "config": make_clients_config(embed_model_id="org/embed"),
+        "os_client": fake,
+    }
+    return run_retrieval.run(retriever=retriever, **(options | kwargs))
+
+
 @pytest.fixture
-def _os_alias(monkeypatch: pytest.MonkeyPatch) -> None:
+def os_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
+    """(청크 파일, 파싱 결과 디렉터리). 별칭 환경변수도 테스트용으로 바꾼다."""
     monkeypatch.setenv("OPENSEARCH_INDEX_ALIAS", OS_ALIAS)
+    _, chunks_file = _write_data(tmp_path)
+    return chunks_file, _write_parsed(tmp_path)
 
 
-@pytest.mark.usefixtures("_os_alias")
 def test_os_bm25_실행은_별칭·실제_인덱스·문서_수를_기록하고_소유자_함수를_부른다(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, os_data: tuple[Path, Path]
 ) -> None:
-    qa_file, chunks_file = _write_data(tmp_path)
-    fake = _fake_os(chunks_file)
+    chunks_file, parsed_dir = os_data
+    fake = _fake_os(chunks_file, parsed_dir)
     calls: list[tuple[Any, str, int]] = []
 
     def fake_bm25(client: Any, query: str, top_k: int) -> list[SearchHit]:
@@ -424,16 +480,7 @@ def test_os_bm25_실행은_별칭·실제_인덱스·문서_수를_기록하고_
 
     monkeypatch.setattr(run_retrieval, "bm25_search", fake_bm25)
 
-    record = run_retrieval.run(
-        retriever="os-bm25",
-        use_rerank=False,
-        qa_file=qa_file,
-        chunks_file=chunks_file,
-        out_dir=tmp_path / "out",
-        warmup=0,
-        repeats=1,
-        os_client=fake,
-    )
+    record = _run_os(tmp_path, "os-bm25", fake)
 
     assert record.retriever == "os-bm25" and "os-bm25" in record.run_id
     assert record.index_alias == OS_ALIAS and record.index_name == OS_INDEX
@@ -445,42 +492,58 @@ def test_os_bm25_실행은_별칭·실제_인덱스·문서_수를_기록하고_
     assert record.scores.answerable == 2
 
 
-@pytest.mark.usefixtures("_os_alias")
-def test_os_모드는_인덱스와_청크_파일의_chunk_id가_다르면_실행하지_않는다(tmp_path: Path) -> None:
-    qa_file, chunks_file = _write_data(tmp_path)
+def test_os_모드는_인덱스와_청크_파일의_chunk_id가_다르면_실행하지_않는다(
+    tmp_path: Path, os_data: tuple[Path, Path]
+) -> None:
+    chunks_file, parsed_dir = os_data
     with pytest.raises(ValueError, match="인덱스에 없음 1개"):
-        run_retrieval.run(
-            retriever="os-bm25",
-            use_rerank=False,
-            qa_file=qa_file,
-            chunks_file=chunks_file,
-            out_dir=tmp_path / "out",
-            os_client=_fake_os(chunks_file, drop=1),
-        )
+        _run_os(tmp_path, "os-bm25", _fake_os(chunks_file, parsed_dir, drop=1))
 
 
-@pytest.mark.usefixtures("_os_alias")
-def test_os_모드는_별칭이_인덱스_둘을_가리키면_실행하지_않는다(tmp_path: Path) -> None:
-    qa_file, chunks_file = _write_data(tmp_path)
-    fake = _fake_os(chunks_file)
+def test_os_모드는_별칭이_인덱스_둘을_가리키면_실행하지_않는다(
+    tmp_path: Path, os_data: tuple[Path, Path]
+) -> None:
+    chunks_file, parsed_dir = os_data
+    fake = _fake_os(chunks_file, parsed_dir)
     fake.indices.create(index="other_index", body={})
     fake.indices.put_alias(index="other_index", name=OS_ALIAS)
     with pytest.raises(ValueError, match="하나여야 한다"):
-        run_retrieval.run(
-            retriever="os-bm25",
-            use_rerank=False,
-            qa_file=qa_file,
-            chunks_file=chunks_file,
-            out_dir=tmp_path / "out",
-            os_client=fake,
-        )
+        _run_os(tmp_path, "os-bm25", fake)
 
 
-@pytest.mark.usefixtures("_os_alias")
-def test_os_knn_실행은_질의를_query로_임베딩해_소유자_함수에_넘기고_모델을_기록한다(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_os_모드는_인덱스_text가_청크_파일과_다르면_실행하지_않는다(
+    tmp_path: Path, os_data: tuple[Path, Path]
 ) -> None:
-    qa_file, chunks_file = _write_data(tmp_path)
+    """chunk_id는 같아도 파서가 바뀐 뒤 다시 색인하지 않았으면 content_hash가 다르다 (#18 리뷰 권장 3)."""
+    chunks_file, parsed_dir = os_data
+    stale = {"d:block_requirement:b2": {"content_hash": "옛-text-해시"}}
+    with pytest.raises(ValueError, match=r"content_hash.*1개.*b2"):
+        _run_os(tmp_path, "os-bm25", _fake_os(chunks_file, parsed_dir, overrides=stale))
+
+
+def test_os_모드는_접두어가_색인_때와_다르면_실행하지_않는다(
+    tmp_path: Path, os_data: tuple[Path, Path]
+) -> None:
+    """content_hash는 접두어를 포함한 임베딩 입력의 해시라 EMBED_PASSAGE_PREFIX가 달라도 걸린다."""
+    chunks_file, parsed_dir = os_data
+    fake = _fake_os(chunks_file, parsed_dir, passage_prefix="passage: ")
+    with pytest.raises(ValueError, match=r"content_hash.*3개"):
+        _run_os(tmp_path, "os-bm25", fake)
+
+
+def test_os_모드는_인덱스_메타데이터가_파싱_결과와_다르면_실행하지_않는다(
+    tmp_path: Path, os_data: tuple[Path, Path]
+) -> None:
+    chunks_file, parsed_dir = os_data
+    stale = {"d:block_requirement:b3": {"metadata_hash": "옛-메타-해시"}}
+    with pytest.raises(ValueError, match=r"metadata_hash.*1개.*b3"):
+        _run_os(tmp_path, "os-bm25", _fake_os(chunks_file, parsed_dir, overrides=stale))
+
+
+def test_os_knn_실행은_질의를_query로_임베딩해_소유자_함수에_넘기고_모델을_기록한다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, os_data: tuple[Path, Path]
+) -> None:
+    chunks_file, parsed_dir = os_data
     config = make_clients_config(embed_model_id="org/embed", embed_query_prefix="query: ")
     seen: list[dict[str, Any]] = []
     embedder = TEIEmbeddingClient(config, transport=_embed_transport("org/embed", seen))
@@ -492,19 +555,14 @@ def test_os_knn_실행은_질의를_query로_임베딩해_소유자_함수에_�
 
     monkeypatch.setattr(run_retrieval, "knn_search", fake_knn)
 
-    record = run_retrieval.run(
-        retriever="os-knn",
-        use_rerank=False,
-        qa_file=qa_file,
-        chunks_file=chunks_file,
-        out_dir=tmp_path / "out",
+    record = _run_os(
+        tmp_path,
+        "os-knn",
+        _fake_os(chunks_file, parsed_dir),
         compose_file=tmp_path / "없음.yml",
-        warmup=0,
-        repeats=1,
         config=config,
         embedder=embedder,
         revision_reader=lambda model_id: pytest.fail("model_sha가 있으면 볼륨을 읽지 않는다"),
-        os_client=_fake_os(chunks_file),
     )
 
     assert record.retriever == "os-knn" and "os-knn-embed" in record.run_id
@@ -519,48 +577,79 @@ def test_os_knn_실행은_질의를_query로_임베딩해_소유자_함수에_�
     assert vectors == [_vector(q) for q in ["사업 예산", "사업 기간", "드론 배송"]]
 
 
-@pytest.mark.usefixtures("_os_alias")
 def test_os_knn은_인덱스_embedding_model이_질의_서버와_다르면_실행하지_않는다(
-    tmp_path: Path,
+    tmp_path: Path, os_data: tuple[Path, Path]
 ) -> None:
-    qa_file, chunks_file = _write_data(tmp_path)
+    chunks_file, parsed_dir = os_data
     config = make_clients_config(embed_model_id="org/embed")
     embedder = TEIEmbeddingClient(config, transport=_embed_transport("org/embed", []))
     with pytest.raises(ValueError, match="embedding_model"):
-        run_retrieval.run(
-            retriever="os-knn",
-            use_rerank=False,
-            qa_file=qa_file,
-            chunks_file=chunks_file,
-            out_dir=tmp_path / "out",
+        _run_os(
+            tmp_path,
+            "os-knn",
+            _fake_os(chunks_file, parsed_dir, embedding_model="org/other@sha9"),
             config=config,
             embedder=embedder,
             revision_reader=lambda model_id: "snap",
-            os_client=_fake_os(chunks_file, embedding_model="org/other@sha9"),
         )
 
 
-def test_os_모드와_리랭크_조합은_아직_거부한다(tmp_path: Path) -> None:
-    qa_file, chunks_file = _write_data(tmp_path)
+def test_os_모드와_리랭크_조합은_아직_거부한다(tmp_path: Path, os_data: tuple[Path, Path]) -> None:
+    chunks_file, parsed_dir = os_data
     with pytest.raises(ValueError, match="PR ②"):
-        run_retrieval.run(
-            retriever="os-bm25",
-            use_rerank=True,
-            qa_file=qa_file,
-            chunks_file=chunks_file,
-            out_dir=tmp_path / "out",
-            os_client=_fake_os(chunks_file),
-        )
+        _run_os(tmp_path, "os-bm25", _fake_os(chunks_file, parsed_dir), use_rerank=True)
+
+
+# --- 기본 출력 위치 (#18 리뷰 권장 2) ---
+
+
+@pytest.mark.parametrize(
+    ("retriever", "expected"),
+    [
+        ("bm25", "data/eval/results/model_selection"),
+        ("dense", "data/eval/results/model_selection"),
+        ("os-bm25", "data/eval/results/hybrid"),
+        ("os-knn", "data/eval/results/hybrid"),
+    ],
+)
+def test_기본_출력_위치는_os_모드면_hybrid_아니면_model_selection(
+    retriever: Any, expected: str
+) -> None:
+    assert run_retrieval.default_out_dir(retriever) == Path(expected)
+
+
+def test_out_dir를_주지_않은_os_실행은_hybrid_기본_위치에_기록한다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, os_data: tuple[Path, Path]
+) -> None:
+    chunks_file, parsed_dir = os_data
+    hybrid = tmp_path / "hybrid_default"
+    monkeypatch.setattr(run_retrieval, "DEFAULT_HYBRID_OUT_DIR", hybrid)
+    monkeypatch.setattr(
+        run_retrieval, "bm25_search", lambda c, q, k: _keyword_hits(chunks_file, q, k)
+    )
+
+    record = _run_os(tmp_path, "os-bm25", _fake_os(chunks_file, parsed_dir), out_dir=None)
+
+    assert Path(record.questions_file).parent == hybrid
+    assert (hybrid / "runs.jsonl").exists()
 
 
 @pytest.mark.parametrize(
     ("flag", "expected"),
     [("--bm25", "bm25"), ("--dense", "dense"), ("--os-bm25", "os-bm25"), ("--os-knn", "os-knn")],
 )
-def test_cli_플래그가_retriever로_이어진다(
+def test_cli_플래그가_retriever로_이어지고_out_dir는_run이_정한다(
     flag: str, expected: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     captured: dict[str, Any] = {}
     monkeypatch.setattr(run_retrieval, "run", lambda **kwargs: captured.update(kwargs))
     assert run_retrieval.main([flag]) == 0
     assert captured["retriever"] == expected
+    assert captured["out_dir"] is None
+
+
+def test_cli_parsed_dir와_out_dir가_run으로_이어진다(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(run_retrieval, "run", lambda **kwargs: captured.update(kwargs))
+    run_retrieval.main(["--os-bm25", "--parsed-dir", "/p", "--out-dir", "/o"])
+    assert captured["parsed_dir"] == Path("/p") and captured["out_dir"] == Path("/o")

@@ -12,7 +12,7 @@ PR ②에서 이 두 함수 위에 만든다.
 - 결과는 `schemas/eval.py`의 `SearchHit` 목록이다. 순위는 목록 안 위치, `score`는 OpenSearch
   `_score`(BM25 점수 또는 k-NN 유사도 — 두 척도는 서로 비교할 수 없다)
 
-`bm25_search`·`knn_search`의 쿼리 본문은 학습 모드 대상이라 소유자가 구현한다(CLAUDE.md).
+bm25_search·knn_search는 별칭으로 OpenSearch에 검색 요청을 보내고 SearchHit 목록을 돌려준다.
 테스트가 기대하는 본문 모양은 tests/unit/test_search_opensearch.py에 있다.
 """
 
@@ -26,6 +26,7 @@ from rfp_pm_agent.schemas.eval import SearchHit
 
 # 검색 응답에서 빼는 필드. 벡터는 검색에 쓰고 돌려받지 않는다
 EXCLUDED_SOURCE_FIELDS = ("embedding",)
+KNN_CANDIDATES = 50
 
 
 class SearchClient(Protocol):
@@ -81,7 +82,7 @@ def bm25_search(client: SearchClient, query: str, top_k: int) -> list[SearchHit]
     """
     body = {
         "size": top_k,
-        "_source": {"excludes": ["embedding"]},
+        "_source": {"excludes": list(EXCLUDED_SOURCE_FIELDS)},
         "query": {"match": {"text": query}},
     }
     response = client.search(index=search_alias(), body=body)
@@ -103,8 +104,8 @@ def knn_search(client: SearchClient, query_vector: list[float], top_k: int) -> l
     """
     body = {
         "size": top_k,
-        "_source": {"excludes": ["embedding"]},
-        "query": {"knn": {"embedding": {"vector": query_vector, "k": top_k}}},
+        "_source": {"excludes": list(EXCLUDED_SOURCE_FIELDS)},
+        "query": {"knn": {"embedding": {"vector": query_vector, "k": KNN_CANDIDATES}}},
     }
     response = client.search(index=search_alias(), body=body)
     return to_search_hits(response)

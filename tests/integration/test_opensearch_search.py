@@ -78,7 +78,7 @@ def _hybrid_body(vector: list[float]) -> dict[str, Any]:
     }
 
 
-# --- 별칭 검색 결과 형태 (지금 통과해야 함) ---
+# --- 별칭 검색 결과 형태 ---
 
 
 def test_alias_resolves_to_one_index_with_documents(client: OpenSearch, alias_target: str) -> None:

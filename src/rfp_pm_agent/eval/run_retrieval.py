@@ -5,7 +5,7 @@ qa_v2(57문항, 답 있음 51)를 block_requirement 청크로 검색해 채점�
 모델 하나만 띄우므로(learning-log 2026-09-24, RAM), 모델을 바꿀 때마다 서버를 다시 띄우고
 이 명령을 다시 실행한다. 측정 절차는 docs/model-selection-measurement.md.
 
-기록 (data/eval/results/model_selection/):
+기록 (data/eval/results/model_selection/, os 모드는 data/eval/results/hybrid/ — `--out-dir`로 바꿀 수 있다):
 - runs.jsonl: 실행 한 줄(RetrievalRunRecord) — 모델 ID·revision, TEI 버전·이미지, GPU,
   접두어, 자르기 여부·자른 청크 수, 색인 시간, 지연 p50·p95, 집계 점수
 - {run_id}.questions.jsonl: 답 있는 문항별 결과 — 실행 간 McNemar 비교에 쓴다

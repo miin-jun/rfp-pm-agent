@@ -21,6 +21,7 @@ from opensearchpy import OpenSearch
 from rfp_pm_agent.config import OpenSearchConfig
 from rfp_pm_agent.search.opensearch import (
     EXCLUDED_SOURCE_FIELDS,
+    REQUIREMENT_ID_BOOST,
     bm25_search,
     knn_search,
     search_alias,
@@ -170,3 +171,46 @@ def test_knn_search_finds_stored_doc_with_its_own_vector(
     assert len(hits) == TOP_K
     assert stored_doc["chunk_id"] in [h.chunk_id for h in hits]
     assert [h.score for h in hits] == sorted((h.score for h in hits), reverse=True)
+
+
+def test_bm25_requirement_id_adds_exactly_boost_to_match_score(client: OpenSearch) -> None:
+    """질문에 요구사항 ID가 있으면 그 ID 청크의 점수는 match 점수 + 100이다 (#75, ADR-0003).
+
+    `term`에 boost를 주면 keyword 필드도 BM25로 점수가 매겨져 100 × idf가 더해진다. `constant_score`를
+    고른 이유가 실제 서버에서 지켜지는지 본다. 청크는 데이터에 묶이지 않도록 인덱스에서 고른다.
+    """
+    response = client.search(
+        index=search_alias(),
+        body={
+            "size": 1,
+            "sort": [{"chunk_id": "asc"}],
+            "_source": ["chunk_id", "requirement_id"],
+            "query": {"exists": {"field": "requirement_id"}},
+        },
+    )
+    [hit] = response["hits"]["hits"]
+    chunk_id, requirement_id = hit["_source"]["chunk_id"], hit["_source"]["requirement_id"]
+    question = f"{requirement_id} 요구사항의 내용은?"
+
+    # 가산 없는 match 점수 — filter는 점수에 들어가지 않는다
+    plain = client.search(
+        index=search_alias(),
+        body={
+            "size": 1,
+            "_source": ["chunk_id"],
+            "query": {
+                "bool": {
+                    "must": [{"match": {"text": question}}],
+                    "filter": [{"term": {"chunk_id": chunk_id}}],
+                }
+            },
+        },
+    )
+    [plain_hit] = plain["hits"]["hits"]
+    match_score = float(plain_hit["_score"])
+    assert match_score > 0
+
+    hits = bm25_search(client, question, TOP_K)
+    boosted = {h.chunk_id: h.score for h in hits}
+    assert chunk_id in boosted, f"{chunk_id}({requirement_id})가 상위 {TOP_K}에 없다"
+    assert boosted[chunk_id] == pytest.approx(match_score + REQUIREMENT_ID_BOOST, abs=1e-3)

@@ -341,6 +341,7 @@
 | 09-11 | 평가 채점 LLM은 API 유지 | 채점자가 약하면 평가 자체를 신뢰할 수 없음 |
 | 09-11 | 장비: **RunPod** = 모델 서버(임베딩·리랭커 → Phase 2에 LLM까지) / **RTX 4050(로컬)** = 개발, RunPod 꺼졌을 때 대체, 작은 LLM 시험 | 노트북 4050은 VRAM 약 6GB(`nvidia-smi`로 확인) |
 | 09-27 | **임베딩 KURE-v1, 리랭커 bge-reranker-v2-m3(후보 N=20)** 채택 (#16) | qa_v2 51문항에서 세 임베딩 모델이 McNemar로 동률 → 규칙을 기계적으로 적용하면 e5였으나, 소유자가 결과를 본 뒤 잘림 없음(8192토큰)·리랭크 지연 최소를 근거로 선택. 리랭커는 NDCG@10 0.380 → 0.506, 추가 p95 483ms ([ADR-0001](adr/0001-embedding-model.md), [ADR-0002](adr/0002-reranker.md)) |
+| 10-06 | **BM25 요구사항 ID 정확 일치: 쿼리 쪽 `requirement_id` 가산** 채택 (#75) | nori가 `SFR-013`을 `sfr`/`013`으로 나눠 BM25 tag:exact 0/2. 분석기 변경(3,499건 재색인)은 기각하고 질문 속 ID마다 `constant_score` +100을 should로 추가. R@10 19/51 → 21/51, exact 0/2 → 2/2, ID 없는 문항 변화 없음 — McNemar 2:0 p=0.5 동률이라 "ID 질문 결함 해소"로 기록 ([ADR-0003](adr/0003-requirement-id-boost.md)) |
 
 ## 참고
 

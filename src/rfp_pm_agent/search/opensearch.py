@@ -68,6 +68,14 @@ def to_search_hits(response: Mapping[str, Any]) -> list[SearchHit]:
     return hits
 
 
+def extract_requirement_ids(query: str) -> list[str]:
+    """질문에서 요구사항 ID를 찾아 대문자로 바꾼 목록을 돌려준다 (이슈 #75, 소유자 구현 예정).
+
+    규칙(#75 "결정 (2026-10-06)")과 경계 처리는 tests/unit/test_search_requirement_ids.py에 있다.
+    """
+    raise NotImplementedError("#75: 소유자가 구현한다")
+
+
 def bm25_search(client: SearchClient, query: str, top_k: int) -> list[SearchHit]:
     """질문 문자열로 `text` 필드를 BM25(nori `korean` 분석기) 검색해 상위 top_k개를 돌려준다.
 

@@ -28,6 +28,9 @@ from rfp_pm_agent.schemas.eval import SearchHit
 # 검색 응답에서 빼는 필드. 벡터는 검색에 쓰고 돌려받지 않는다
 EXCLUDED_SOURCE_FIELDS = ("embedding",)
 KNN_CANDIDATES = 50
+# 요구사항 ID 패턴과 ID 일치 가산값 — ADR-0003: 측정 전 고정, 조정 금지
+REQUIREMENT_ID_PATTERN = re.compile(r"(?<![A-Za-z])[A-Za-z]{2,5}-[0-9]{2,4}(?![0-9])")
+REQUIREMENT_ID_BOOST = 100
 
 
 class SearchClient(Protocol):
@@ -67,10 +70,6 @@ def to_search_hits(response: Mapping[str, Any]) -> list[SearchHit]:
             )
         )
     return hits
-
-
-REQUIREMENT_ID_PATTERN = re.compile(r"(?<![A-Za-z])[A-Za-z]{2,5}-[0-9]{2,4}(?![0-9])")
-REQUIREMENT_ID_BOOST = 100
 
 
 def extract_requirement_ids(query: str) -> list[str]:

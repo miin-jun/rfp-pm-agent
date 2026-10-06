@@ -102,6 +102,11 @@ def test_rejects_out_of_pattern(question: str) -> None:
     assert extract_requirement_ids(question) == []
 
 
+def test_rejects_fullwidth_digits() -> None:
+    """전각 숫자는 ID로 보지 않는다 — 대문자로 바꿔도 keyword 값(ASCII)과 일치하지 않는다."""
+    assert extract_requirement_ids("SFR-０１３") == []
+
+
 # --- bm25_search: ID가 있을 때의 쿼리 모양 ---
 
 

@@ -69,13 +69,17 @@ def to_search_hits(response: Mapping[str, Any]) -> list[SearchHit]:
     return hits
 
 
-REQUIREMENT_ID_PATTERN = re.compile(r"(?<![A-Za-z])[A-Za-z]{2,5}-\d{2,4}(?!\d)")
+REQUIREMENT_ID_PATTERN = re.compile(r"(?<![A-Za-z])[A-Za-z]{2,5}-[0-9]{2,4}(?![0-9])")
 
 
 def extract_requirement_ids(query: str) -> list[str]:
-    """질문에서 요구사항 ID를 찾아 대문자로 바꾼 목록을 돌려준다 (이슈 #75, 소유자 구현 예정).
+    """질문에서 요구사항 ID를 찾아 대문자로 바꾼 목록을 돌려준다 (이슈 #75).
 
-    규칙(#75 "결정 (2026-10-06)")과 경계 처리는 tests/unit/test_search_requirement_ids.py에 있다.
+    - 패턴: 영문 2~5자 + 하이픈 + ASCII 숫자 2~4자리 (예: SFR-013, SER-001). 전각 숫자는 제외
+    - 덩어리 전체에 적용한다: `ABCDEF-013`·`SFR-01234`에서 일부만 떼어 ID로 보지 않는다
+    - 한국어 조사·괄호·문장부호가 붙어도 찾는다 (`SFR-013의` → `SFR-013`)
+    - 중복은 빼고 질문에 처음 나온 순서를 지킨다. ID가 없으면 빈 목록
+    - 규칙 근거: #75 "결정 (2026-10-06)", docs/adr/0003-requirement-id-boost.md
     """
     ids: list[str] = []
     for match in REQUIREMENT_ID_PATTERN.finditer(query):

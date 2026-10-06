@@ -11,9 +11,13 @@ PR ②에서 이 두 함수 위에 만든다.
   `to_search_hits`는 `embedding`이 든 결과를 받으면 ValueError로 멈춘다
 - 결과는 `schemas/eval.py`의 `SearchHit` 목록이다. 순위는 목록 안 위치, `score`는 OpenSearch
   `_score`(BM25 점수 또는 k-NN 유사도 — 두 척도는 서로 비교할 수 없다)
+- 질문에 요구사항 ID(예: SFR-013)가 있으면 BM25에 `requirement_id` 정확 일치 가산(+100)을 붙인다
+  (#75, docs/adr/0003-requirement-id-boost.md). nori가 `SFR-013`을 `sfr`/`013`으로 나눠 BM25만으로는
+  ID를 구분하지 못하기 때문이다
 
 bm25_search·knn_search는 별칭으로 OpenSearch에 검색 요청을 보내고 SearchHit 목록을 돌려준다.
-테스트가 기대하는 본문 모양은 tests/unit/test_search_opensearch.py에 있다.
+테스트가 기대하는 본문 모양은 tests/unit/test_search_opensearch.py와
+tests/unit/test_search_requirement_ids.py(ID 가산)에 있다.
 """
 
 from __future__ import annotations
@@ -79,6 +83,10 @@ def extract_requirement_ids(query: str) -> list[str]:
     - 덩어리 전체에 적용한다: `ABCDEF-013`·`SFR-01234`에서 일부만 떼어 ID로 보지 않는다
     - 한국어 조사·괄호·문장부호가 붙어도 찾는다 (`SFR-013의` → `SFR-013`)
     - 중복은 빼고 질문에 처음 나온 순서를 지킨다. ID가 없으면 빈 목록
+    - 패턴만 보고 뽑으며 인덱스에 그 ID가 있는지는 확인하지 않는다. `COVID-19`·`ISO-9001`도 뽑히지만
+      일치하는 청크가 없어 검색 결과는 바뀌지 않는다
+    - 뽑지 않는 표기: 하이픈 변형(`SFR–013` en dash, `SFR－013` 전각, `SFR 013`, `SFR_013`).
+      범위 표기 `SFR-013~015`·`SFR-013, 014`는 앞 ID(`SFR-013`)만 뽑는다. `SFR-013-01`은 `SFR-013`으로 뽑는다
     - 규칙 근거: #75 "결정 (2026-10-06)", docs/adr/0003-requirement-id-boost.md
     """
     ids: list[str] = []
@@ -98,7 +106,14 @@ def bm25_search(client: SearchClient, query: str, top_k: int) -> list[SearchHit]
     - top_k: 돌려받을 결과 수(= 요청 `size`)
 
     요청: `client.search(index=search_alias(), body=...)` 한 번. body는 `size=top_k`,
-    `_source`에서 `embedding` 제외, `query`는 `text` 필드의 `match`.
+    `_source`에서 `embedding` 제외, `query`는 아래 둘 중 하나다.
+    - 질문에 요구사항 ID가 없으면(`extract_requirement_ids`가 빈 목록) `text` 필드의 `match` —
+      #75 이전과 body 전체가 같다
+    - ID가 있으면 `bool`: must = `text` 필드의 `match`(질문 원문 그대로), should = ID마다
+      `constant_score`(filter = `requirement_id` term, boost `REQUIREMENT_ID_BOOST`=100). ID가 일치하는
+      청크는 match 점수에 정확히 100이 더해진다. must라서 text match가 0인 청크는 ID가 맞아도 나오지 않는다
+    - 가산은 문서를 가리지 않는다. 같은 ID가 여러 문서에 있으면(예: SFR-013은 4개 문서) 다른 문서의
+      같은 ID 청크도 함께 올라온다(ADR-0003 한계)
     반환: `to_search_hits(응답)` — `_score` 내림차순.
     """
     body = {

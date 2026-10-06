@@ -264,7 +264,7 @@ Document
 - **채택 모델 (#16, 2026-09-27)**: 임베딩 **KURE-v1**([ADR-0001](adr/0001-embedding-model.md)), 리랭커 bge-reranker-v2-m3 N=20([ADR-0002](adr/0002-reranker.md)). 별칭 `rfp_chunks` → `rfp_chunks_v1_kure`로 시작한다. 인덱스·별칭 생성과 색인은 **#17**에서 한다. 색인 모듈은 인덱스가 없을 때만 만들고, 별칭이 아직 없을 때만 연결한다 — 별칭이 다른 인덱스를 가리키고 있으면 그대로 두고, 전환은 사람이 따로 한다
   - #16 모델 선정은 OpenSearch가 아니라 **메모리 내 코사인 검색**(`search/dense.py`, 임시 구현. #13·#16 재현용으로 남긴다)으로 측정했다. #18부터 서비스 검색은 OpenSearch 별칭을 부른다(`search/opensearch.py`의 `bm25_search`·`knn_search`, 측정은 [hybrid-search-measurement.md](hybrid-search-measurement.md)). 모델별 벡터는 `data/cache/embeddings/`(git 제외)에 따로 두었다 — 별칭 전환 방식은 아직 쓰이지 않았다
 - `engine: lucene` — 소규모 데이터에 충분하고, 필터를 k-NN 탐색 안에서 적용하는 방식을 지원 (RBAC 사전 필터에 사용)
-- **요구사항 ID 정확 일치 질문**("SFR-012가 뭐야?")은 `requirement_id` keyword 필드 직접 조회를 우선
+- **요구사항 ID 정확 일치 질문**("SFR-012가 뭐야?")은 BM25 `match`(must)에 `requirement_id` keyword 정확 일치 가산(`constant_score` boost 100, should)을 붙여 처리한다 — 직접 조회 대신 쿼리 쪽 가산으로 구현, 재색인 없음 (#75, [ADR-0003](adr/0003-requirement-id-boost.md))
 - 하이브리드: OpenSearch 검색 파이프라인의 **RRF**(2.19+) 사용 + 비교용으로 **앱 코드 RRF**도 구현 (f1-ragops 경험 재사용)
 
 ---

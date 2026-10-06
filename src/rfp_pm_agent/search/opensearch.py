@@ -18,6 +18,7 @@ bm25_search·knn_search는 별칭으로 OpenSearch에 검색 요청을 보내고
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from typing import Any, Protocol
 
@@ -68,12 +69,20 @@ def to_search_hits(response: Mapping[str, Any]) -> list[SearchHit]:
     return hits
 
 
+REQUIREMENT_ID_PATTERN = re.compile(r"(?<![A-Za-z])[A-Za-z]{2,5}-\d{2,4}(?!\d)")
+
+
 def extract_requirement_ids(query: str) -> list[str]:
     """질문에서 요구사항 ID를 찾아 대문자로 바꾼 목록을 돌려준다 (이슈 #75, 소유자 구현 예정).
 
     규칙(#75 "결정 (2026-10-06)")과 경계 처리는 tests/unit/test_search_requirement_ids.py에 있다.
     """
-    raise NotImplementedError("#75: 소유자가 구현한다")
+    ids: list[str] = []
+    for match in REQUIREMENT_ID_PATTERN.finditer(query):
+        req_id = match.group().upper()
+        if req_id not in ids:
+            ids.append(req_id)
+    return ids
 
 
 def bm25_search(client: SearchClient, query: str, top_k: int) -> list[SearchHit]:

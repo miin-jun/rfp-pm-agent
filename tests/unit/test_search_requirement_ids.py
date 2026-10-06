@@ -41,30 +41,25 @@ def _alias_env(monkeypatch: pytest.MonkeyPatch) -> None:
 # --- extract_requirement_ids ---
 
 
-@RED
 def test_extracts_id_from_question() -> None:
     question = "2027학년도 고등학교 입학전형 시스템 기능개선 용역의 SFR-013 요구사항은 무엇인가요?"
     assert extract_requirement_ids(question) == ["SFR-013"]
 
 
-@RED
 def test_normalizes_to_uppercase() -> None:
     assert extract_requirement_ids("sfr-013 요구사항") == ["SFR-013"]
     assert extract_requirement_ids("Sfr-013 요구사항") == ["SFR-013"]
 
 
-@RED
 def test_keeps_question_order_and_drops_duplicates() -> None:
     question = "SER-001과 SFR-013, 그리고 sfr-013의 차이는?"
     assert extract_requirement_ids(question) == ["SER-001", "SFR-013"]
 
 
-@RED
 def test_returns_empty_list_without_id() -> None:
     assert extract_requirement_ids("사업 기간은 언제까지인가") == []
 
 
-@RED
 @pytest.mark.parametrize(
     "question",
     [
@@ -80,7 +75,6 @@ def test_extracts_id_next_to_korean_and_punctuation(question: str) -> None:
     assert extract_requirement_ids(question) == ["SFR-013"]
 
 
-@RED
 @pytest.mark.parametrize(
     ("question", "expected"),
     [
@@ -92,7 +86,6 @@ def test_pattern_bounds_inclusive(question: str, expected: list[str]) -> None:
     assert extract_requirement_ids(question) == expected
 
 
-@RED
 @pytest.mark.parametrize(
     "question",
     [

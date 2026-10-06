@@ -70,6 +70,7 @@ def to_search_hits(response: Mapping[str, Any]) -> list[SearchHit]:
 
 
 REQUIREMENT_ID_PATTERN = re.compile(r"(?<![A-Za-z])[A-Za-z]{2,5}-[0-9]{2,4}(?![0-9])")
+REQUIREMENT_ID_BOOST = 100
 
 
 def extract_requirement_ids(query: str) -> list[str]:
@@ -106,6 +107,22 @@ def bm25_search(client: SearchClient, query: str, top_k: int) -> list[SearchHit]
         "_source": {"excludes": list(EXCLUDED_SOURCE_FIELDS)},
         "query": {"match": {"text": query}},
     }
+    requirement_ids = extract_requirement_ids(query)
+    if requirement_ids:
+        body["query"] = {
+            "bool": {
+                "must": [{"match": {"text": query}}],
+                "should": [
+                    {
+                        "constant_score": {
+                            "filter": {"term": {"requirement_id": req_id}},
+                            "boost": REQUIREMENT_ID_BOOST,
+                        }
+                    }
+                    for req_id in requirement_ids
+                ],
+            }
+        }
     response = client.search(index=search_alias(), body=body)
     return to_search_hits(response)
 

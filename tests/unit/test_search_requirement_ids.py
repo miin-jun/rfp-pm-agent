@@ -29,9 +29,6 @@ TEST_ALIAS = "test_alias_for_search"
 BOOST = 100
 EMPTY_RESPONSE: dict[str, Any] = {"hits": {"hits": []}}
 
-# Red 단계 표시. Green(소유자 구현)이 들어가면 strict라서 XPASS가 실패로 잡힌다 — 그때 지운다
-RED = pytest.mark.xfail(strict=True, reason="#75 Green 전 — 소유자가 구현한다")
-
 
 @pytest.fixture(autouse=True)
 def _alias_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -166,7 +163,6 @@ def _split_bool(query: dict[str, Any], question: str) -> tuple[list[str], int]:
     return boosted, len(matches)
 
 
-@RED
 def test_bm25_with_id_adds_constant_score_should() -> None:
     question = "입학전형 시스템의 SFR-013 요구사항은 어떤 업무를 지원하나요?"
     boosted, matches = _split_bool(_bm25_query(question), question)
@@ -174,7 +170,6 @@ def test_bm25_with_id_adds_constant_score_should() -> None:
     assert matches == 1
 
 
-@RED
 def test_bm25_with_id_keeps_original_question_in_match() -> None:
     """text match에는 질문을 그대로 보낸다 — ID를 빼거나 대문자로 바꾸지 않는다."""
     question = "sfr-013 요구사항은?"
@@ -183,7 +178,6 @@ def test_bm25_with_id_keeps_original_question_in_match() -> None:
     assert boosted == ["SFR-013"]
 
 
-@RED
 def test_bm25_with_several_ids_adds_one_clause_each_in_order() -> None:
     question = "SER-001과 SFR-013, sfr-013의 차이는?"
     boosted, matches = _split_bool(_bm25_query(question), question)

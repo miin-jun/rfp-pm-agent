@@ -88,3 +88,18 @@ BM25 기준은 아래 `20261006T141105Z-os-bm25`(21/51)**다. 3절의 `20261005T
 
 - 가산 전 대비 McNemar: 가산 후만 맞힘 2(q041·q055, 둘 다 ID 질문), 가산 전만 맞힘 0, p=0.5 — 동률
 - ID 없는 문항은 상위 10 목록까지 같다. 해석과 한계는 ADR-0003
+
+## 5. PR ② 하이브리드(RRF) + 리랭크
+
+조건: `hybrid_search`(OpenSearch `hybrid` 질의 + 요청 본문의 임시 RRF 파이프라인, `rank_constant=60`,
+검색기별 후보 50 = `pagination_depth`·k-NN `k`), 리랭크는 hybrid 상위 N개를 `bge-reranker-v2-m3`로 다시 정렬한다.
+
+### 측정 전 예상 (2026-10-07, 결과를 보기 전에 고정)
+
+| 조건 | 예상 R@10 전부 | 근거 |
+|---|---|---|
+| os-hybrid | 29/51 | 직감 |
+| os-hybrid + rerank N=20 | 31/51 | 직감 |
+| os-hybrid + rerank N=50 | 31/51 | 직감 |
+
+비교 기준: k-NN(k=50) `20261005T134118Z-os-knn-KURE-v1` 30/51, BM25(ID 가산) `20261006T141105Z-os-bm25` 21/51.

@@ -97,6 +97,48 @@ def extract_requirement_ids(query: str) -> list[str]:
     return ids
 
 
+def bm25_query(query: str) -> dict[str, Any]:
+    """질문 문자열로 BM25(nori `korean` 분석기) 검색 요청의 `query` 절을 만든다.
+
+    `bm25_search`와 하이브리드 검색(PR ②)의 BM25 하위 쿼리가 함께 쓴다. 요청은 보내지 않는다.
+    - query: 사용자 질문 그대로. 질문 어미 처리(#70)는 여기서 하지 않는다
+    - 질문에 요구사항 ID가 없으면(`extract_requirement_ids`가 빈 목록) `text` 필드의 `match` —
+      #75 이전과 같다
+    - ID가 있으면 `bool`: must = `text` 필드의 `match`(질문 원문 그대로), should = ID마다
+      `constant_score`(filter = `requirement_id` term, boost `REQUIREMENT_ID_BOOST`=100). ID가 일치하는
+      청크는 match 점수에 정확히 100이 더해진다. must라서 text match가 0인 청크는 ID가 맞아도 나오지 않는다
+    - 가산은 문서를 가리지 않는다. 같은 ID가 여러 문서에 있으면(예: SFR-013은 4개 문서) 다른 문서의
+      같은 ID 청크도 함께 올라온다(ADR-0003 한계)
+    - hybrid 쿼리의 하위 쿼리로 넣어도 그대로 동작한다(2026-10-07 OpenSearch 2.19.1 실측)
+    """
+    requirement_ids = extract_requirement_ids(query)
+    if not requirement_ids:
+        return {"match": {"text": query}}
+    return {
+        "bool": {
+            "must": [{"match": {"text": query}}],
+            "should": [
+                {
+                    "constant_score": {
+                        "filter": {"term": {"requirement_id": req_id}},
+                        "boost": REQUIREMENT_ID_BOOST,
+                    }
+                }
+                for req_id in requirement_ids
+            ],
+        }
+    }
+
+
+def knn_query(query_vector: list[float]) -> dict[str, Any]:
+    """질의 벡터로 k-NN 검색 요청의 `query` 절을 만든다. `k`는 `KNN_CANDIDATES`(50) 고정.
+
+    `knn_search`와 하이브리드 검색(PR ②)의 k-NN 하위 쿼리가 함께 쓴다. 요청은 보내지 않는다.
+    - query_vector: 색인과 같은 임베딩 모델로 만든 질의 벡터(`input_type="query"`, 1024차원)
+    """
+    return {"knn": {"embedding": {"vector": query_vector, "k": KNN_CANDIDATES}}}
+
+
 def bm25_search(client: SearchClient, query: str, top_k: int) -> list[SearchHit]:
     """질문 문자열로 `text` 필드를 BM25(nori `korean` 분석기) 검색해 상위 top_k개를 돌려준다.
 
@@ -106,37 +148,15 @@ def bm25_search(client: SearchClient, query: str, top_k: int) -> list[SearchHit]
     - top_k: 돌려받을 결과 수(= 요청 `size`)
 
     요청: `client.search(index=search_alias(), body=...)` 한 번. body는 `size=top_k`,
-    `_source`에서 `embedding` 제외, `query`는 아래 둘 중 하나다.
-    - 질문에 요구사항 ID가 없으면(`extract_requirement_ids`가 빈 목록) `text` 필드의 `match` —
-      #75 이전과 body 전체가 같다
-    - ID가 있으면 `bool`: must = `text` 필드의 `match`(질문 원문 그대로), should = ID마다
-      `constant_score`(filter = `requirement_id` term, boost `REQUIREMENT_ID_BOOST`=100). ID가 일치하는
-      청크는 match 점수에 정확히 100이 더해진다. must라서 text match가 0인 청크는 ID가 맞아도 나오지 않는다
-    - 가산은 문서를 가리지 않는다. 같은 ID가 여러 문서에 있으면(예: SFR-013은 4개 문서) 다른 문서의
-      같은 ID 청크도 함께 올라온다(ADR-0003 한계)
+    `_source`에서 `embedding` 제외, `query`는 `bm25_query(query)` — 요구사항 ID가 있으면
+    `requirement_id` 일치 청크에 +100을 더하는 `bool`, 없으면 `text` 필드의 `match`.
     반환: `to_search_hits(응답)` — `_score` 내림차순.
     """
     body = {
         "size": top_k,
         "_source": {"excludes": list(EXCLUDED_SOURCE_FIELDS)},
-        "query": {"match": {"text": query}},
+        "query": bm25_query(query),
     }
-    requirement_ids = extract_requirement_ids(query)
-    if requirement_ids:
-        body["query"] = {
-            "bool": {
-                "must": [{"match": {"text": query}}],
-                "should": [
-                    {
-                        "constant_score": {
-                            "filter": {"term": {"requirement_id": req_id}},
-                            "boost": REQUIREMENT_ID_BOOST,
-                        }
-                    }
-                    for req_id in requirement_ids
-                ],
-            }
-        }
     response = client.search(index=search_alias(), body=body)
     return to_search_hits(response)
 
@@ -151,13 +171,13 @@ def knn_search(client: SearchClient, query_vector: list[float], top_k: int) -> l
     - top_k: 돌려받을 결과 수(= 요청 `size`). knn의 `k`는 top_k 이상이어야 한다
 
     요청: `client.search(index=search_alias(), body=...)` 한 번. body는 `size=top_k`,
-    `_source`에서 `embedding` 제외, `query`는 `{"knn": {"embedding": {"vector": ..., "k": ...}}}`.
+    `_source`에서 `embedding` 제외, `query`는 `knn_query(query_vector)`.
     반환: `to_search_hits(응답)` — `_score` 내림차순.
     """
     body = {
         "size": top_k,
         "_source": {"excludes": list(EXCLUDED_SOURCE_FIELDS)},
-        "query": {"knn": {"embedding": {"vector": query_vector, "k": KNN_CANDIDATES}}},
+        "query": knn_query(query_vector),
     }
     response = client.search(index=search_alias(), body=body)
     return to_search_hits(response)

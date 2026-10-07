@@ -11,6 +11,8 @@
 서비스 검색의 기본값은 **하이브리드(OpenSearch RRF, `rank_constant` k=60, 검색기별 후보 50) + 리랭크 N=20**
 (`bge-reranker-v2-m3`)이다. 코드에서는 `search/hybrid.py`의 `hybrid_rerank_search(..., rerank_n=20, top_k=10)`이다.
 
+서비스 코드 반영: #18 PR③ (`search_documents` — 기본값 상수는 data-design.md를 먼저 쓸 때 정한다)
+
 ## 근거
 
 qa_v2 답 있는 51문항, 별칭 `rfp_chunks` → `rfp_chunks_v1_kure`(3,499건), 2026-10-07 측정.

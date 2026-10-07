@@ -11,7 +11,13 @@ from collections.abc import Sequence
 
 from rfp_pm_agent.clients.reranker import RerankerClient
 from rfp_pm_agent.schemas.eval import SearchHit
-from rfp_pm_agent.search.opensearch import RRF_RANK_CONSTANT, SearchClient
+from rfp_pm_agent.search.dense import rerank_hits
+from rfp_pm_agent.search.opensearch import (
+    KNN_CANDIDATES,
+    RRF_RANK_CONSTANT,
+    SearchClient,
+    hybrid_search,
+)
 
 
 def rrf_fuse(
@@ -34,7 +40,29 @@ def rrf_fuse(
     - 한 목록 안에 같은 chunk_id가 두 번 나오면 ValueError — 검색 결과가 잘못 만들어졌다는 뜻이다
     - rankings가 비었거나 모든 목록이 비면 빈 목록
     """
-    raise NotImplementedError("#18 PR ② — 소유자 구현")
+    if rank_constant < 1:
+        raise ValueError(f"rank_constant({rank_constant})는 1 이상이어야 한다")
+
+    scores: dict[str, float] = {}
+    first_hit: dict[str, SearchHit] = {}
+
+    for ranking in rankings:
+        seen: set[str] = set()
+        for rank, hit in enumerate(ranking, start=1):
+            if hit.chunk_id in seen:
+                raise ValueError(f"한 목록 안에 같은 chunk_id가 두 번 있다: {hit.chunk_id}")
+            seen.add(hit.chunk_id)
+
+            if hit.chunk_id not in first_hit:
+                first_hit[hit.chunk_id] = hit
+                scores[hit.chunk_id] = 0.0
+            scores[hit.chunk_id] += 1 / (rank_constant + rank)
+
+    ordered = sorted(scores, key=lambda chunk_id: scores[chunk_id], reverse=True)
+    return [
+        first_hit[chunk_id].model_copy(update={"score": scores[chunk_id]})
+        for chunk_id in ordered[:top_k]
+    ]
 
 
 def hybrid_rerank_search(
@@ -61,4 +89,13 @@ def hybrid_rerank_search(
     - 리랭커 점수가 같으면 hybrid 순서를 지킨다
     - hybrid 결과가 비면 리랭커를 부르지 않고 빈 목록
     """
-    raise NotImplementedError("#18 PR ② — 소유자 구현")
+    if not 1 <= rerank_n <= KNN_CANDIDATES:
+        raise ValueError(
+            f"rerank_n({rerank_n})은 1 이상 KNN_CANDIDATES({KNN_CANDIDATES}) 이하여야 한다"
+        )
+    if not 1 <= top_k <= rerank_n:
+        raise ValueError(f"top_k({top_k})는 1 이상 rerank_n({rerank_n}) 이하여야 한다")
+
+    candidates = hybrid_search(client, query, query_vector, top_k=rerank_n)
+    reranked = rerank_hits(query, candidates, reranker, n=rerank_n)
+    return reranked[:top_k]

@@ -181,6 +181,8 @@ def knn_search(client: SearchClient, query_vector: list[float], top_k: int) -> l
     `_source`에서 `embedding` 제외, `query`는 `knn_query(query_vector)`.
     반환: `to_search_hits(응답)` — `_score` 내림차순.
     """
+    if top_k > KNN_CANDIDATES:
+        raise ValueError(f"top_k({top_k})는 KNN_CANDIDATES({KNN_CANDIDATES}) 이하여야 한다")
     body = {
         "size": top_k,
         "_source": {"excludes": list(EXCLUDED_SOURCE_FIELDS)},
@@ -214,4 +216,29 @@ def hybrid_search(
       (2.19 공식 문서 예시 형식) 2.19.1은 에러 없이 무시하고 기본값 60을 쓴다(2026-10-07 실측)
     반환: `to_search_hits(응답)` — RRF 점수 내림차순. 점수는 0 초과 2/(RRF_RANK_CONSTANT+1) 이하.
     """
-    raise NotImplementedError("#18 PR ② — 소유자 구현")
+    if top_k > KNN_CANDIDATES:
+        raise ValueError(f"top_k({top_k})는 KNN_CANDIDATES({KNN_CANDIDATES}) 이하여야 한다")
+    body = {
+        "size": top_k,
+        "_source": {"excludes": list(EXCLUDED_SOURCE_FIELDS)},
+        "query": {
+            "hybrid": {
+                "queries": [bm25_query(query), knn_query(query_vector)],
+                "pagination_depth": KNN_CANDIDATES,
+            }
+        },
+        "search_pipeline": {
+            "phase_results_processors": [
+                {
+                    "score-ranker-processor": {
+                        "combination": {
+                            "technique": "rrf",
+                            "parameters": {"rank_constant": RRF_RANK_CONSTANT},
+                        }
+                    }
+                }
+            ]
+        },
+    }
+    response = client.search(index=search_alias(), body=body)
+    return to_search_hits(response)

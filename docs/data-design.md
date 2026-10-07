@@ -405,8 +405,8 @@ projects ─┬─< project_members >── users
 - `should_refuse: true` 문항 포함 (문서에 없는 내용 질문 → 거절해야 정답)
 
 - **평가 실행 진입점**: `rfp_pm_agent.eval` 패키지 안의 모듈 — 청킹 비교는
-  `uv run python -m rfp_pm_agent.eval.run_chunk_eval` (#13). 검색·에이전트 평가는
-  `run_retrieval`, `run_agent`로 같은 자리에 추가한다
+  `uv run python -m rfp_pm_agent.eval.run_chunk_eval` (#13), 검색 평가는
+  `uv run python -m rfp_pm_agent.eval.run_retrieval` (#16·#18). 에이전트 평가(`run_agent`)는 #25에서 같은 자리에 추가한다
 - **기준선 비교**: 별도 기준선 파일은 두지 않는다. `run_retrieval --compare <기준 run_id> <새 run_id> ... --out-dir data/eval/results/<실험>`이
   그 실험의 `runs.jsonl`에서 실행 기록을 찾아 문항별 McNemar로 비교한다 (`--out-dir`를 빼면 `model_selection`을 읽는다).
   평가 게이트용 기준선 형식은 #25에서 정한다

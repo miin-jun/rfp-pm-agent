@@ -17,13 +17,14 @@ LLM을 부르지 않으므로 비용은 $0이다.
 ## 2. 실행
 
 ```bash
-docker compose ps                                  # opensearch healthy, tei-embed Up(os-knn만 필요)
+docker compose ps                                  # opensearch healthy, tei-embed Up(os-knn·os-hybrid), tei-rerank Up(--rerank)
 curl -s 'localhost:9200/_cat/aliases/rfp_chunks?v' # rfp_chunks가 인덱스 하나만 가리키는지
 curl -s 'localhost:9200/_cat/count/rfp_chunks?v'   # 문서 수
 wc -l data/chunks/block_requirement.jsonl          # 위 문서 수와 같아야 한다
 
 uv run python -m rfp_pm_agent.eval.run_retrieval --os-bm25
 uv run python -m rfp_pm_agent.eval.run_retrieval --os-knn
+uv run python -m rfp_pm_agent.eval.run_retrieval --os-hybrid [--rerank --rerank-n 20]   # N은 10~50
 uv run python -m rfp_pm_agent.eval.run_retrieval --compare <run_id> <run_id> --out-dir data/eval/results/hybrid
 ```
 
@@ -35,7 +36,7 @@ uv run python -m rfp_pm_agent.eval.run_retrieval --compare <run_id> <run_id> --o
 2. 인덱스의 chunk_id 집합이 청크 파일과 같다
 3. 인덱스의 `content_hash`(EMBED_PASSAGE_PREFIX + text)·`metadata_hash`가 청크 파일·파싱 결과
    (`--parsed-dir`, 기본 `data/parsed`)로 다시 계산한 값과 같다 — 색인 모듈과 같은 함수(`chunk_hashes`)를 쓴다
-4. (os-knn) 인덱스의 `embedding_model`이 질의 TEI 서버의 `{모델ID}@{revision}`과 같다
+4. (os-knn·os-hybrid) 인덱스의 `embedding_model`이 질의 TEI 서버의 `{모델ID}@{revision}`과 같다
 
 ## 3. PR ① 단일 기준선 (2026-10-05)
 
@@ -88,3 +89,101 @@ BM25 기준은 아래 `20261006T141105Z-os-bm25`(21/51)**다. 3절의 `20261005T
 
 - 가산 전 대비 McNemar: 가산 후만 맞힘 2(q041·q055, 둘 다 ID 질문), 가산 전만 맞힘 0, p=0.5 — 동률
 - ID 없는 문항은 상위 10 목록까지 같다. 해석과 한계는 ADR-0003
+
+## 5. PR ② 하이브리드(RRF) + 리랭크
+
+조건: `hybrid_search`(OpenSearch `hybrid` 질의 + 요청 본문의 임시 RRF 파이프라인, `rank_constant=60`,
+검색기별 후보 50 = `pagination_depth`·k-NN `k`), 리랭크는 hybrid 상위 N개를 `bge-reranker-v2-m3`로 다시 정렬한다.
+
+### 측정 전 예상 (2026-10-07, 결과를 보기 전에 고정)
+
+| 조건 | 예상 R@10 전부 | 근거 |
+|---|---|---|
+| os-hybrid | 29/51 | 직감 |
+| os-hybrid + rerank N=20 | 31/51 | 직감 |
+| os-hybrid + rerank N=50 | 31/51 | 직감 |
+
+비교 기준: k-NN(k=50) `20261005T134118Z-os-knn-KURE-v1` 30/51, BM25(ID 가산) `20261006T141105Z-os-bm25` 21/51.
+
+### 실행 (2026-10-07)
+
+OpenSearch·`tei-embed`·`tei-rerank`를 함께 띄워 쟀다(측정 직후 `docker stats`: 1.77 / 1.32 / 1.16GiB, OOM 없음).
+실행 전 가드(별칭이 인덱스 하나, chunk_id 집합, `content_hash`·`metadata_hash`, `embedding_model` =
+`nlpai-lab/KURE-v1@8b418a5841…`)는 세 실행 모두 통과했다.
+
+```bash
+uv run python -m rfp_pm_agent.eval.run_retrieval --os-hybrid
+uv run python -m rfp_pm_agent.eval.run_retrieval --os-hybrid --rerank --rerank-n 20
+uv run python -m rfp_pm_agent.eval.run_retrieval --os-hybrid --rerank --rerank-n 50
+uv run python -m rfp_pm_agent.eval.run_retrieval --compare 20261005T134118Z-os-knn-KURE-v1 20261006T141105Z-os-bm25 \
+  20261007T142117Z-os-hybrid-KURE-v1 20261007T142136Z-os-hybrid-KURE-v1+rerank-bge-reranker-v2-m3-n20 \
+  20261007T142235Z-os-hybrid-KURE-v1+rerank-bge-reranker-v2-m3-n50 --out-dir data/eval/results/hybrid
+```
+
+### 결과
+
+| run_id | 검색 | R@10 전부 | R@10 비율 | R@5 전부 | MRR | NDCG@10 | 검색 p50 / p95 | 리랭크 p50 / p95 |
+|---|---|---|---|---|---|---|---|---|
+| `20261005T134118Z-os-knn-KURE-v1` | k-NN (k=50) — 기준 | 30/51 | 31.0 | 23 | 0.317 | 0.380 | 19.6 / 24.8 ms | - |
+| `20261006T141105Z-os-bm25` | BM25 + ID 가산 — 기준 | 21/51 | 22.0 | 16 | 0.230 | 0.276 | 7.7 / 13.0 ms | - |
+| `20261007T142117Z-os-hybrid-KURE-v1` | hybrid RRF | 30/51 | 30.5 | 26 | 0.348 | 0.404 | 46.2 / 87.6 ms | - |
+| `…+rerank-bge-reranker-v2-m3-n20` | hybrid + 리랭크 N=20 | **33/51** | 33.5 | 27 | 0.497 | 0.527 | 35.8 / 47.4 ms | 229.7 / 528.3 ms |
+| `…+rerank-bge-reranker-v2-m3-n50` | hybrid + 리랭크 N=50 | **33/51** | 34.5 | 28 | 0.519 | 0.551 | 36.5 / 46.3 ms | 667.5 / 1139.6 ms |
+
+- 지연 표본은 각 171개(워밍업 5문항 뒤 57문항 × 3회). hybrid 검색 지연에는 질의 임베딩 시간이 들어 있다.
+  첫 실행(리랭크 없음)의 검색 지연만 p50 46ms로 뒤 두 실행(36ms)보다 높았다 — 같은 검색인데 차이가 나는
+  원인은 확인하지 않았다
+- 앱 RRF 상위 10 겹침(답 있는 51문항): 평균 9.96, 최소 9(q002·q004). 두 문항 모두 10위와 11위의 RRF 점수가
+  같고(q002 1/65, q004 1/63 — 한 검색기에서만 5위·3위), OpenSearch와 `rrf_fuse`가 동점을 다르게 끊어
+  10위 청크가 바뀐 것이다. 점수 계산 차이는 아니다
+
+McNemar(1위 = 리랭크 N=20, 같은 R@10이면 앞에 적은 실행):
+
+| 실행 | 1위만 | 이쪽만 | p | 판정 |
+|---|---|---|---|---|
+| k-NN (k=50) | 4 | 1 | 0.375 | 동률 |
+| BM25 + ID 가산 | 12 | 0 | 0.0005 | 1위보다 낮음 |
+| hybrid | 3 | 0 | 0.25 | 동률 |
+| 리랭크 N=50 | 3 | 3 | 1.0 | 동률 |
+
+### 측정 전 예상과 비교
+
+| 조건 | 예상 | 실제 |
+|---|---|---|
+| os-hybrid | 29/51 | 30/51 |
+| os-hybrid + rerank N=20 | 31/51 | 33/51 |
+| os-hybrid + rerank N=50 | 31/51 | 33/51 |
+
+### k-NN(k=50) 대비 문항별 차이
+
+| 조건 | 새로 맞힘 | 새로 틀림 | p |
+|---|---|---|---|
+| hybrid | q013·q016·q017 | q011·q022·q053 | 1.0 |
+| 리랭크 N=20 | q013·q016·q017·q038 | q053 | 0.375 |
+| 리랭크 N=50 | q008·q013·q016·q020·q029·q038 | q010·q014·q053 | 0.508 |
+
+새로 틀린 문항의 정답 청크 순위(측정 뒤 같은 인덱스·서버로 다시 검색, 각 방식 후보 50; `>50`은 후보 밖,
+리랭크 N=20의 `>20`은 리랭크 대상 밖). 앱 RRF 순위는 모든 문항에서 hybrid와 같았다.
+
+| 문항 | 정답 청크 | BM25 | k-NN | hybrid | 리랭크 N=20 | 리랭크 N=50 |
+|---|---|---|---|---|---|---|
+| q010 | b0033 | 3 | 6 | 4 | 7 | **11** |
+| q011 | b0032 | >50 | 3 | **14** | 1 | 1 |
+| q014 | ECR-001 | 5 | 3 | 3 | 10 | **14** |
+| q022 | b0065 | >50 | 7 | **19** | 2 | 2 |
+| q053 | b0015 | >50 | 10 | **22** | **>20** | **30** |
+| q053 | b0016 | >50 | 4 | **21** | **>20** | 10 |
+
+- hybrid가 놓친 q011·q022·q053은 모두 BM25 후보 50 안에 정답이 없다. 두 목록에 다 든 청크가 1/(60+r)를
+  두 번 받아 k-NN에만 있는 정답(3·7·4·10위)을 10위 밖으로 밀어냈다
+- 리랭크는 q011·q022를 다시 1·2위로 올렸지만, q053은 정답이 hybrid 21·22위라 N=20이면 리랭크 대상에 들지
+  못한다. N=50에서는 b0016은 10위로 올라왔고 b0015는 30위다(evidence 2개를 모두 맞혀야 적중)
+- q010·q014는 hybrid에서 맞혔는데 리랭크 N=50에서 리랭커가 다른 후보를 위로 올려 10위 밖으로 밀렸다
+  (N=20에서는 7·10위로 남았다)
+- N=20과 N=50을 직접 대조하면 N=20만 맞힌 문항은 q010·q014·q017, N=50만 맞힌 문항은 q008·q020·q029다(3:3, p=1.0).
+  q017도 hybrid·N=20에서 맞혔다가 N=50에서 놓쳤다 — k-NN도 놓친 문항이라 위 k-NN 대비 표에는 나오지 않는다
+
+### 결정 (2026-10-07, 결과를 본 뒤 소유자)
+
+서비스 검색 기본값 = 하이브리드(RRF k=60, 후보 50) + 리랭크 N=20. 근거·한계·재검토 조건은
+[ADR-0004](adr/0004-hybrid-rerank-default.md).

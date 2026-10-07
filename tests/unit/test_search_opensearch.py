@@ -15,7 +15,15 @@ from typing import Any
 import pytest
 
 from rfp_pm_agent.schemas.eval import SearchHit
-from rfp_pm_agent.search.opensearch import bm25_search, knn_search, search_alias, to_search_hits
+from rfp_pm_agent.search.opensearch import (
+    KNN_CANDIDATES,
+    bm25_query,
+    bm25_search,
+    knn_query,
+    knn_search,
+    search_alias,
+    to_search_hits,
+)
 from tests.fakes.fake_search_client import RecordingSearchClient
 
 # 코드가 별칭 이름을 하드코딩하지 않고 설정에서 읽는지 보려고 기본값과 다른 이름을 쓴다
@@ -176,3 +184,20 @@ def test_knn_search_body_is_knn_on_embedding() -> None:
 def test_knn_search_returns_converted_hits() -> None:
     client = RecordingSearchClient(RESPONSE)
     assert knn_search(client, VECTOR, top_k=10) == to_search_hits(RESPONSE)
+
+
+# --- query 절 함수 (PR ②에서 하이브리드 하위 쿼리로 재사용) ---
+
+
+@pytest.mark.parametrize("question", ["사업 기간은 언제까지인가", "SFR-013 요구사항은 무엇인가"])
+def test_bm25_search_sends_bm25_query(question: str) -> None:
+    client = RecordingSearchClient(RESPONSE)
+    bm25_search(client, question, top_k=10)
+    assert client.calls[0]["body"]["query"] == bm25_query(question)
+
+
+def test_knn_search_sends_knn_query_with_fixed_candidates() -> None:
+    client = RecordingSearchClient(RESPONSE)
+    knn_search(client, VECTOR, top_k=10)
+    assert client.calls[0]["body"]["query"] == knn_query(VECTOR)
+    assert knn_query(VECTOR)["knn"]["embedding"]["k"] == KNN_CANDIDATES

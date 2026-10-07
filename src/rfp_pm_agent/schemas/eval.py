@@ -19,8 +19,8 @@ from pydantic import BaseModel, field_validator, model_validator
 
 QuestionType = Literal["요구사항", "일반"]
 TokenizerName = Literal["bigram", "whitespace"]
-# bm25·dense: #16 메모리 검색 / os-bm25·os-knn: OpenSearch 별칭 검색 (#18)
-RetrieverName = Literal["bm25", "dense", "os-bm25", "os-knn"]
+# bm25·dense: #16 메모리 검색 / os-bm25·os-knn·os-hybrid: OpenSearch 별칭 검색 (#18, os-hybrid는 PR ② RRF)
+RetrieverName = Literal["bm25", "dense", "os-bm25", "os-knn", "os-hybrid"]
 
 # v2 문항 유형 태그 (docs/data-design.md 9절). 한 문항에 여러 개가 붙을 수 있다
 QuestionTag = Literal[
@@ -191,6 +191,9 @@ class QuestionResult(BaseModel):
     reciprocal_rank: float | None = None
     ndcg_at_10: float | None = None
     top10_chunk_ids: list[str]
+    # os-hybrid(#18 PR ②): OpenSearch RRF 상위 10과 앱 RRF(`rrf_fuse`) 상위 10의 chunk_id 겹침 수.
+    # 리랭크 실행도 리랭크 전 hybrid 상위 10으로 잰다. 다른 방식은 None
+    app_rrf_overlap_at_10: int | None = None
 
 
 class RetrievalRunScore(BaseModel):
@@ -253,6 +256,12 @@ class RetrievalRunRecord(BaseModel):
     # 리랭커
     rerank: ServerInfo | None = None
     rerank_n: int | None = None
+    # os-hybrid (#18 PR ②): RRF 상수 k, 검색기별 후보 수(`pagination_depth` = k-NN `k`),
+    # 답 있는 문항의 앱 RRF 상위 10 겹침 수(QuestionResult.app_rrf_overlap_at_10)의 평균·최소
+    rrf_rank_constant: int | None = None
+    candidates: int | None = None
+    app_rrf_overlap_at_10_mean: float | None = None
+    app_rrf_overlap_at_10_min: int | None = None
     # 환경
     tei_image: str | None = None
     gpu: str | None = None

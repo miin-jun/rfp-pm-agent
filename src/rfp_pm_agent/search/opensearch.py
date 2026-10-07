@@ -31,7 +31,11 @@ from rfp_pm_agent.schemas.eval import SearchHit
 
 # 검색 응답에서 빼는 필드. 벡터는 검색에 쓰고 돌려받지 않는다
 EXCLUDED_SOURCE_FIELDS = ("embedding",)
+# 검색기별 후보 수 — knn의 k이자 hybrid의 pagination_depth (#18 결정 4: 측정 전 고정)
 KNN_CANDIDATES = 50
+# RRF 순위 상수 (#18 결정 4: 측정 전 고정). OpenSearch 기본값도 60이라, 파이프라인에서 잘못된 위치에
+# 써서 값이 무시돼도 결과가 같다 — 위치는 테스트로 고정한다(hybrid_search docstring)
+RRF_RANK_CONSTANT = 60
 # 요구사항 ID 패턴과 ID 일치 가산값 — ADR-0003: 측정 전 고정, 조정 금지
 REQUIREMENT_ID_PATTERN = re.compile(r"(?<![A-Za-z])[A-Za-z]{2,5}-[0-9]{2,4}(?![0-9])")
 REQUIREMENT_ID_BOOST = 100
@@ -97,6 +101,48 @@ def extract_requirement_ids(query: str) -> list[str]:
     return ids
 
 
+def bm25_query(query: str) -> dict[str, Any]:
+    """질문 문자열로 BM25(nori `korean` 분석기) 검색 요청의 `query` 절을 만든다.
+
+    `bm25_search`와 하이브리드 검색(PR ②)의 BM25 하위 쿼리가 함께 쓴다. 요청은 보내지 않는다.
+    - query: 사용자 질문 그대로. 질문 어미 처리(#70)는 여기서 하지 않는다
+    - 질문에 요구사항 ID가 없으면(`extract_requirement_ids`가 빈 목록) `text` 필드의 `match` —
+      #75 이전과 같다
+    - ID가 있으면 `bool`: must = `text` 필드의 `match`(질문 원문 그대로), should = ID마다
+      `constant_score`(filter = `requirement_id` term, boost `REQUIREMENT_ID_BOOST`=100). ID가 일치하는
+      청크는 match 점수에 정확히 100이 더해진다. must라서 text match가 0인 청크는 ID가 맞아도 나오지 않는다
+    - 가산은 문서를 가리지 않는다. 같은 ID가 여러 문서에 있으면(예: SFR-013은 4개 문서) 다른 문서의
+      같은 ID 청크도 함께 올라온다(ADR-0003 한계)
+    - hybrid 쿼리의 하위 쿼리로 넣어도 그대로 동작한다(2026-10-07 OpenSearch 2.19.1 실측)
+    """
+    requirement_ids = extract_requirement_ids(query)
+    if not requirement_ids:
+        return {"match": {"text": query}}
+    return {
+        "bool": {
+            "must": [{"match": {"text": query}}],
+            "should": [
+                {
+                    "constant_score": {
+                        "filter": {"term": {"requirement_id": req_id}},
+                        "boost": REQUIREMENT_ID_BOOST,
+                    }
+                }
+                for req_id in requirement_ids
+            ],
+        }
+    }
+
+
+def knn_query(query_vector: list[float]) -> dict[str, Any]:
+    """질의 벡터로 k-NN 검색 요청의 `query` 절을 만든다. `k`는 `KNN_CANDIDATES`(50) 고정.
+
+    `knn_search`와 하이브리드 검색(PR ②)의 k-NN 하위 쿼리가 함께 쓴다. 요청은 보내지 않는다.
+    - query_vector: 색인과 같은 임베딩 모델로 만든 질의 벡터(`input_type="query"`, 1024차원)
+    """
+    return {"knn": {"embedding": {"vector": query_vector, "k": KNN_CANDIDATES}}}
+
+
 def bm25_search(client: SearchClient, query: str, top_k: int) -> list[SearchHit]:
     """질문 문자열로 `text` 필드를 BM25(nori `korean` 분석기) 검색해 상위 top_k개를 돌려준다.
 
@@ -106,37 +152,15 @@ def bm25_search(client: SearchClient, query: str, top_k: int) -> list[SearchHit]
     - top_k: 돌려받을 결과 수(= 요청 `size`)
 
     요청: `client.search(index=search_alias(), body=...)` 한 번. body는 `size=top_k`,
-    `_source`에서 `embedding` 제외, `query`는 아래 둘 중 하나다.
-    - 질문에 요구사항 ID가 없으면(`extract_requirement_ids`가 빈 목록) `text` 필드의 `match` —
-      #75 이전과 body 전체가 같다
-    - ID가 있으면 `bool`: must = `text` 필드의 `match`(질문 원문 그대로), should = ID마다
-      `constant_score`(filter = `requirement_id` term, boost `REQUIREMENT_ID_BOOST`=100). ID가 일치하는
-      청크는 match 점수에 정확히 100이 더해진다. must라서 text match가 0인 청크는 ID가 맞아도 나오지 않는다
-    - 가산은 문서를 가리지 않는다. 같은 ID가 여러 문서에 있으면(예: SFR-013은 4개 문서) 다른 문서의
-      같은 ID 청크도 함께 올라온다(ADR-0003 한계)
+    `_source`에서 `embedding` 제외, `query`는 `bm25_query(query)` — 요구사항 ID가 있으면
+    `requirement_id` 일치 청크에 +100을 더하는 `bool`, 없으면 `text` 필드의 `match`.
     반환: `to_search_hits(응답)` — `_score` 내림차순.
     """
     body = {
         "size": top_k,
         "_source": {"excludes": list(EXCLUDED_SOURCE_FIELDS)},
-        "query": {"match": {"text": query}},
+        "query": bm25_query(query),
     }
-    requirement_ids = extract_requirement_ids(query)
-    if requirement_ids:
-        body["query"] = {
-            "bool": {
-                "must": [{"match": {"text": query}}],
-                "should": [
-                    {
-                        "constant_score": {
-                            "filter": {"term": {"requirement_id": req_id}},
-                            "boost": REQUIREMENT_ID_BOOST,
-                        }
-                    }
-                    for req_id in requirement_ids
-                ],
-            }
-        }
     response = client.search(index=search_alias(), body=body)
     return to_search_hits(response)
 
@@ -148,16 +172,73 @@ def knn_search(client: SearchClient, query_vector: list[float], top_k: int) -> l
     - client: OpenSearch 클라이언트(`opensearchpy.OpenSearch` 또는 같은 `search`를 가진 가짜)
     - query_vector: 색인과 같은 임베딩 모델로 만든 질의 벡터(`input_type="query"`, 1024차원).
       임베딩은 호출하는 쪽에서 한다 — 이 함수는 TEI를 부르지 않는다
-    - top_k: 돌려받을 결과 수(= 요청 `size`). knn의 `k`는 top_k 이상이어야 한다
+    - top_k: 돌려받을 결과 수(= 요청 `size`). `KNN_CANDIDATES`(50) 이하. 넘으면 요청을 보내지
+      않고 ValueError — knn의 `k`는 50 고정(#18 결정 4)이라 size가 k보다 크면 후보 수를 넘는 결과를
+      요구하게 된다. k를 top_k에 맞춰 늘리면 HNSW 후보가 바뀌어 상위 10까지 달라질 수 있어 그렇게 하지 않는다
+      (#18 PR ② 결정 5A)
 
     요청: `client.search(index=search_alias(), body=...)` 한 번. body는 `size=top_k`,
-    `_source`에서 `embedding` 제외, `query`는 `{"knn": {"embedding": {"vector": ..., "k": ...}}}`.
+    `_source`에서 `embedding` 제외, `query`는 `knn_query(query_vector)`.
     반환: `to_search_hits(응답)` — `_score` 내림차순.
     """
+    if top_k > KNN_CANDIDATES:
+        raise ValueError(f"top_k({top_k})는 KNN_CANDIDATES({KNN_CANDIDATES}) 이하여야 한다")
     body = {
         "size": top_k,
         "_source": {"excludes": list(EXCLUDED_SOURCE_FIELDS)},
-        "query": {"knn": {"embedding": {"vector": query_vector, "k": KNN_CANDIDATES}}},
+        "query": knn_query(query_vector),
+    }
+    response = client.search(index=search_alias(), body=body)
+    return to_search_hits(response)
+
+
+def hybrid_search(
+    client: SearchClient, query: str, query_vector: list[float], top_k: int
+) -> list[SearchHit]:
+    """BM25와 k-NN을 OpenSearch hybrid 쿼리로 한 번에 보내고 RRF로 합친 상위 top_k개를 돌려준다.
+
+    인자
+    - client: OpenSearch 클라이언트(`opensearchpy.OpenSearch` 또는 같은 `search`를 가진 가짜)
+    - query: 사용자 질문 그대로. BM25 하위 쿼리는 `bm25_query(query)`(요구사항 ID 가산 포함)
+    - query_vector: 색인과 같은 임베딩 모델로 만든 질의 벡터. k-NN 하위 쿼리는 `knn_query(query_vector)`
+    - top_k: 돌려받을 결과 수(= 요청 `size`). `KNN_CANDIDATES`(50) 이하.
+      넘으면 요청을 보내지 않고 ValueError — 후보 50개를 합친 결과보다 많이 받을 수 없다
+
+    요청: `client.search(index=search_alias(), body=...)` 한 번. body는
+    - `size=top_k`, `_source`에서 `embedding` 제외
+    - `query.hybrid.queries` = [`bm25_query(query)`, `knn_query(query_vector)`] (이 순서)
+    - `query.hybrid.pagination_depth` = `KNN_CANDIDATES` — 하위 쿼리마다 가져올 후보 수. 빼면 하위
+      쿼리마다 size개만 가져와 "검색기별 후보 50"이 지켜지지 않는다(2026-10-07 실측: 상위 10 중 5개만 일치)
+    - `search_pipeline`(요청마다 보내는 임시 파이프라인, 클러스터에 만들지 않는다) =
+      `{"phase_results_processors": [{"score-ranker-processor": {"combination":
+      {"technique": "rrf", "parameters": {"rank_constant": RRF_RANK_CONSTANT}}}}]}`.
+      `rank_constant`는 반드시 `combination.parameters` 안에 둔다 — `combination` 바로 아래에 두면
+      (2.19 공식 문서 예시 형식) 2.19.1은 에러 없이 무시하고 기본값 60을 쓴다(2026-10-07 실측)
+    반환: `to_search_hits(응답)` — RRF 점수 내림차순. 점수는 0 초과 2/(RRF_RANK_CONSTANT+1) 이하.
+    """
+    if top_k > KNN_CANDIDATES:
+        raise ValueError(f"top_k({top_k})는 KNN_CANDIDATES({KNN_CANDIDATES}) 이하여야 한다")
+    body = {
+        "size": top_k,
+        "_source": {"excludes": list(EXCLUDED_SOURCE_FIELDS)},
+        "query": {
+            "hybrid": {
+                "queries": [bm25_query(query), knn_query(query_vector)],
+                "pagination_depth": KNN_CANDIDATES,
+            }
+        },
+        "search_pipeline": {
+            "phase_results_processors": [
+                {
+                    "score-ranker-processor": {
+                        "combination": {
+                            "technique": "rrf",
+                            "parameters": {"rank_constant": RRF_RANK_CONSTANT},
+                        }
+                    }
+                }
+            ]
+        },
     }
     response = client.search(index=search_alias(), body=body)
     return to_search_hits(response)

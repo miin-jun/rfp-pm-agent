@@ -594,10 +594,223 @@ def test_os_knn은_인덱스_embedding_model이_질의_서버와_다르면_실�
         )
 
 
-def test_os_모드와_리랭크_조합은_아직_거부한다(tmp_path: Path, os_data: tuple[Path, Path]) -> None:
+@pytest.mark.parametrize("retriever", ["os-bm25", "os-knn"])
+def test_os_bm25·os_knn과_리랭크_조합은_거부한다(
+    tmp_path: Path, os_data: tuple[Path, Path], retriever: str
+) -> None:
+    """리랭크는 --dense와 --os-hybrid에만 붙는다 (#18 PR ②)."""
     chunks_file, parsed_dir = os_data
-    with pytest.raises(ValueError, match="PR ②"):
-        _run_os(tmp_path, "os-bm25", _fake_os(chunks_file, parsed_dir), use_rerank=True)
+    with pytest.raises(ValueError, match="dense.*os-hybrid"):
+        _run_os(tmp_path, retriever, _fake_os(chunks_file, parsed_dir), use_rerank=True)
+
+
+# --- os-hybrid (#18 PR ②) ---
+# hybrid_search·bm25_search·knn_search를 가짜로 바꿔 끼우고 run()의 연결과 기록만 본다.
+# 앱 RRF(rrf_fuse)는 진짜 함수를 쓴다 — 겹침 수가 실제 계산 규칙으로 나오는지 보려는 것이다.
+
+B1, B2, B3 = (f"d:block_requirement:{sid}" for sid in ("b1", "b2", "b3"))
+
+
+def _hits(chunks_file: Path, chunk_ids: list[str]) -> list[SearchHit]:
+    by_id = {c.chunk_id: c for c in load_chunks(chunks_file)}
+    return [
+        SearchHit(chunk_id=cid, doc_id="d", score=1.0, text=by_id[cid].text) for cid in chunk_ids
+    ]
+
+
+class _HybridFakes:
+    """os-hybrid가 부르는 세 검색 함수의 가짜. 부른 인자를 순서대로 남긴다.
+
+    - hybrid: "사업 기간"이면 [b1, b3], 그 외는 질문 단어가 든 청크(_keyword_hits)
+    - bm25: 질문 단어가 든 청크, knn: 빈 목록 → 앱 RRF 상위 = 질문 단어가 든 청크
+    그래서 앱 RRF 상위 10 겹침은 q001 2개({b1,b2}∩{b1,b2}), q031 1개({b1,b3}∩{b1,b2})다.
+    """
+
+    def __init__(self, chunks_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.chunks_file = chunks_file
+        self.hybrid_calls: list[tuple[Any, str, list[float], int]] = []
+        self.bm25_calls: list[tuple[str, int]] = []
+        self.knn_calls: list[tuple[list[float], int]] = []
+        monkeypatch.setattr(run_retrieval, "hybrid_search", self.hybrid)
+        monkeypatch.setattr(run_retrieval, "bm25_search", self.bm25)
+        monkeypatch.setattr(run_retrieval, "knn_search", self.knn)
+
+    def hybrid(
+        self, client: Any, query: str, query_vector: list[float], top_k: int
+    ) -> list[SearchHit]:
+        self.hybrid_calls.append((client, query, query_vector, top_k))
+        if query == "사업 기간":
+            return _hits(self.chunks_file, [B1, B3])[:top_k]
+        return _keyword_hits(self.chunks_file, query, top_k)
+
+    def bm25(self, client: Any, query: str, top_k: int) -> list[SearchHit]:
+        self.bm25_calls.append((query, top_k))
+        return _keyword_hits(self.chunks_file, query, top_k)
+
+    def knn(self, client: Any, query_vector: list[float], top_k: int) -> list[SearchHit]:
+        self.knn_calls.append((query_vector, top_k))
+        return []
+
+
+def _run_hybrid(tmp_path: Path, os_data: tuple[Path, Path], **kwargs: Any) -> RetrievalRunRecord:
+    chunks_file, parsed_dir = os_data
+    config = make_clients_config(embed_model_id="org/embed")
+    embedder = TEIEmbeddingClient(config, transport=_embed_transport("org/embed", []))
+    options: dict[str, Any] = {
+        "compose_file": tmp_path / "없음.yml",
+        "config": config,
+        "embedder": embedder,
+        "revision_reader": lambda model_id: f"snap-{model_id}",
+    }
+    return _run_os(tmp_path, "os-hybrid", _fake_os(chunks_file, parsed_dir), **(options | kwargs))
+
+
+def test_os_hybrid_실행은_질의_벡터를_hybrid_search에_넘기고_RRF_조건을_기록한다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, os_data: tuple[Path, Path]
+) -> None:
+    fakes = _HybridFakes(os_data[0], monkeypatch)
+
+    record = _run_hybrid(tmp_path, os_data)
+
+    assert record.retriever == "os-hybrid" and "os-hybrid-embed" in record.run_id
+    assert record.rrf_rank_constant == 60 and record.candidates == 50
+    assert record.top_k == 10 and record.rerank is None and record.rerank_n is None
+    assert record.embed is not None and record.embed.snapshot_revision == "sha1"
+    assert record.index_alias == OS_ALIAS and record.index_name == OS_INDEX
+    # 측정 반복의 검색: 57문항 전체(여기선 3개)를 top_k=10으로, 질의 벡터를 그대로 넘긴다
+    measured = fakes.hybrid_calls[:3]
+    assert [(c[1], c[3]) for c in measured] == [
+        ("사업 예산", 10),
+        ("사업 기간", 10),
+        ("드론 배송", 10),
+    ]
+    assert [c[2] for c in measured] == [_vector(q) for q in ["사업 예산", "사업 기간", "드론 배송"]]
+    assert record.search_latency is not None and record.search_latency.samples == 3
+    results = run_retrieval.load_question_results(Path(record.questions_file))
+    assert results["q031"].top10_chunk_ids == [B1, B3]  # 리랭크 없으면 hybrid 순서 그대로
+
+
+def test_os_hybrid는_답_있는_문항마다_앱_RRF_상위10_겹침_수를_기록한다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, os_data: tuple[Path, Path]
+) -> None:
+    fakes = _HybridFakes(os_data[0], monkeypatch)
+
+    record = _run_hybrid(tmp_path, os_data)
+
+    results = {
+        r.question_id: r
+        for r in run_retrieval.load_question_results(Path(record.questions_file)).values()
+    }
+    assert results["q001"].app_rrf_overlap_at_10 == 2
+    assert results["q031"].app_rrf_overlap_at_10 == 1
+    # 집계는 questions.jsonl과 같은 문항(답 있는 51)으로 — 답 없는 q032(겹침 0)는 빠진다
+    assert record.app_rrf_overlap_at_10_mean == pytest.approx(1.5)
+    assert record.app_rrf_overlap_at_10_min == 1
+    # 앱 RRF 입력은 검색기별 후보 50, k-NN에는 같은 질의 벡터
+    assert fakes.bm25_calls == [("사업 예산", 50), ("사업 기간", 50)]
+    assert fakes.knn_calls == [(_vector("사업 예산"), 50), (_vector("사업 기간"), 50)]
+    # 겹침 계산의 hybrid 호출은 측정 반복 뒤에 따로 하고 지연 표본에 넣지 않는다
+    assert [(c[1], c[3]) for c in fakes.hybrid_calls[3:]] == [("사업 예산", 10), ("사업 기간", 10)]
+    assert record.search_latency is not None and record.search_latency.samples == 3
+
+
+@pytest.mark.parametrize("rerank_n", [10, 20, 50])
+def test_os_hybrid_리랭크는_hybrid_상위_N개를_리랭크하고_N을_기록한다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, os_data: tuple[Path, Path], rerank_n: int
+) -> None:
+    fakes = _HybridFakes(os_data[0], monkeypatch)
+    config = make_clients_config(embed_model_id="org/embed")
+
+    record = _run_hybrid(
+        tmp_path,
+        os_data,
+        use_rerank=True,
+        rerank_n=rerank_n,
+        reranker=TEIRerankerClient(config, transport=_rerank_transport()),
+    )
+
+    assert f"os-hybrid-embed+rerank-reranker-n{rerank_n}" in record.run_id
+    assert record.rerank is not None and record.rerank.model_id == "org/reranker"
+    assert record.rerank.snapshot_revision == "snap-org/reranker"
+    assert record.rerank_n == rerank_n and record.top_k == rerank_n
+    assert record.rrf_rank_constant == 60 and record.candidates == 50
+    assert record.rerank_latency is not None and record.rerank_latency.samples == 3
+    assert [c[3] for c in fakes.hybrid_calls[:3]] == [rerank_n] * 3
+    # q031 hybrid 순서는 [b1, b3]이고 리랭커가 '서약서'(b3)를 1위로 올렸다 — 채점은 리랭크 순서로 한다
+    results = run_retrieval.load_question_results(Path(record.questions_file))
+    assert results["q031"].top10_chunk_ids == [B3, B1]
+    # 겹침은 리랭크 전 hybrid 상위 10으로 잰다
+    assert results["q031"].app_rrf_overlap_at_10 == 1
+    assert record.app_rrf_overlap_at_10_min == 1
+
+
+@pytest.mark.parametrize("rerank_n", [10, 20, 50])
+def test_os_hybrid_리랭크_채점_결과는_서비스_함수_hybrid_rerank_search와_같다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, os_data: tuple[Path, Path], rerank_n: int
+) -> None:
+    """평가는 지연을 나눠 재려고 hybrid_search + rerank_hits를 따로 부른다. ADR-0004의 서비스 기본값은
+    hybrid_rerank_search(rerank_n, top_k=10)이므로, 같은 후보·같은 리랭커에서 상위 10이 같아야 한다."""
+    from rfp_pm_agent.search import hybrid as hybrid_module
+
+    fakes = _HybridFakes(os_data[0], monkeypatch)
+    monkeypatch.setattr(hybrid_module, "hybrid_search", fakes.hybrid)
+    config = make_clients_config(embed_model_id="org/embed")
+    reranker = TEIRerankerClient(config, transport=_rerank_transport())
+
+    record = _run_hybrid(tmp_path, os_data, use_rerank=True, rerank_n=rerank_n, reranker=reranker)
+
+    results = run_retrieval.load_question_results(Path(record.questions_file))
+    for question_id, question in [("q001", "사업 예산"), ("q031", "사업 기간")]:
+        service = hybrid_module.hybrid_rerank_search(
+            _fake_os(*os_data), reranker, question, _vector(question), rerank_n, 10
+        )
+        assert results[question_id].top10_chunk_ids == [h.chunk_id for h in service]
+
+
+@pytest.mark.parametrize("rerank_n", [0, 9, 51])
+def test_os_hybrid_리랭크_N이_10_50_밖이면_실행하지_않는다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, os_data: tuple[Path, Path], rerank_n: int
+) -> None:
+    """N<10이면 R@10을 N개로 채점하게 되고, N>50이면 받을 후보가 없다 (#18 리뷰 권장 4)."""
+    fakes = _HybridFakes(os_data[0], monkeypatch)
+    config = make_clients_config(embed_model_id="org/embed")
+    with pytest.raises(ValueError, match="rerank_n"):
+        _run_hybrid(
+            tmp_path,
+            os_data,
+            use_rerank=True,
+            rerank_n=rerank_n,
+            reranker=TEIRerankerClient(config, transport=_rerank_transport()),
+        )
+    assert fakes.hybrid_calls == []
+
+
+def test_os_hybrid는_인덱스_embedding_model이_질의_서버와_다르면_실행하지_않는다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, os_data: tuple[Path, Path]
+) -> None:
+    fakes = _HybridFakes(os_data[0], monkeypatch)
+    chunks_file, parsed_dir = os_data
+    with pytest.raises(ValueError, match="embedding_model"):
+        _run_hybrid(
+            tmp_path,
+            os_data,
+            os_client=_fake_os(chunks_file, parsed_dir, embedding_model="org/other@sha9"),
+        )
+    assert fakes.hybrid_calls == []
+
+
+def test_os_hybrid_아닌_실행은_RRF_기록_칸이_비어_있다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, os_data: tuple[Path, Path]
+) -> None:
+    chunks_file, parsed_dir = os_data
+    monkeypatch.setattr(
+        run_retrieval, "bm25_search", lambda c, q, k: _keyword_hits(chunks_file, q, k)
+    )
+    record = _run_os(tmp_path, "os-bm25", _fake_os(chunks_file, parsed_dir))
+    assert record.rrf_rank_constant is None and record.candidates is None
+    assert record.app_rrf_overlap_at_10_mean is None and record.app_rrf_overlap_at_10_min is None
+    results = run_retrieval.load_question_results(Path(record.questions_file))
+    assert all(r.app_rrf_overlap_at_10 is None for r in results.values())
 
 
 # --- 기본 출력 위치 (#18 리뷰 권장 2) ---
@@ -610,6 +823,7 @@ def test_os_모드와_리랭크_조합은_아직_거부한다(tmp_path: Path, os
         ("dense", "data/eval/results/model_selection"),
         ("os-bm25", "data/eval/results/hybrid"),
         ("os-knn", "data/eval/results/hybrid"),
+        ("os-hybrid", "data/eval/results/hybrid"),
     ],
 )
 def test_기본_출력_위치는_os_모드면_hybrid_아니면_model_selection(
@@ -636,7 +850,13 @@ def test_out_dir를_주지_않은_os_실행은_hybrid_기본_위치에_기록한
 
 @pytest.mark.parametrize(
     ("flag", "expected"),
-    [("--bm25", "bm25"), ("--dense", "dense"), ("--os-bm25", "os-bm25"), ("--os-knn", "os-knn")],
+    [
+        ("--bm25", "bm25"),
+        ("--dense", "dense"),
+        ("--os-bm25", "os-bm25"),
+        ("--os-knn", "os-knn"),
+        ("--os-hybrid", "os-hybrid"),
+    ],
 )
 def test_cli_플래그가_retriever로_이어지고_out_dir는_run이_정한다(
     flag: str, expected: str, monkeypatch: pytest.MonkeyPatch
@@ -653,3 +873,45 @@ def test_cli_parsed_dir와_out_dir가_run으로_이어진다(monkeypatch: pytest
     monkeypatch.setattr(run_retrieval, "run", lambda **kwargs: captured.update(kwargs))
     run_retrieval.main(["--os-bm25", "--parsed-dir", "/p", "--out-dir", "/o"])
     assert captured["parsed_dir"] == Path("/p") and captured["out_dir"] == Path("/o")
+
+
+@pytest.mark.parametrize("flag", ["--dense", "--os-hybrid"])
+def test_cli_리랭크는_dense와_os_hybrid에_붙는다(
+    flag: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(run_retrieval, "run", lambda **kwargs: captured.update(kwargs))
+    assert run_retrieval.main([flag, "--rerank", "--rerank-n", "50"]) == 0
+    assert captured["use_rerank"] is True and captured["rerank_n"] == 50
+
+
+@pytest.mark.parametrize("flag", ["--bm25", "--os-bm25", "--os-knn"])
+def test_cli_리랭크를_다른_방식에_붙이면_인자_단계에서_거절한다(
+    flag: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(run_retrieval, "run", lambda **kwargs: pytest.fail("run을 부르면 안 된다"))
+    with pytest.raises(SystemExit) as exc:
+        run_retrieval.main([flag, "--rerank"])
+    assert exc.value.code == 2
+    assert "--rerank" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("value", ["10", "50"])
+def test_cli_rerank_n은_10부터_50까지_받는다(value: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(run_retrieval, "run", lambda **kwargs: captured.update(kwargs))
+    run_retrieval.main(["--os-hybrid", "--rerank", "--rerank-n", value])
+    assert captured["rerank_n"] == int(value)
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "1", "9", "51", "abc"])
+def test_cli_rerank_n이_10_50_밖이면_인자_단계에서_거절한다(
+    value: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """N<10이면 R@10을 N개 결과로 채점하게 되고(#18 리뷰 권장 4), 후보는 검색기별 50(KNN_CANDIDATES)까지라
+    N>50은 리랭크할 후보가 없다 (#18 결정 5A)."""
+    monkeypatch.setattr(run_retrieval, "run", lambda **kwargs: pytest.fail("run을 부르면 안 된다"))
+    with pytest.raises(SystemExit) as exc:
+        run_retrieval.main(["--dense", "--rerank", "--rerank-n", value])
+    assert exc.value.code == 2
+    assert "--rerank-n" in capsys.readouterr().err

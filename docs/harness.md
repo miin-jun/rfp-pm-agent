@@ -263,10 +263,11 @@ description: 검색 또는 에이전트 평가를 실행하고 기준선과 비�
    - 검색: `uv run python -m rfp_pm_agent.eval.run_retrieval <방식>` — 방식 인자는 하나만, 반드시 준다
      - `--os-bm25`: OpenSearch 별칭 BM25(nori). OpenSearch 필요
      - `--os-knn`: OpenSearch 별칭 k-NN. OpenSearch·`tei-embed` 필요
+     - `--os-hybrid [--rerank --rerank-n 50]`: OpenSearch hybrid(BM25 + k-NN, RRF). OpenSearch·`tei-embed` 필요, `--rerank`면 `tei-rerank`도 필요
        - os 모드 사전 조건(별칭·chunk_id·해시 대조, 어긋나면 ValueError로 멈춤): `docs/hybrid-search-measurement.md` 2절
      - `--bm25`: 청크 파일 메모리 BM25 기준선. 서비스 불필요
      - `--dense [--rerank --rerank-n 20]`: TEI 벡터 검색(+리랭크). `tei-embed` 필요, `--rerank`면 `tei-rerank`도 필요
-       - 리랭크는 `--dense`에만 붙는다(`--bm25`·`--os-bm25`·`--os-knn`에 붙이면 ValueError)
+       - 리랭크는 `--dense`와 `--os-hybrid`에만 붙는다(`--bm25`·`--os-bm25`·`--os-knn`에 붙이면 인자 오류). `--rerank-n`은 1~50
        - 사전 조건(`EMBED_MODEL_ID` 일치 등): `docs/model-selection-measurement.md`. TEI 두 개 동시 기동 시 RAM 부족은 CLAUDE.md "알려진 함정"
      - 평가 세트는 `--qa`(기본 `data/eval/qa_v2.jsonl`), 청크는 `--chunks`(기본 `data/chunks/block_requirement.jsonl`)
      - 기록 위치(`--out-dir` 생략 시): os 모드 `data/eval/results/hybrid/`, 나머지 `data/eval/results/model_selection/`

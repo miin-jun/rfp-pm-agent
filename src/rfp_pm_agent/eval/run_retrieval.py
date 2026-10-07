@@ -22,12 +22,18 @@ OpenSearch 모드(#18 PR ①): `--os-bm25`·`--os-knn`은 메모리 색인 대�
 검색한다(`search/opensearch.py`). 채점의 정답 묶음은 여전히 `--chunks` 파일에서 뽑으므로, 실행 전에
 별칭이 가리키는 인덱스의 chunk_id 집합이 청크 파일과 같은지 확인하고 다르면 멈춘다. `--os-knn`은
 인덱스 문서의 embedding_model이 지금 TEI 서버의 "{모델ID}@{revision}"과 같은지도 확인한다 —
-다른 모델 벡터로 만든 질의를 섞어 검색하지 않기 위해서다. 리랭크 조합은 PR ②에서 연결한다.
+다른 모델 벡터로 만든 질의를 섞어 검색하지 않기 위해서다.
+
+하이브리드(#18 PR ②): `--os-hybrid`는 `hybrid_search`(OpenSearch RRF)로 검색하고, `--rerank`를 붙이면 그
+상위 `--rerank-n`개(1~50)를 리랭크한다. 리랭크는 `--dense`와 `--os-hybrid`에만 붙는다. 검증용으로 답 있는
+문항마다 같은 질문의 앱 RRF(`rrf_fuse`, bm25_search·knn_search 후보 50씩) 상위 10과 hybrid 상위 10의 겹침
+수를 기록한다 — 측정 반복이 끝난 뒤 따로 검색하므로 지연에 들어가지 않는다.
 
 CLI: `uv run python -m rfp_pm_agent.eval.run_retrieval --bm25`
      `uv run python -m rfp_pm_agent.eval.run_retrieval --dense [--rerank]`
      `uv run python -m rfp_pm_agent.eval.run_retrieval --os-bm25`
      `uv run python -m rfp_pm_agent.eval.run_retrieval --os-knn`
+     `uv run python -m rfp_pm_agent.eval.run_retrieval --os-hybrid [--rerank --rerank-n 50]`
      `uv run python -m rfp_pm_agent.eval.run_retrieval --compare <run_id> <run_id> ...`
 """
 
@@ -88,7 +94,15 @@ from rfp_pm_agent.search.dense import (
     file_sha256,
     rerank_hits,
 )
-from rfp_pm_agent.search.opensearch import bm25_search, knn_search, search_alias
+from rfp_pm_agent.search.hybrid import rrf_fuse
+from rfp_pm_agent.search.opensearch import (
+    KNN_CANDIDATES,
+    RRF_RANK_CONSTANT,
+    bm25_search,
+    hybrid_search,
+    knn_search,
+    search_alias,
+)
 from rfp_pm_agent.search.tokenize import get_tokenizer
 
 DEFAULT_CHUNKS_FILE = Path("data/chunks/block_requirement.jsonl")
@@ -98,6 +112,10 @@ DEFAULT_HYBRID_OUT_DIR = Path("data/eval/results/hybrid")
 
 # 이슈 #16 결정 규칙에서 고정한 값
 DEFAULT_RERANK_N = 20
+# 리랭크 후보 N의 상한: 검색기별 후보가 50(KNN_CANDIDATES)이라 그보다 큰 N은 받을 후보가 없다 (#18 결정 5A)
+MAX_RERANK_N = KNN_CANDIDATES
+# 리랭크를 붙일 수 있는 방식
+RERANK_RETRIEVERS: tuple[RetrieverName, ...] = ("dense", "os-hybrid")
 SIGNIFICANCE = 0.05
 
 # 지연 측정: 앞 문항 몇 개로 워밍업하고, 문항 전체를 몇 번 돌려 표본을 모은다
@@ -306,6 +324,83 @@ def check_alias_index(
     return index_name, indexed
 
 
+def _resolve_revision_reader(
+    cfg: ClientsConfig,
+    compose_file: Path,
+    revision_reader: Callable[[str], str] | None,
+) -> tuple[str | None, Callable[[str], str]]:
+    """(TEI 이미지 태그, revision 읽기 함수). revision_reader를 주지 않으면 TEI 볼륨을 읽는다."""
+    tei_image = tei_image_tag(compose_file)
+    if revision_reader is None:
+        if tei_image is None:
+            raise ValueError(f"{compose_file}에서 TEI 이미지를 찾지 못해 revision을 읽을 수 없다")
+        revision_reader = volume_revision_reader(cfg, compose_file)
+    return tei_image, revision_reader
+
+
+def _check_query_embedder(
+    query_embedder: TEIEmbeddingClient,
+    cfg: ClientsConfig,
+    revision_reader: Callable[[str], str],
+    index_name: str,
+    indexed_meta: Mapping[str, IndexedMeta],
+) -> ServerInfo:
+    """인덱스 문서의 embedding_model이 질의 TEI 서버와 같은지 확인하고 서버 정보를 돌려준다."""
+    raw_info = query_embedder.info()
+    # 색인과 같은 규칙(model_sha가 있으면 그 값, 없으면 볼륨 스냅샷)으로 만든 이름
+    query_model = resolve_embedding_model(raw_info, cfg, revision_reader)
+    index_models = {meta.embedding_model for meta in indexed_meta.values()}
+    if index_models != {query_model}:
+        raise ValueError(
+            f"{index_name}의 embedding_model {sorted(index_models)}이 질의 임베딩 "
+            f"서버({query_model})와 다르다"
+        )
+    info = server_info(raw_info)
+    return info.model_copy(update={"snapshot_revision": query_model.split("@", 1)[1]})
+
+
+def _make_rerank(
+    cfg: ClientsConfig,
+    reranker: TEIRerankerClient | None,
+    revision_reader: Callable[[str], str],
+    rerank_n: int,
+) -> tuple[RerankFn, ServerInfo]:
+    rerank_client = reranker or TEIRerankerClient(cfg)
+    info = server_info(rerank_client.info())
+    info = info.model_copy(update={"snapshot_revision": revision_reader(info.model_id)})
+
+    def rerank(q: str, hits: list[SearchHit]) -> list[SearchHit]:
+        return rerank_hits(q, hits, rerank_client, rerank_n)
+
+    return rerank, info
+
+
+def app_rrf_overlaps(
+    client: OpenSearch,
+    embedder: TEIEmbeddingClient,
+    questions: Mapping[str, str],
+) -> dict[str, int]:
+    """문항마다 OpenSearch RRF 상위 10과 앱 RRF 상위 10의 chunk_id 겹침 수 (#18 결정 3).
+
+    questions는 question_id → 질문. 앱 RRF는 bm25_search·knn_search를 후보 KNN_CANDIDATES개씩
+    받아 `rrf_fuse`(RRF_RANK_CONSTANT)로 합친다 — hybrid_search와 같은 후보·같은 k다.
+    """
+    overlaps: dict[str, int] = {}
+    for question_id, question in questions.items():
+        [vector] = embedder.embed([question], input_type="query")
+        hybrid = hybrid_search(client, question, vector, V2_TOP_K)
+        app = rrf_fuse(
+            [
+                bm25_search(client, question, KNN_CANDIDATES),
+                knn_search(client, vector, KNN_CANDIDATES),
+            ],
+            V2_TOP_K,
+            RRF_RANK_CONSTANT,
+        )
+        overlaps[question_id] = len({h.chunk_id for h in hybrid} & {h.chunk_id for h in app})
+    return overlaps
+
+
 def run(
     *,
     retriever: RetrieverName,
@@ -332,9 +427,13 @@ def run(
     embedder·reranker를 주지 않으면 config(없으면 환경변수)로 TEI 클라이언트를 만든다.
     테스트는 가짜 transport를 넣은 클라이언트를 준다. revision_reader(모델 ID → 스냅샷
     해시)를 주지 않으면 TEI 볼륨을 docker로 읽는다(`clients.tei_revision`). os_client를 주지
-    않으면 `OPENSEARCH_URL`로 OpenSearch 클라이언트를 만든다(os-bm25·os-knn). os 모드는 parsed_dir의
+    않으면 `OPENSEARCH_URL`로 OpenSearch 클라이언트를 만든다(os 모드). os 모드는 parsed_dir의
     파싱 결과로 인덱스 메타데이터를 대조한다. out_dir가 None이면 `default_out_dir(retriever)`.
     """
+    if use_rerank and retriever not in RERANK_RETRIEVERS:
+        if retriever == "bm25":
+            raise ValueError("BM25 + 리랭크 조합은 이번 실험 범위가 아니다 (이슈 #16)")
+        raise ValueError(f"리랭크는 dense·os-hybrid에만 붙는다 ({retriever})")
     out_dir = out_dir if out_dir is not None else default_out_dir(retriever)
     questions = load_questions_v2(qa_file)
     chunks = load_chunks(chunks_file)
@@ -343,9 +442,8 @@ def run(
     top_k = max(V2_TOP_K, rerank_n) if use_rerank else V2_TOP_K
 
     record_fields: dict[str, Any] = {}
+    overlap_embedder: TEIEmbeddingClient | None = None
     if retriever == "bm25":
-        if use_rerank:
-            raise ValueError("BM25 + 리랭크 조합은 이번 실험 범위가 아니다 (이슈 #16)")
         bm25 = Bm25Index(chunks, get_tokenizer(tokenizer))
         search: SearchFn = lambda q: bm25.search(q, top_k)
         rerank: RerankFn | None = None
@@ -354,13 +452,7 @@ def run(
     elif retriever == "dense":
         cfg = config or ClientsConfig.from_env()
         embedder = embedder or TEIEmbeddingClient(cfg)
-        tei_image = tei_image_tag(compose_file)
-        if revision_reader is None:
-            if tei_image is None:
-                raise ValueError(
-                    f"{compose_file}에서 TEI 이미지를 찾지 못해 revision을 읽을 수 없다"
-                )
-            revision_reader = volume_revision_reader(cfg, compose_file)
+        tei_image, revision_reader = _resolve_revision_reader(cfg, compose_file, revision_reader)
 
         info = server_info(embedder.info())
         if cfg.embed_model_id and info.model_id != cfg.embed_model_id:
@@ -399,20 +491,10 @@ def run(
             "tei_image": tei_image,
         }
         if use_rerank:
-            rerank_client = reranker or TEIRerankerClient(cfg)
-            rerank_info = server_info(rerank_client.info())
-            rerank_info = rerank_info.model_copy(
-                update={"snapshot_revision": revision_reader(rerank_info.model_id)}
-            )
-
-            def rerank(q: str, hits: list[SearchHit]) -> list[SearchHit]:
-                return rerank_hits(q, hits, rerank_client, rerank_n)
-
+            rerank, rerank_info = _make_rerank(cfg, reranker, revision_reader, rerank_n)
             name += f"+rerank-{rerank_info.model_id.split('/')[-1]}"
             record_fields |= {"rerank": rerank_info, "rerank_n": rerank_n}
-    elif retriever in ("os-bm25", "os-knn"):
-        if use_rerank:
-            raise ValueError("OpenSearch 모드 + 리랭크는 #18 PR ②에서 연결한다")
+    elif retriever in ("os-bm25", "os-knn", "os-hybrid"):
         cfg = config or ClientsConfig.from_env()
         client = os_client or OpenSearch(hosts=[OpenSearchConfig.from_env().url])
         alias = search_alias()
@@ -431,35 +513,41 @@ def run(
             name = "os-bm25"
         else:
             query_embedder = embedder or TEIEmbeddingClient(cfg)
-            tei_image = tei_image_tag(compose_file)
-            if revision_reader is None:
-                if tei_image is None:
-                    raise ValueError(
-                        f"{compose_file}에서 TEI 이미지를 찾지 못해 revision을 읽을 수 없다"
-                    )
-                revision_reader = volume_revision_reader(cfg, compose_file)
-            raw_info = query_embedder.info()
-            # 색인과 같은 규칙(model_sha가 있으면 그 값, 없으면 볼륨 스냅샷)으로 만든 이름
-            query_model = resolve_embedding_model(raw_info, cfg, revision_reader)
-            index_models = {meta.embedding_model for meta in indexed_meta.values()}
-            if index_models != {query_model}:
-                raise ValueError(
-                    f"{index_name}의 embedding_model {sorted(index_models)}이 질의 임베딩 "
-                    f"서버({query_model})와 다르다"
-                )
-            info = server_info(raw_info)
-            info = info.model_copy(update={"snapshot_revision": query_model.split("@", 1)[1]})
-
-            def search(q: str) -> list[SearchHit]:
-                [vector] = query_embedder.embed([q], input_type="query")
-                return knn_search(client, vector, top_k)
-
-            name = f"os-knn-{info.model_id.split('/')[-1]}"
+            tei_image, revision_reader = _resolve_revision_reader(
+                cfg, compose_file, revision_reader
+            )
+            info = _check_query_embedder(
+                query_embedder, cfg, revision_reader, index_name, indexed_meta
+            )
+            model_name = info.model_id.split("/")[-1]
             record_fields |= {
                 "embed": info,
                 "query_prefix": cfg.embed_query_prefix,
                 "tei_image": tei_image,
             }
+            if retriever == "os-knn":
+
+                def search(q: str) -> list[SearchHit]:
+                    [vector] = query_embedder.embed([q], input_type="query")
+                    return knn_search(client, vector, top_k)
+
+                name = f"os-knn-{model_name}"
+            else:
+
+                def search(q: str) -> list[SearchHit]:
+                    [vector] = query_embedder.embed([q], input_type="query")
+                    return hybrid_search(client, q, vector, top_k)
+
+                name = f"os-hybrid-{model_name}"
+                overlap_embedder = query_embedder
+                record_fields |= {
+                    "rrf_rank_constant": RRF_RANK_CONSTANT,
+                    "candidates": KNN_CANDIDATES,
+                }
+                if use_rerank:
+                    rerank, rerank_info = _make_rerank(cfg, reranker, revision_reader, rerank_n)
+                    name += f"+rerank-{rerank_info.model_id.split('/')[-1]}-n{rerank_n}"
+                    record_fields |= {"rerank": rerank_info, "rerank_n": rerank_n}
     else:
         raise ValueError(f"알 수 없는 retriever: {retriever}")
 
@@ -468,6 +556,20 @@ def run(
     )
     scores, results = score_run_v2(questions, chunks, rankings)
     gpu_after = gpu_snapshot()
+    if overlap_embedder is not None:
+        # 측정 반복이 끝난 뒤 따로 검색한다 — 지연 표본에 넣지 않는다
+        question_text = {q.question_id: q.question for q in questions}
+        overlaps = app_rrf_overlaps(
+            client, overlap_embedder, {r.question_id: question_text[r.question_id] for r in results}
+        )
+        results = [
+            r.model_copy(update={"app_rrf_overlap_at_10": overlaps[r.question_id]}) for r in results
+        ]
+        if overlaps:
+            record_fields |= {
+                "app_rrf_overlap_at_10_mean": sum(overlaps.values()) / len(overlaps),
+                "app_rrf_overlap_at_10_min": min(overlaps.values()),
+            }
 
     run_id = f"{ran_at.strftime('%Y%m%dT%H%M%SZ')}-{name}"
     questions_file = out_dir / f"{run_id}.questions.jsonl"
@@ -572,6 +674,17 @@ def format_compare(rows: Sequence[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+def _rerank_n(value: str) -> int:
+    """`--rerank-n` 값 검사: 1 이상 MAX_RERANK_N 이하 정수만 받는다."""
+    try:
+        n = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"정수가 아니다: {value!r}") from None
+    if not 1 <= n <= MAX_RERANK_N:
+        raise argparse.ArgumentTypeError(f"1 이상 {MAX_RERANK_N} 이하여야 한다: {n}")
+    return n
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="임베딩·리랭커 선정 검색 평가 (이슈 #16).")
     mode = parser.add_mutually_exclusive_group(required=True)
@@ -579,9 +692,21 @@ def build_arg_parser() -> argparse.ArgumentParser:
     mode.add_argument("--dense", action="store_true", help="TEI 임베딩 서버로 벡터 검색")
     mode.add_argument("--os-bm25", action="store_true", help="OpenSearch 별칭 BM25(nori) (#18)")
     mode.add_argument("--os-knn", action="store_true", help="OpenSearch 별칭 k-NN (#18, TEI 필요)")
+    mode.add_argument(
+        "--os-hybrid",
+        action="store_true",
+        help="OpenSearch hybrid(BM25 + k-NN, RRF) (#18 PR ②, TEI 필요)",
+    )
     mode.add_argument("--compare", nargs="+", metavar="RUN_ID", help="결정 규칙 적용")
-    parser.add_argument("--rerank", action="store_true", help="--dense 결과 상위 N개를 리랭크")
-    parser.add_argument("--rerank-n", type=int, default=DEFAULT_RERANK_N)
+    parser.add_argument(
+        "--rerank", action="store_true", help="--dense·--os-hybrid 결과 상위 N개를 리랭크"
+    )
+    parser.add_argument(
+        "--rerank-n",
+        type=_rerank_n,
+        default=DEFAULT_RERANK_N,
+        help=f"리랭크할 후보 수 (1~{MAX_RERANK_N}, 기본 {DEFAULT_RERANK_N})",
+    )
     parser.add_argument("--qa", type=Path, default=DEFAULT_QA_V2)
     parser.add_argument("--chunks", type=Path, default=DEFAULT_CHUNKS_FILE)
     parser.add_argument(
@@ -609,13 +734,24 @@ def build_arg_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     """`uv run python -m rfp_pm_agent.eval.run_retrieval` 진입점."""
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    args = build_arg_parser().parse_args(argv)
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
+    if args.rerank and not (args.dense or args.os_hybrid):
+        parser.error("--rerank는 --dense와 --os-hybrid에만 붙는다")
     if args.compare:
         out_dir = args.out_dir if args.out_dir is not None else DEFAULT_OUT_DIR
         logger.info("%s", format_compare(compare(args.compare, out_dir)))
         return 0
     retriever: RetrieverName = (
-        "bm25" if args.bm25 else "os-bm25" if args.os_bm25 else "os-knn" if args.os_knn else "dense"
+        "bm25"
+        if args.bm25
+        else "os-bm25"
+        if args.os_bm25
+        else "os-knn"
+        if args.os_knn
+        else "os-hybrid"
+        if args.os_hybrid
+        else "dense"
     )
     run(
         retriever=retriever,

@@ -407,9 +407,10 @@ projects ─┬─< project_members >── users
 - **평가 실행 진입점**: `rfp_pm_agent.eval` 패키지 안의 모듈 — 청킹 비교는
   `uv run python -m rfp_pm_agent.eval.run_chunk_eval` (#13), 검색 평가는
   `uv run python -m rfp_pm_agent.eval.run_retrieval` (#16·#18). 에이전트 평가(`run_agent`)는 #25에서 같은 자리에 추가한다
-- **기준선 비교**: 별도 기준선 파일은 두지 않는다. `run_retrieval --compare <기준 run_id> <새 run_id> ... --out-dir data/eval/results/<실험>`이
-  그 실험의 `runs.jsonl`에서 실행 기록을 찾아 문항별 McNemar로 비교한다 (`--out-dir`를 빼면 `model_selection`을 읽는다).
-  평가 게이트용 기준선 형식은 #25에서 정한다
+- **기준선 비교**: 지금은 별도 기준선 파일을 두지 않는다. `run_retrieval --compare <run_id> <run_id> ... --out-dir data/eval/results/<실험>`이
+  그 실험의 `runs.jsonl` 하나에서 실행 기록을 찾아, Recall@10(전부 적중)이 가장 많은 실행을 1위로 두고 나머지를 문항별 McNemar로
+  비교한다 — 같은 기록 위치의 실행끼리만 비교되고, `--out-dir`를 빼면 `model_selection`을 읽는다.
+  평가 게이트용 기준선 파일과 형식은 #25에서 정한다
 
 ---
 

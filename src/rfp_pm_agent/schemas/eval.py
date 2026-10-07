@@ -19,7 +19,7 @@ from pydantic import BaseModel, field_validator, model_validator
 
 QuestionType = Literal["요구사항", "일반"]
 TokenizerName = Literal["bigram", "whitespace"]
-# bm25·dense: #16 메모리 검색 / os-bm25·os-knn: OpenSearch 별칭 검색 (#18)
+# bm25·dense: #16 메모리 검색 / os-bm25·os-knn·os-hybrid: OpenSearch 별칭 검색 (#18, os-hybrid는 PR ② RRF)
 RetrieverName = Literal["bm25", "dense", "os-bm25", "os-knn", "os-hybrid"]
 
 # v2 문항 유형 태그 (docs/data-design.md 9절). 한 문항에 여러 개가 붙을 수 있다

@@ -17,13 +17,14 @@ LLM을 부르지 않으므로 비용은 $0이다.
 ## 2. 실행
 
 ```bash
-docker compose ps                                  # opensearch healthy, tei-embed Up(os-knn만 필요)
+docker compose ps                                  # opensearch healthy, tei-embed Up(os-knn·os-hybrid), tei-rerank Up(--rerank)
 curl -s 'localhost:9200/_cat/aliases/rfp_chunks?v' # rfp_chunks가 인덱스 하나만 가리키는지
 curl -s 'localhost:9200/_cat/count/rfp_chunks?v'   # 문서 수
 wc -l data/chunks/block_requirement.jsonl          # 위 문서 수와 같아야 한다
 
 uv run python -m rfp_pm_agent.eval.run_retrieval --os-bm25
 uv run python -m rfp_pm_agent.eval.run_retrieval --os-knn
+uv run python -m rfp_pm_agent.eval.run_retrieval --os-hybrid [--rerank --rerank-n 20]   # N은 10~50
 uv run python -m rfp_pm_agent.eval.run_retrieval --compare <run_id> <run_id> --out-dir data/eval/results/hybrid
 ```
 
@@ -35,7 +36,7 @@ uv run python -m rfp_pm_agent.eval.run_retrieval --compare <run_id> <run_id> --o
 2. 인덱스의 chunk_id 집합이 청크 파일과 같다
 3. 인덱스의 `content_hash`(EMBED_PASSAGE_PREFIX + text)·`metadata_hash`가 청크 파일·파싱 결과
    (`--parsed-dir`, 기본 `data/parsed`)로 다시 계산한 값과 같다 — 색인 모듈과 같은 함수(`chunk_hashes`)를 쓴다
-4. (os-knn) 인덱스의 `embedding_model`이 질의 TEI 서버의 `{모델ID}@{revision}`과 같다
+4. (os-knn·os-hybrid) 인덱스의 `embedding_model`이 질의 TEI 서버의 `{모델ID}@{revision}`과 같다
 
 ## 3. PR ① 단일 기준선 (2026-10-05)
 
@@ -179,6 +180,8 @@ McNemar(1위 = 리랭크 N=20, 같은 R@10이면 앞에 적은 실행):
   못한다. N=50에서는 b0016은 10위로 올라왔고 b0015는 30위다(evidence 2개를 모두 맞혀야 적중)
 - q010·q014는 hybrid에서 맞혔는데 리랭크 N=50에서 리랭커가 다른 후보를 위로 올려 10위 밖으로 밀렸다
   (N=20에서는 7·10위로 남았다)
+- N=20과 N=50을 직접 대조하면 N=20만 맞힌 문항은 q010·q014·q017, N=50만 맞힌 문항은 q008·q020·q029다(3:3, p=1.0).
+  q017도 hybrid·N=20에서 맞혔다가 N=50에서 놓쳤다 — k-NN도 놓친 문항이라 위 k-NN 대비 표에는 나오지 않는다
 
 ### 결정 (2026-10-07, 결과를 본 뒤 소유자)
 

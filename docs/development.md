@@ -42,12 +42,14 @@ uv run python -m rfp_pm_agent.ingest.index_chunks
 
 ### 검색 평가 — OpenSearch (#18)
 
-색인이 끝난 별칭(`rfp_chunks`)을 qa_v2로 채점한다. BM25는 TEI 없이, k-NN은 `tei-embed`가 떠 있어야 돈다.
+색인이 끝난 별칭(`rfp_chunks`)을 qa_v2로 채점한다. BM25는 TEI 없이, k-NN·hybrid는 `tei-embed`가 떠 있어야 돈다.
+`--rerank`를 붙이면 `tei-rerank`도 필요하다(TEI 두 개 동시 기동은 compose의 `TOKENIZATION_WORKERS` 기본값 2로 RAM에 들어간다 — CLAUDE.md "알려진 함정").
 기록은 `data/eval/results/hybrid/`에 남는다. 실행 전 확인 항목과 결과는 [hybrid-search-measurement.md](hybrid-search-measurement.md).
 
 ```bash
 uv run python -m rfp_pm_agent.eval.run_retrieval --os-bm25
 uv run python -m rfp_pm_agent.eval.run_retrieval --os-knn
+uv run python -m rfp_pm_agent.eval.run_retrieval --os-hybrid [--rerank --rerank-n 20]   # N은 10~50
 uv run pytest tests/integration -m integration -q   # 실제 OpenSearch 검색 테스트 (읽기만 한다)
 ```
 

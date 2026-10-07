@@ -25,7 +25,7 @@ OpenSearch 모드(#18 PR ①): `--os-bm25`·`--os-knn`은 메모리 색인 대�
 다른 모델 벡터로 만든 질의를 섞어 검색하지 않기 위해서다.
 
 하이브리드(#18 PR ②): `--os-hybrid`는 `hybrid_search`(OpenSearch RRF)로 검색하고, `--rerank`를 붙이면 그
-상위 `--rerank-n`개(1~50)를 리랭크한다. 리랭크는 `--dense`와 `--os-hybrid`에만 붙는다. 검증용으로 답 있는
+상위 `--rerank-n`개(10~50)를 리랭크한다. 리랭크는 `--dense`와 `--os-hybrid`에만 붙는다. 검증용으로 답 있는
 문항마다 같은 질문의 앱 RRF(`rrf_fuse`, bm25_search·knn_search 후보 50씩) 상위 10과 hybrid 상위 10의 겹침
 수를 기록한다 — 측정 반복이 끝난 뒤 따로 검색하므로 지연에 들어가지 않는다.
 
@@ -112,7 +112,11 @@ DEFAULT_HYBRID_OUT_DIR = Path("data/eval/results/hybrid")
 
 # 이슈 #16 결정 규칙에서 고정한 값
 DEFAULT_RERANK_N = 20
-# 리랭크 후보 N의 상한: 검색기별 후보가 50(KNN_CANDIDATES)이라 그보다 큰 N은 받을 후보가 없다 (#18 결정 5A)
+# 리랭크 후보 N의 범위. 하한: N<10이면 리랭크가 N개만 남겨 R@10을 N개 결과로 채점하게 된다(#18 리뷰 권장 4,
+# 서비스 함수 hybrid_rerank_search(top_k=10)도 top_k ≤ rerank_n을 요구한다). 상한: OpenSearch 검색기별 후보가
+# 50(KNN_CANDIDATES)이라 그보다 큰 N은 받을 후보가 없다(#18 결정 5A). 메모리 dense에도 같은 범위를 쓴다 — #16
+# 기록은 모두 N=20이다
+MIN_RERANK_N = V2_TOP_K
 MAX_RERANK_N = KNN_CANDIDATES
 # 리랭크를 붙일 수 있는 방식
 RERANK_RETRIEVERS: tuple[RetrieverName, ...] = ("dense", "os-hybrid")
@@ -434,6 +438,8 @@ def run(
         if retriever == "bm25":
             raise ValueError("BM25 + 리랭크 조합은 이번 실험 범위가 아니다 (이슈 #16)")
         raise ValueError(f"리랭크는 dense·os-hybrid에만 붙는다 ({retriever})")
+    if use_rerank and not MIN_RERANK_N <= rerank_n <= MAX_RERANK_N:
+        raise ValueError(f"rerank_n({rerank_n})은 {MIN_RERANK_N} 이상 {MAX_RERANK_N} 이하여야 한다")
     out_dir = out_dir if out_dir is not None else default_out_dir(retriever)
     questions = load_questions_v2(qa_file)
     chunks = load_chunks(chunks_file)
@@ -675,13 +681,13 @@ def format_compare(rows: Sequence[dict[str, Any]]) -> str:
 
 
 def _rerank_n(value: str) -> int:
-    """`--rerank-n` 값 검사: 1 이상 MAX_RERANK_N 이하 정수만 받는다."""
+    """`--rerank-n` 값 검사: MIN_RERANK_N 이상 MAX_RERANK_N 이하 정수만 받는다."""
     try:
         n = int(value)
     except ValueError:
         raise argparse.ArgumentTypeError(f"정수가 아니다: {value!r}") from None
-    if not 1 <= n <= MAX_RERANK_N:
-        raise argparse.ArgumentTypeError(f"1 이상 {MAX_RERANK_N} 이하여야 한다: {n}")
+    if not MIN_RERANK_N <= n <= MAX_RERANK_N:
+        raise argparse.ArgumentTypeError(f"{MIN_RERANK_N} 이상 {MAX_RERANK_N} 이하여야 한다: {n}")
     return n
 
 
@@ -705,7 +711,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--rerank-n",
         type=_rerank_n,
         default=DEFAULT_RERANK_N,
-        help=f"리랭크할 후보 수 (1~{MAX_RERANK_N}, 기본 {DEFAULT_RERANK_N})",
+        help=f"리랭크할 후보 수 ({MIN_RERANK_N}~{MAX_RERANK_N}, 기본 {DEFAULT_RERANK_N})",
     )
     parser.add_argument("--qa", type=Path, default=DEFAULT_QA_V2)
     parser.add_argument("--chunks", type=Path, default=DEFAULT_CHUNKS_FILE)

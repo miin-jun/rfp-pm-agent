@@ -19,10 +19,14 @@ import pytest
 from opensearchpy import OpenSearch
 
 from rfp_pm_agent.config import OpenSearchConfig
+from rfp_pm_agent.search.hybrid import rrf_fuse
 from rfp_pm_agent.search.opensearch import (
     EXCLUDED_SOURCE_FIELDS,
+    KNN_CANDIDATES,
     REQUIREMENT_ID_BOOST,
+    RRF_RANK_CONSTANT,
     bm25_search,
+    hybrid_search,
     knn_search,
     search_alias,
     to_search_hits,
@@ -62,6 +66,10 @@ def stored_doc(client: OpenSearch) -> dict[str, Any]:
     [hit] = response["hits"]["hits"]
     source: dict[str, Any] = hit["_source"]
     return source
+
+
+def _rrf_pipeline(combination: dict[str, Any]) -> dict[str, Any]:
+    return {"phase_results_processors": [{"score-ranker-processor": {"combination": combination}}]}
 
 
 def _hybrid_body(vector: list[float]) -> dict[str, Any]:
@@ -142,15 +150,43 @@ def test_hybrid_with_temporary_rrf_pipeline_returns_rrf_scores(
     rank_constant=60, 검색기 2개 → 한 문서의 최대 점수는 2/61. 클러스터에 파이프라인을 만들지 않는다.
     """
     body = _hybrid_body(stored_doc["embedding"])
-    body["search_pipeline"] = {
-        "phase_results_processors": [
-            {"score-ranker-processor": {"combination": {"technique": "rrf", "rank_constant": 60}}}
-        ]
-    }
+    body["search_pipeline"] = _rrf_pipeline(
+        {"technique": "rrf", "parameters": {"rank_constant": 60}}
+    )
     response = client.search(index=search_alias(), body=body)
     scores = [h["_score"] for h in response["hits"]["hits"]]
     assert len(scores) == TOP_K
     assert all(0 < score <= 2 / 61 + 1e-9 for score in scores), scores
+
+
+def _top_scores(
+    client: OpenSearch, vector: list[float], combination: dict[str, Any]
+) -> list[float]:
+    body = _hybrid_body(vector)
+    body["query"]["hybrid"]["pagination_depth"] = KNN_CANDIDATES
+    body["search_pipeline"] = _rrf_pipeline(combination)
+    response = client.search(index=search_alias(), body=body)
+    return [h["_score"] for h in response["hits"]["hits"]]
+
+
+def test_rrf_rank_constant_applies_only_inside_parameters(
+    client: OpenSearch, stored_doc: dict[str, Any]
+) -> None:
+    """rank_constant는 combination.parameters 안에서만 적용된다 (2026-10-07 실측 고정).
+
+    combination 바로 아래(2.19 공식 문서 예시 형식)에 두면 200을 주고 값을 무시해 기본값 60을 쓴다.
+    결정값 60은 기본값과 같아 결과로 드러나지 않으므로, 60이 아닌 값(10)으로 위치 차이를 본다.
+    이 테스트가 실패하면 OpenSearch 동작이 바뀐 것이다 — hybrid_search의 파이프라인 형식을 다시 확인한다.
+    """
+    vector = stored_doc["embedding"]
+    default = _top_scores(client, vector, {"technique": "rrf"})
+    top_level = _top_scores(client, vector, {"technique": "rrf", "rank_constant": 10})
+    in_parameters = _top_scores(
+        client, vector, {"technique": "rrf", "parameters": {"rank_constant": 10}}
+    )
+    assert top_level == default, "combination 바로 아래의 rank_constant가 적용되기 시작했다"
+    assert in_parameters != default
+    assert max(in_parameters) > 2 / 61, "rank_constant=10이면 1위 점수가 2/61을 넘을 수 있다"
 
 
 # --- 소유자 구현 함수 (bm25_search·knn_search) ---
@@ -214,3 +250,33 @@ def test_bm25_requirement_id_adds_exactly_boost_to_match_score(client: OpenSearc
     boosted = {h.chunk_id: h.score for h in hits}
     assert chunk_id in boosted, f"{chunk_id}({requirement_id})가 상위 {TOP_K}에 없다"
     assert boosted[chunk_id] == pytest.approx(match_score + REQUIREMENT_ID_BOOST, abs=1e-3)
+
+
+# --- 소유자 구현 함수 (#18 PR ②: hybrid_search·rrf_fuse) ---
+
+
+def test_hybrid_search_scores_are_rrf_scores(
+    client: OpenSearch, stored_doc: dict[str, Any]
+) -> None:
+    hits = hybrid_search(client, QUERY, stored_doc["embedding"], TOP_K)
+    assert len(hits) == TOP_K
+    max_score = 2 / (RRF_RANK_CONSTANT + 1)
+    assert all(0 < h.score <= max_score + 1e-9 for h in hits), [h.score for h in hits]
+    assert [h.score for h in hits] == sorted((h.score for h in hits), reverse=True)
+
+
+def test_hybrid_search_matches_app_rrf_over_candidates(
+    client: OpenSearch, stored_doc: dict[str, Any]
+) -> None:
+    """OpenSearch RRF 상위 10과 앱 RRF(bm25·knn 각 후보 50) 상위 10의 점수 목록이 같다.
+
+    점수 목록으로 비교하면 동점끼리의 순서 차이에 흔들리지 않는다. pagination_depth를 빼면
+    하위 쿼리마다 size개만 가져와 점수가 달라진다(2026-10-07 실측: chunk 5개만 일치).
+    """
+    vector = stored_doc["embedding"]
+    service = hybrid_search(client, QUERY, vector, TOP_K)
+    app = rrf_fuse(
+        [bm25_search(client, QUERY, KNN_CANDIDATES), knn_search(client, vector, KNN_CANDIDATES)],
+        top_k=TOP_K,
+    )
+    assert [h.score for h in service] == pytest.approx([h.score for h in app], rel=1e-6)

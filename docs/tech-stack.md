@@ -85,7 +85,7 @@
 - 모델 교체: `.env`의 `EMBED_MODEL_ID`·`RERANK_MODEL_ID`를 서버(compose)와 클라이언트(`config.py`)가 함께 읽는다. 값을 바꾸고 `docker compose up -d tei-embed`로 컨테이너를 다시 만든 뒤 `/info`의 `model_id`로 확인. 코드 수정 없음
 - 실측: 두 서버 동시 기동 시 VRAM 합계 2511MiB(리랭커 단독 1260MiB), fp16, 요청 1회 후 변화 없음. RAM 서버당 약 1.1GiB(`TOKENIZATION_WORKERS=2`)
 - 서버 옵션
-  - `AUTO_TRUNCATE=false`: 1.9.4 기본값은 true(긴 입력을 앞부분만 임베딩). 끄면 413 에러로 드러난다 — #16에서 multilingual-e5-large(최대 512 토큰) 비교 시 특히 중요
+  - `AUTO_TRUNCATE=false`: 1.9.4 기본값은 true(긴 입력을 앞부분만 임베딩). 끄면 422 에러(`Input validation error: ... must have less than N tokens`)로 드러난다(2026-10-08 실측. 413은 요청 본문 크기 한도를 넘을 때다) — #16에서 multilingual-e5-large(최대 512 토큰) 비교 시 특히 중요
   - `TOKENIZATION_WORKERS=2`: 미지정(워커 19개, `nproc`=20)으로는 WSL RAM 부족으로 종료됐다 (docs/learning-log.md 2026-09-24)
   - 요청 1건의 입력 수 제한 `max_client_batch_size`=32(기본값). 넘으면 422 — 클라이언트(`TEIEmbeddingClient`·`TEIRerankerClient`)가 `TEI_MAX_CLIENT_BATCH_SIZE`씩 나눠 보낸다
 - #16 후보 메모: bge-m3는 `pytorch_model.bin`만 있고 safetensors가 없어 TEI 로드 가능 여부를 착수 시 확인. multilingual-e5-large는 `query: `/`passage: ` 접두어 필요

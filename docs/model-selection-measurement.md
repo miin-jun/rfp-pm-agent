@@ -29,7 +29,7 @@
 - e5는 최대 512토큰이라 긴 청크를 잘라 임베딩한다. 클라이언트가 `/tokenize`로 먼저 세어 자른 청크 수를
   `runs.jsonl`의 `truncated_chunks`에 남긴다. compose는 `AUTO_TRUNCATE: "false"`이고 요청마다
   `truncate: true`를 보낸다 — TEI 1.9.4가 요청 단위 `truncate`를 서버 설정보다 우선하는지는 미확인이다.
-  e5 실행 뒤 413 오류 없이 끝났는지, `truncated_chunks`가 0보다 큰지를 확인한다
+  e5 실행 뒤 422 오류(토큰 한도 초과, TEI 1.9.4 실측 — 2026-10-08 전까지는 413으로 잘못 적혀 있었다) 없이 끝났는지, `truncated_chunks`가 0보다 큰지를 확인한다
 
 - **빈 청크**: block_requirement 청크 중 text가 빈 것(2026-09-26 기준 4개: 944b의 b0134, d3e2의
   b0005·b0023·b0165 — 모두 내용 없는 1×1 표 블록)은 TEI가 400으로 거절한다. 모든 모델에서 임베딩 요청에서

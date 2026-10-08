@@ -104,7 +104,18 @@ def content_hash(embed_text: str) -> str:
 # metadata_hash의 입력 필드. 문서에 저장하지만 임베딩하지 않는 필드다. chunk_id는 문서 _id(판정의
 # 열쇠)라서, text는 content_hash가 덮어서, embedding·embedding_model·content_hash·indexed_at은
 # 색인 과정이 만든 값이라서 넣지 않는다. 매핑에 임베딩하지 않는 필드를 추가하면 여기에도 넣는다.
-METADATA_FIELDS = ("doc_id", "method", "source_ids", "requirement_id", "block_type", "page")
+# bid_title·format·printed_page는 출처 표기용 (#81, docs/data-design.md 2절)
+METADATA_FIELDS = (
+    "doc_id",
+    "method",
+    "source_ids",
+    "requirement_id",
+    "block_type",
+    "page",
+    "bid_title",
+    "format",
+    "printed_page",
+)
 
 
 def metadata_hash(fields: Mapping[str, Any]) -> str:
@@ -236,12 +247,14 @@ def check_chunks(chunks: Sequence[Chunk]) -> None:
 
 
 def source_fields(chunk: Chunk, documents: Mapping[str, Document]) -> dict[str, Any]:
-    """파싱 결과에서 requirement_id·block_type·page를 찾는다.
+    """파싱 결과에서 requirement_id·block_type·page·printed_page를 찾는다.
 
-    - 블록 청크: block_type = Block.type, page = Block.pdf_page, requirement_id = None
+    - 블록 청크: block_type = Block.type, page = Block.pdf_page, requirement_id = None,
+      printed_page = None (Silver Block에는 인쇄 쪽번호가 없다)
     - 요구사항 청크: requirement_id = Requirement.requirement_id, page = pdf_page_start,
-      block_type = None
+      printed_page = printed_page_start, block_type = None
     page는 파싱 결과와 같은 0부터 세는 PDF 페이지 번호이고, PDF가 아니면 None이다.
+    printed_page는 페이지 하단에서 읽은 인쇄 쪽번호이고, 못 읽었으면 None이다 — page로 채우지 않는다(#81).
     """
     doc = documents.get(chunk.doc_id)
     if doc is None:
@@ -251,24 +264,37 @@ def source_fields(chunk: Chunk, documents: Mapping[str, Document]) -> dict[str, 
     (source_id,) = chunk.source_ids
     for block in doc.blocks:
         if block.block_id == source_id:
-            return {"requirement_id": None, "block_type": block.type, "page": block.pdf_page}
+            return {
+                "requirement_id": None,
+                "block_type": block.type,
+                "page": block.pdf_page,
+                "printed_page": None,
+            }
     for req in doc.requirements:
         if req.requirement_id == source_id:
             return {
                 "requirement_id": req.requirement_id,
                 "block_type": None,
                 "page": req.pdf_page_start,
+                "printed_page": req.printed_page_start,
             }
     raise ValueError(f"{chunk.chunk_id}의 원본 조각 {source_id}를 파싱 결과에서 찾지 못했다")
 
 
 def metadata_fields(chunk: Chunk, documents: Mapping[str, Document]) -> dict[str, Any]:
-    """문서에 저장하는 메타데이터 필드 전부 (`METADATA_FIELDS`와 같은 키)."""
+    """문서에 저장하는 메타데이터 필드 전부 (`METADATA_FIELDS`와 같은 키).
+
+    bid_title·format은 파싱 결과(Document)의 값이다 — 출처 표기의 문서명·형식(#81).
+    """
+    fields = source_fields(chunk, documents)
+    doc = documents[chunk.doc_id]
     return {
         "doc_id": chunk.doc_id,
         "method": chunk.method,
         "source_ids": chunk.source_ids,
-        **source_fields(chunk, documents),
+        **fields,
+        "bid_title": doc.bid_title,
+        "format": doc.format,
     }
 
 

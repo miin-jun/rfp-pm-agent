@@ -25,6 +25,9 @@
       "requirement_id": { "type": "keyword" },
       "block_type": { "type": "keyword" },
       "page": { "type": "integer" },
+      "bid_title": { "type": "keyword" },
+      "format": { "type": "keyword" },
+      "printed_page": { "type": "integer" },
       "embedding": {
         "type": "knn_vector",
         "dimension": 1024,

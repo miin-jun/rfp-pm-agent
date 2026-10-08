@@ -335,9 +335,12 @@ def search_documents(
 | `printed_page` | int | 예 (블록 청크 전부, 못 읽은 요구사항) | `printed_page` (#81) | #19 출처의 `p.23(인쇄)` |
 | `block_type` | str (`paragraph`·`table`) | 예 (요구사항 청크) | `block_type` | Agent가 표 근거인지 구별 |
 | `text` | str | 아니오 | `text` (원문) | Agent 답변 근거, #19 근거 인용 |
-| `score` | float | 아니오 | **리랭커 점수** (TEI `/rerank`, 0~1) | 정렬 근거. 한 번의 호출 안에서만 비교한다 — 다른 질문의 점수와 비교하거나 답 있음/없음 기준으로 쓰지 않는다(#19에서 정한다) |
+| `score` | float | 아니오 | **리랭커 점수** (TEI `/rerank` 기본 응답, 0~1) | 정렬 근거. 한 번의 호출 안에서만 비교한다 — 다른 질문의 점수와 비교하거나 답 있음/없음 기준으로 쓰지 않는다(#19에서 정한다) |
 
 - 결과가 `top_k`개보다 적을 수 있다(필터한 문서의 청크가 적을 때). 0개면 빈 목록이고 오류가 아니다
+- `score` 범위 확인(2026-10-08, TEI 1.9.4 `bge-reranker-v2-m3`): qa_v2 57문항 × 청크 20개(정답 청크 + 무작위, seed 0) = 1,140쌍을 `/rerank`에 보내
+  기본 응답 0.000016~0.999202, 같은 요청에 `"raw_scores": true`를 주면 −11.047~7.129였고 기본 점수는 sigmoid(raw)와 최대 0.001 차이였다
+  → 기본 응답은 sigmoid를 거친 0~1 값이다. `RerankerClient`는 `raw_scores`를 보내지 않으므로 이 값을 쓴다
 - 인덱스의 `embedding`·해시·`indexed_at`·`method`·`source_ids`는 돌려주지 않는다
 
 #### 순서와 동점
@@ -357,10 +360,15 @@ def search_documents(
 | OpenSearch 4xx(별칭 없음 404, 잘못된 질의 400 등) | 원래 예외 그대로(`opensearchpy.TransportError` 하위) | 서버 장애가 아니라 설정·코드 오류라 감싸지 않는다 |
 | tei-embed 연결 거절·응답 없음(`EMBED_TIMEOUT_S`) | `SearchUnavailableError(service="tei-embed")` | 원래 예외 `httpx.TransportError` 하위(`ConnectError`·`TimeoutException`) |
 | tei-embed 5xx | `SearchUnavailableError(service="tei-embed")` | `httpx.HTTPStatusError` |
-| tei-embed 4xx(질의가 모델 최대 길이 초과 413 등) | 원래 예외 그대로 | |
+| tei-embed 422 입력 길이 초과(`error_type` `Validation`, "must have less than 8192 tokens") 또는 413(요청 본문 한도 초과) | `ValueError("질의가 너무 깁니다: …")` — 메시지 뒤에 TEI 오류 문구(한도 8192토큰과 실제 토큰 수)를 붙인다 | LLM이 만든 입력이 원인이라 입력 오류로 돌려준다 |
+| tei-embed 그 밖의 4xx | 원래 예외 그대로(`httpx.HTTPStatusError`) | |
 | tei-rerank 연결 거절·응답 없음(`RERANK_TIMEOUT_S`)·5xx | `SearchUnavailableError(service="tei-rerank")` | **hybrid 검색이 성공했어도 실패로 끝낸다** — 리랭크 없는 결과는 측정하지 않은 품질이라 돌려주지 않는다(D5) |
-| tei-rerank 4xx | 원래 예외 그대로 | |
+| tei-rerank 422 입력 길이 초과 또는 413 | `ValueError("질의가 너무 깁니다: …")` — tei-embed와 같다 | 질의 + 청크 한 쌍이 8192토큰을 넘을 때. 가장 긴 청크가 3,747토큰이라 질의가 약 4,400토큰을 넘으면 날 수 있다 |
+| tei-rerank 그 밖의 4xx | 원래 예외 그대로 | |
 
+- 입력 길이 초과의 상태 코드는 실측했다(2026-10-08, TEI 1.9.4, `AUTO_TRUNCATE=false`): 토큰 한도(8192)를 넘는 질의는 `/embed`·`/rerank` 모두
+  **422** `{"error": "Input validation error: `inputs` must have less than 8192 tokens. Given: 30006", "error_type": "Validation"}`,
+  요청 본문이 서버 한도를 넘으면(18MB로 확인) **413** "length limit exceeded"다. 약 7,500토큰 질의는 200이었다
 - `SearchUnavailableError`는 `search/errors.py`에 둔다. 필드 `service: Literal["opensearch", "tei-embed", "tei-rerank"]`, 메시지에 서비스 이름과 원래 오류 요약
 - Agent·MCP는 `SearchUnavailableError`를 받아 "검색 서버(…)에 연결할 수 없다"는 툴 오류로 LLM에 돌려준다(#22·#24에서 구현). 그 밖의 예외는 버그로 보고 그대로 올린다
 

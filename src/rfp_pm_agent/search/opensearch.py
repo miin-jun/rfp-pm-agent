@@ -143,7 +143,7 @@ def bm25_query(query: str, doc_ids: Sequence[str] | None = None) -> dict[str, An
       같은 ID 청크도 함께 올라온다(ADR-0003 한계)
     - hybrid 쿼리의 하위 쿼리로 넣어도 그대로 동작한다(2026-10-07 OpenSearch 2.19.1 실측)
 
-    doc_ids (#18 PR ③ — 소유자 구현, 지금은 None이 아니면 NotImplementedError)
+    doc_ids (#18 PR ③)
     - None이면 위와 같다(필터 없음). 기존 호출(bm25_search·knn_search·평가)은 모두 None이다
     - 목록이면 `{"terms": {"doc_id": list(doc_ids)}}` 필터를 붙인다. 빈 목록이면 ValueError —
       빈 terms는 아무것도 맞지 않아 "결과 없음"과 구별되지 않는다
@@ -184,7 +184,7 @@ def knn_query(query_vector: list[float], doc_ids: Sequence[str] | None = None) -
     `knn_search`와 하이브리드 검색(PR ②)의 k-NN 하위 쿼리가 함께 쓴다. 요청은 보내지 않는다.
     - query_vector: 색인과 같은 임베딩 모델로 만든 질의 벡터(`input_type="query"`, 1024차원)
 
-    doc_ids (#18 PR ③ — 소유자 구현, 지금은 None이 아니면 NotImplementedError)
+    doc_ids (#18 PR ③)
     - None이면 위와 같다(필터 없음). 기존 호출(bm25_search·knn_search·평가)은 모두 None이다
     - 목록이면 `{"terms": {"doc_id": list(doc_ids)}}` 필터를 붙인다. 빈 목록이면 ValueError —
       빈 terms는 아무것도 맞지 않아 "결과 없음"과 구별되지 않는다
@@ -271,7 +271,7 @@ def hybrid_body(
       `rank_constant`는 반드시 `combination.parameters` 안에 둔다 — `combination` 바로 아래에 두면
       (2.19 공식 문서 예시 형식) 2.19.1은 에러 없이 무시하고 기본값 60을 쓴다(2026-10-07 실측)
 
-    doc_ids (#18 PR ③ — 소유자 구현, 지금은 None이 아니면 NotImplementedError)
+    doc_ids (#18 PR ③)
     - None이면 위와 같다
     - 목록이면 하위 쿼리 **각각에** 필터를 넣는다: `queries` = [`bm25_query(query, doc_ids)`,
       `knn_query(query_vector, doc_ids)`]. 나머지 본문은 같다
@@ -316,11 +316,12 @@ def hybrid_search(
 
     인자
     - client: OpenSearch 클라이언트(`opensearchpy.OpenSearch` 또는 같은 `search`를 가진 가짜)
-    - query: 사용자 질문 그대로. BM25 하위 쿼리는 `bm25_query(query)`(요구사항 ID 가산 포함)
-    - query_vector: 색인과 같은 임베딩 모델로 만든 질의 벡터. k-NN 하위 쿼리는 `knn_query(query_vector)`
+    - query: 사용자 질문 그대로. BM25 하위 쿼리는 `bm25_query(query, doc_ids)`(요구사항 ID 가산 포함)
+    - query_vector: 색인과 같은 임베딩 모델로 만든 질의 벡터. k-NN 하위 쿼리는
+      `knn_query(query_vector, doc_ids)`
     - top_k: 돌려받을 결과 수(= 요청 `size`). `KNN_CANDIDATES`(50) 이하.
       넘으면 요청을 보내지 않고 ValueError — 후보 50개를 합친 결과보다 많이 받을 수 없다
-    - doc_ids: 검색할 문서(None이면 전체). `hybrid_body`에 그대로 넘긴다 (#18 PR ③ — 소유자 구현)
+    - doc_ids: 검색할 문서(None이면 전체). `hybrid_body`에 그대로 넘긴다 — 필터는 하위 쿼리마다 들어간다
 
     요청: `client.search(index=search_alias(), body=hybrid_body(query, query_vector, top_k, doc_ids))` 한 번.
     본문 규칙은 `hybrid_body`.

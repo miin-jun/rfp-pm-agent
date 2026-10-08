@@ -313,12 +313,15 @@ def search_documents(
 
 | 입력 | 처리 |
 |---|---|
+| `query`가 문자열이 아님(`None`·숫자 등) | `ValueError` — 타입 오류도 `TypeError`가 아니라 `ValueError`로 통일한다(Agent·MCP가 입력 오류 하나로 LLM에 돌려주도록) |
 | `query`가 빈 문자열이거나 공백만 | `ValueError` |
-| `top_k`가 정수가 아니거나 1 미만·`MAX_TOP_K`(20) 초과 | `ValueError` (잘라서 맞추지 않는다) |
+| `top_k`가 정수가 아니거나(`bool`·실수 포함 — `True`를 1로 받지 않는다) 1 미만·`MAX_TOP_K`(20) 초과 | `ValueError` (잘라서 맞추지 않는다) |
 | `doc_ids = None` | 필터 없음 — 전체 문서 검색 |
+| `doc_ids`가 list가 아님(문자열·튜플 등) | `ValueError` — 문자열 `"docA"`를 글자 목록으로 읽어 "없는 doc_id"로 잘못 알리지 않도록 먼저 거른다 |
 | `doc_ids = []` | `ValueError` — "아무 문서도 아님"과 "전체"를 구별할 수 없어서 받지 않는다. 전체 검색은 `None` |
+| `doc_ids`에 문자열이 아닌 원소 | `ValueError` |
 | `doc_ids`에 빈 문자열 | `ValueError` |
-| `doc_ids`에 중복 | 그대로 받는다(필터 결과는 같다) |
+| `doc_ids`에 중복 | 그대로 받는다(필터 결과는 같다). 존재 확인 집계는 고유 ID 기준(집계 `size` = 고유 ID 수) |
 | 인덱스에 없는 `doc_id`가 섞임 | `ValueError` — 없는 ID 목록을 메시지에 적는다. LLM이 지어낸 ID로 검색해 빈 결과를 "문서에 없음"으로 읽는 것을 막는다. 확인은 `doc_ids`가 있을 때만 별칭에 `terms` 집계 1회로 한다(검색 요청 전) |
 
 #### 반환 — `list[DocumentHit]` (`schemas/search.py`, 평가용 `SearchHit`과 별개)
@@ -356,15 +359,16 @@ def search_documents(
 | 입력 검증 실패 | `ValueError` | 서버 호출 없음 |
 | OpenSearch 연결 거절 | `SearchUnavailableError(service="opensearch")` | 원래 예외(`opensearchpy.ConnectionError`)는 `__cause__`로 남긴다 |
 | OpenSearch 응답 없음 | `SearchUnavailableError(service="opensearch")` | `OPENSEARCH_TIMEOUT_S` 뒤 `ConnectionTimeout`(→ `ConnectionError`의 하위) |
-| OpenSearch 5xx(502·503·504) | `SearchUnavailableError(service="opensearch")` | 클라이언트가 3회 재시도한 뒤 |
+| OpenSearch 5xx 전부(500 포함) | `SearchUnavailableError(service="opensearch")` | 502·503·504는 클라이언트가 3회 재시도한 뒤, 그 밖의 5xx는 재시도 없이 바로(opensearch-py 기본 `retry_on_status`) |
 | OpenSearch 4xx(별칭 없음 404, 잘못된 질의 400 등) | 원래 예외 그대로(`opensearchpy.TransportError` 하위) | 서버 장애가 아니라 설정·코드 오류라 감싸지 않는다 |
+| OpenSearch `TransportError`인데 상태 코드가 정수가 아님(`"N/A"`, `ConnectionError` 제외) | 원래 예외 그대로 | `ConnectionError`(시간 초과 포함)를 먼저 잡고, 남은 것은 정수 5xx만 감싼다 |
 | tei-embed 연결 거절·응답 없음(`EMBED_TIMEOUT_S`) | `SearchUnavailableError(service="tei-embed")` | 원래 예외 `httpx.TransportError` 하위(`ConnectError`·`TimeoutException`) |
 | tei-embed 5xx | `SearchUnavailableError(service="tei-embed")` | `httpx.HTTPStatusError` |
-| tei-embed 422 입력 길이 초과(`error_type` `Validation`, "must have less than 8192 tokens") 또는 413(요청 본문 한도 초과) | `ValueError("질의가 너무 깁니다: …")` — 메시지 뒤에 TEI 오류 문구(한도 8192토큰과 실제 토큰 수)를 붙인다 | LLM이 만든 입력이 원인이라 입력 오류로 돌려준다 |
-| tei-embed 그 밖의 4xx | 원래 예외 그대로(`httpx.HTTPStatusError`) | |
+| tei-embed 422 입력 길이 초과(본문에 "must have less than"이 있을 때만, 예: "must have less than 8192 tokens") 또는 413(요청 본문 한도 초과) | `ValueError("질의가 너무 깁니다: …")` — 메시지 뒤에 TEI 오류 문구(한도 8192토큰과 실제 토큰 수)를 붙인다 | LLM이 만든 입력이 원인이라 입력 오류로 돌려준다 |
+| tei-embed 그 밖의 4xx | 원래 예외 그대로(`httpx.HTTPStatusError`) | "must have less than"이 없는 422(예: "batch size 64 > maximum allowed batch size 32" — 설정 오류)도 여기다 |
 | tei-rerank 연결 거절·응답 없음(`RERANK_TIMEOUT_S`)·5xx | `SearchUnavailableError(service="tei-rerank")` | **hybrid 검색이 성공했어도 실패로 끝낸다** — 리랭크 없는 결과는 측정하지 않은 품질이라 돌려주지 않는다(D5) |
-| tei-rerank 422 입력 길이 초과 또는 413 | `ValueError("질의가 너무 깁니다: …")` — tei-embed와 같다 | 질의 + 청크 한 쌍이 8192토큰을 넘을 때. 가장 긴 청크가 3,747토큰이라 질의가 약 4,400토큰을 넘으면 날 수 있다 |
-| tei-rerank 그 밖의 4xx | 원래 예외 그대로 | |
+| tei-rerank 422 입력 길이 초과("must have less than"이 있을 때만) 또는 413 | `ValueError("질의가 너무 깁니다: …")` — tei-embed와 같다 | 질의 + 청크 한 쌍이 8192토큰을 넘을 때. 가장 긴 청크가 3,747토큰이라 질의가 약 4,400토큰을 넘으면 날 수 있다 |
+| tei-rerank 그 밖의 4xx | 원래 예외 그대로 | 길이 초과가 아닌 422 포함 |
 
 - 입력 길이 초과의 상태 코드는 실측했다(2026-10-08, TEI 1.9.4, `AUTO_TRUNCATE=false`): 토큰 한도(8192)를 넘는 질의는 `/embed`·`/rerank` 모두
   **422** `{"error": "Input validation error: `inputs` must have less than 8192 tokens. Given: 30006", "error_type": "Validation"}`,

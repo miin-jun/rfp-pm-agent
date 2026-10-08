@@ -284,7 +284,7 @@ def test_hybrid_search_matches_app_rrf_over_candidates(
     assert [h.score for h in service] == pytest.approx([h.score for h in app], rel=1e-6)
 
 
-# --- doc_ids 필터 (#18 PR ③, 소유자 구현 — 구현 전에는 실패한다) ---
+# --- doc_ids 필터 (#18 PR ③) ---
 
 
 def _filter_doc(client: OpenSearch) -> str:

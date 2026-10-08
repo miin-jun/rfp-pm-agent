@@ -3,7 +3,6 @@
 실행: `docker compose up -d opensearch tei-embed tei-rerank`(별칭이 #81 이후 인덱스를 가리키는 상태) 후
 `uv run pytest tests/integration -m tei -q`. OpenSearch도 필요하지만 마커는 `tei` 하나다 — `-m integration`만
 돌릴 때(TEI 없이) 실패하지 않게 하려는 것이다. 서버가 꺼져 있으면 skip하지 않고 실패한다(test_tei_live.py와 같다).
-소유자 구현 전에는 NotImplementedError로 실패한다.
 """
 
 from __future__ import annotations

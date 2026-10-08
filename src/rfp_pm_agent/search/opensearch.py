@@ -23,11 +23,12 @@ tests/unit/test_search_requirement_ids.py(ID 가산)에 있다.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any, Protocol
 
 from rfp_pm_agent.config import OpenSearchConfig
 from rfp_pm_agent.schemas.eval import SearchHit
+from rfp_pm_agent.schemas.search import DocumentHit
 
 # 검색 응답에서 빼는 필드. 벡터는 검색에 쓰고 돌려받지 않는다
 EXCLUDED_SOURCE_FIELDS = ("embedding",)
@@ -80,6 +81,33 @@ def to_search_hits(response: Mapping[str, Any]) -> list[SearchHit]:
     return hits
 
 
+def to_document_hits(response: Mapping[str, Any]) -> list[DocumentHit]:
+    """OpenSearch 검색 응답의 `hits.hits`를 순서 그대로 `DocumentHit` 목록으로 바꾼다 (#18 PR ③).
+
+    `to_search_hits`와 같은 검사(`embedding`이 섞였거나 `_score`가 null이면 ValueError)를 하고,
+    출처 필드(bid_title·format·requirement_id·page·printed_page·block_type)를 `_source`에서 옮긴다.
+    rank는 응답 안 위치(1부터), score는 `_score`(hybrid면 RRF 점수)다 — 리랭크한 뒤에는 호출하는 쪽이
+    rank·score를 다시 매긴다. `_source`에 출처 필드가 없으면(#81 이전 매핑의 인덱스) KeyError.
+    """
+    to_search_hits(response)  # 같은 검사를 한 곳에서 한다
+    return [
+        DocumentHit(
+            rank=rank,
+            chunk_id=raw["_source"]["chunk_id"],
+            doc_id=raw["_source"]["doc_id"],
+            bid_title=raw["_source"]["bid_title"],
+            format=raw["_source"]["format"],
+            requirement_id=raw["_source"]["requirement_id"],
+            page=raw["_source"]["page"],
+            printed_page=raw["_source"]["printed_page"],
+            block_type=raw["_source"]["block_type"],
+            text=raw["_source"]["text"],
+            score=float(raw["_score"]),
+        )
+        for rank, raw in enumerate(response["hits"]["hits"], start=1)
+    ]
+
+
 def extract_requirement_ids(query: str) -> list[str]:
     """질문에서 요구사항 ID를 찾아 대문자로 바꾼 목록을 돌려준다 (이슈 #75).
 
@@ -101,7 +129,7 @@ def extract_requirement_ids(query: str) -> list[str]:
     return ids
 
 
-def bm25_query(query: str) -> dict[str, Any]:
+def bm25_query(query: str, doc_ids: Sequence[str] | None = None) -> dict[str, Any]:
     """질문 문자열로 BM25(nori `korean` 분석기) 검색 요청의 `query` 절을 만든다.
 
     `bm25_search`와 하이브리드 검색(PR ②)의 BM25 하위 쿼리가 함께 쓴다. 요청은 보내지 않는다.
@@ -114,7 +142,23 @@ def bm25_query(query: str) -> dict[str, Any]:
     - 가산은 문서를 가리지 않는다. 같은 ID가 여러 문서에 있으면(예: SFR-013은 4개 문서) 다른 문서의
       같은 ID 청크도 함께 올라온다(ADR-0003 한계)
     - hybrid 쿼리의 하위 쿼리로 넣어도 그대로 동작한다(2026-10-07 OpenSearch 2.19.1 실측)
+
+    doc_ids (#18 PR ③)
+    - None이면 위와 같다(필터 없음). 기존 호출(bm25_search·knn_search·평가)은 모두 None이다
+    - 목록이면 `{"terms": {"doc_id": list(doc_ids)}}` 필터를 붙인다. 빈 목록이면 ValueError —
+      빈 terms는 아무것도 맞지 않아 "결과 없음"과 구별되지 않는다
+      - ID 없음: `{"bool": {"must": [{"match": {"text": query}}], "filter": [필터]}}`
+      - ID 있음: 위 `bool`(must·should)에 `"filter": [필터]`를 더한다
+      filter 절은 점수에 영향을 주지 않으므로, 필터를 통과한 청크의 점수는 필터가 없을 때와 같다
     """
+    if doc_ids is not None:
+        if not doc_ids:
+            raise ValueError("doc_ids가 빈 목록이다. 전체 검색은 None을 넘긴다")
+        doc_filter = {"terms": {"doc_id": list(doc_ids)}}
+        base = bm25_query(query)
+        if "match" in base:
+            return {"bool": {"must": [base], "filter": [doc_filter]}}
+        return {"bool": {**base["bool"], "filter": [doc_filter]}}
     requirement_ids = extract_requirement_ids(query)
     if not requirement_ids:
         return {"match": {"text": query}}
@@ -134,13 +178,26 @@ def bm25_query(query: str) -> dict[str, Any]:
     }
 
 
-def knn_query(query_vector: list[float]) -> dict[str, Any]:
+def knn_query(query_vector: list[float], doc_ids: Sequence[str] | None = None) -> dict[str, Any]:
     """질의 벡터로 k-NN 검색 요청의 `query` 절을 만든다. `k`는 `KNN_CANDIDATES`(50) 고정.
 
     `knn_search`와 하이브리드 검색(PR ②)의 k-NN 하위 쿼리가 함께 쓴다. 요청은 보내지 않는다.
     - query_vector: 색인과 같은 임베딩 모델로 만든 질의 벡터(`input_type="query"`, 1024차원)
+
+    doc_ids (#18 PR ③)
+    - None이면 위와 같다(필터 없음). 기존 호출(bm25_search·knn_search·평가)은 모두 None이다
+    - 목록이면 `{"terms": {"doc_id": list(doc_ids)}}` 필터를 붙인다. 빈 목록이면 ValueError —
+      빈 terms는 아무것도 맞지 않아 "결과 없음"과 구별되지 않는다
+      - `{"knn": {"embedding": {"vector": query_vector, "k": KNN_CANDIDATES, "filter": 필터}}}`
+      lucene 엔진은 필터를 HNSW 탐색 안에서 적용해(efficient filtering) 필터를 통과한 문서 중 k개를 찾는다.
+      검색 뒤에 거르는 방식(post_filter)과 달리 후보가 줄지 않는다(2026-10-08 실측)
     """
-    return {"knn": {"embedding": {"vector": query_vector, "k": KNN_CANDIDATES}}}
+    knn: dict[str, Any] = {"vector": query_vector, "k": KNN_CANDIDATES}
+    if doc_ids is not None:
+        if not doc_ids:
+            raise ValueError("doc_ids가 빈 목록이다. 전체 검색은 None을 넘긴다")
+        knn["filter"] = {"terms": {"doc_id": list(doc_ids)}}
+    return {"knn": {"embedding": knn}}
 
 
 def bm25_search(client: SearchClient, query: str, top_k: int) -> list[SearchHit]:
@@ -192,19 +249,18 @@ def knn_search(client: SearchClient, query_vector: list[float], top_k: int) -> l
     return to_search_hits(response)
 
 
-def hybrid_search(
-    client: SearchClient, query: str, query_vector: list[float], top_k: int
-) -> list[SearchHit]:
-    """BM25와 k-NN을 OpenSearch hybrid 쿼리로 한 번에 보내고 RRF로 합친 상위 top_k개를 돌려준다.
+def hybrid_body(
+    query: str,
+    query_vector: list[float],
+    top_k: int,
+    doc_ids: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """hybrid 검색 요청 본문을 만든다. 요청은 보내지 않는다.
 
-    인자
-    - client: OpenSearch 클라이언트(`opensearchpy.OpenSearch` 또는 같은 `search`를 가진 가짜)
-    - query: 사용자 질문 그대로. BM25 하위 쿼리는 `bm25_query(query)`(요구사항 ID 가산 포함)
-    - query_vector: 색인과 같은 임베딩 모델로 만든 질의 벡터. k-NN 하위 쿼리는 `knn_query(query_vector)`
-    - top_k: 돌려받을 결과 수(= 요청 `size`). `KNN_CANDIDATES`(50) 이하.
-      넘으면 요청을 보내지 않고 ValueError — 후보 50개를 합친 결과보다 많이 받을 수 없다
+    `hybrid_search`와 `search_documents`(#18 PR ③ — 응답의 출처 필드가 필요해 본문만 받아 직접 보낸다)가
+    함께 쓴다. 인자는 `hybrid_search`와 같다. top_k가 `KNN_CANDIDATES`(50)를 넘으면 ValueError.
 
-    요청: `client.search(index=search_alias(), body=...)` 한 번. body는
+    본문
     - `size=top_k`, `_source`에서 `embedding` 제외
     - `query.hybrid.queries` = [`bm25_query(query)`, `knn_query(query_vector)`] (이 순서)
     - `query.hybrid.pagination_depth` = `KNN_CANDIDATES` — 하위 쿼리마다 가져올 후보 수. 빼면 하위
@@ -214,16 +270,23 @@ def hybrid_search(
       {"technique": "rrf", "parameters": {"rank_constant": RRF_RANK_CONSTANT}}}}]}`.
       `rank_constant`는 반드시 `combination.parameters` 안에 둔다 — `combination` 바로 아래에 두면
       (2.19 공식 문서 예시 형식) 2.19.1은 에러 없이 무시하고 기본값 60을 쓴다(2026-10-07 실측)
-    반환: `to_search_hits(응답)` — RRF 점수 내림차순. 점수는 0 초과 2/(RRF_RANK_CONSTANT+1) 이하.
+
+    doc_ids (#18 PR ③)
+    - None이면 위와 같다
+    - 목록이면 하위 쿼리 **각각에** 필터를 넣는다: `queries` = [`bm25_query(query, doc_ids)`,
+      `knn_query(query_vector, doc_ids)`]. 나머지 본문은 같다
+    - 본문에 `post_filter`를 넣지 않는다 — 200을 주지만 전체에서 후보 50개씩 뽑은 뒤에 걸러 순위가 달라진다.
+      `query.hybrid.filter`도 넣지 않는다 — 2.19.1은 400("Field is not supported by [hybrid] query")
+      (둘 다 2026-10-08 실측, data-design.md 5절)
     """
     if top_k > KNN_CANDIDATES:
         raise ValueError(f"top_k({top_k})는 KNN_CANDIDATES({KNN_CANDIDATES}) 이하여야 한다")
-    body = {
+    return {
         "size": top_k,
         "_source": {"excludes": list(EXCLUDED_SOURCE_FIELDS)},
         "query": {
             "hybrid": {
-                "queries": [bm25_query(query), knn_query(query_vector)],
+                "queries": [bm25_query(query, doc_ids), knn_query(query_vector, doc_ids)],
                 "pagination_depth": KNN_CANDIDATES,
             }
         },
@@ -240,5 +303,30 @@ def hybrid_search(
             ]
         },
     }
+
+
+def hybrid_search(
+    client: SearchClient,
+    query: str,
+    query_vector: list[float],
+    top_k: int,
+    doc_ids: Sequence[str] | None = None,
+) -> list[SearchHit]:
+    """BM25와 k-NN을 OpenSearch hybrid 쿼리로 한 번에 보내고 RRF로 합친 상위 top_k개를 돌려준다.
+
+    인자
+    - client: OpenSearch 클라이언트(`opensearchpy.OpenSearch` 또는 같은 `search`를 가진 가짜)
+    - query: 사용자 질문 그대로. BM25 하위 쿼리는 `bm25_query(query, doc_ids)`(요구사항 ID 가산 포함)
+    - query_vector: 색인과 같은 임베딩 모델로 만든 질의 벡터. k-NN 하위 쿼리는
+      `knn_query(query_vector, doc_ids)`
+    - top_k: 돌려받을 결과 수(= 요청 `size`). `KNN_CANDIDATES`(50) 이하.
+      넘으면 요청을 보내지 않고 ValueError — 후보 50개를 합친 결과보다 많이 받을 수 없다
+    - doc_ids: 검색할 문서(None이면 전체). `hybrid_body`에 그대로 넘긴다 — 필터는 하위 쿼리마다 들어간다
+
+    요청: `client.search(index=search_alias(), body=hybrid_body(query, query_vector, top_k, doc_ids))` 한 번.
+    본문 규칙은 `hybrid_body`.
+    반환: `to_search_hits(응답)` — RRF 점수 내림차순. 점수는 0 초과 2/(RRF_RANK_CONSTANT+1) 이하.
+    """
+    body = hybrid_body(query, query_vector, top_k, doc_ids)
     response = client.search(index=search_alias(), body=body)
     return to_search_hits(response)

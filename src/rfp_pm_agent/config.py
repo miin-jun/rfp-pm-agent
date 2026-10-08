@@ -139,6 +139,8 @@ class OpenSearchConfig(BaseModel):
     url: str
     index_alias: str
     index_name: str
+    # 요청 하나의 제한 시간(초). opensearch-py 기본값과 같은 10초. 넘으면 ConnectionTimeout (#18 PR ③)
+    timeout_s: float
 
     @classmethod
     def from_env(cls) -> OpenSearchConfig:
@@ -146,6 +148,7 @@ class OpenSearchConfig(BaseModel):
             url=os.environ.get("OPENSEARCH_URL", "http://localhost:9200"),
             index_alias=os.environ.get("OPENSEARCH_INDEX_ALIAS", "rfp_chunks"),
             index_name=os.environ.get("OPENSEARCH_INDEX_NAME", ""),
+            timeout_s=_get_float("OPENSEARCH_TIMEOUT_S", 10.0),
         )
 
 

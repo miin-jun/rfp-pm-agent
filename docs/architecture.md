@@ -343,6 +343,7 @@
 | 09-27 | **임베딩 KURE-v1, 리랭커 bge-reranker-v2-m3(후보 N=20)** 채택 (#16) | qa_v2 51문항에서 세 임베딩 모델이 McNemar로 동률 → 규칙을 기계적으로 적용하면 e5였으나, 소유자가 결과를 본 뒤 잘림 없음(8192토큰)·리랭크 지연 최소를 근거로 선택. 리랭커는 NDCG@10 0.380 → 0.506, 추가 p95 483ms ([ADR-0001](adr/0001-embedding-model.md), [ADR-0002](adr/0002-reranker.md)) |
 | 10-06 | **BM25 요구사항 ID 정확 일치: 쿼리 쪽 `requirement_id` 가산** 채택 (#75) | nori가 `SFR-013`을 `sfr`/`013`으로 나눠 BM25 tag:exact 0/2. 분석기 변경(3,499건 재색인)은 기각하고 질문 속 ID마다 `constant_score` +100을 should로 추가. R@10 19/51 → 21/51, exact 0/2 → 2/2, ID 없는 문항 변화 없음 — McNemar 2:0 p=0.5 동률이라 "ID 질문 결함 해소"로 기록 ([ADR-0003](adr/0003-requirement-id-boost.md)) |
 | 10-07 | **서비스 검색 기본값: 하이브리드(RRF k=60, 후보 50) + 리랭크 N=20** 채택 (#18) | R@10 N=20 = N=50 = 33/51(McNemar p=1.0)이고 리랭크 p95 528ms vs 1140ms, MRR 0.497(k-NN 0.317). 한계: k-NN 단독 30/51과 유의한 차이 없음(p=0.375), 하이브리드 단독은 30/51로 k-NN과 같음(양쪽 목록에 든 청크가 점수를 두 번 받아 k-NN 전용 정답을 밀어냄, q011·q022·q053). #25 평가 세트 확대 후 k-NN + 리랭크와 함께 재측정 ([ADR-0004](adr/0004-hybrid-rerank-default.md)) |
+| 10-08 | **`search_documents` 툴 계약: doc_ids 필터는 하위 쿼리마다, 입력 오류 `ValueError`·서버 장애 `SearchUnavailableError`(리랭커만 꺼져도 실패), 없는 doc_id는 오류** 채택 (#18) | qa_v2 57문항 실측: `hybrid.filter` 57/57 400, `post_filter`는 순서 일치 20/57, BM25에만 걸면 29/57 문항에 다른 문서 섞임, 하위 쿼리마다는 앱 RRF와 점수 목록 57/57 일치. TEI 422는 "must have less than"일 때만 `ValueError`(배치 크기 422는 설정 오류). 없는 doc_id의 빈 결과를 LLM이 "내용 없음"으로 읽는 것을 막는다 ([ADR-0005](adr/0005-search-documents-contract.md)) |
 
 ## 참고
 

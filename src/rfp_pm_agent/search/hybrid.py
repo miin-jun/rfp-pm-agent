@@ -19,6 +19,13 @@ from rfp_pm_agent.search.opensearch import (
     hybrid_search,
 )
 
+# 서비스 검색 기본값 (ADR-0004, #18 PR ③). 측정으로 고정한 값이라 환경변수로 두지 않는다 —
+# 바꾸면 docs/hybrid-search-measurement.md 기준으로 다시 잰다.
+# 평가 도구의 DEFAULT_RERANK_N(eval/run_retrieval.py, #16 규칙)도 20이지만 따로 둔다
+SERVICE_RERANK_N = 20
+DEFAULT_TOP_K = 10
+MAX_TOP_K = SERVICE_RERANK_N
+
 
 def rrf_fuse(
     rankings: Sequence[Sequence[SearchHit]],

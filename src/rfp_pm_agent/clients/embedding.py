@@ -34,7 +34,7 @@ class EmbedReport:
     """`embed_with_report`의 결과. truncated는 모델 최대 길이를 넘어 잘린 입력의 위치(0부터)다.
 
     `embed_truncate`가 꺼져 있으면 길이를 세지 않으므로 truncated는 항상 비어 있다
-    (그때는 긴 입력이 잘리지 않고 서버가 413으로 거절한다).
+    (그때는 긴 입력이 잘리지 않고 서버가 422로 거절한다 — TEI 1.9.4 실측, docs/data-design.md 5절).
     """
 
     vectors: list[list[float]]
@@ -99,7 +99,8 @@ class TEIEmbeddingClient:
         - 나눠 보내기: TEI는 요청 1건의 입력 수를 제한하므로(`tei_max_client_batch_size`,
           기본 32) 그 크기씩 나눠 순서대로 보내고 결과를 이어 붙인다.
         - 자르기: `embed_truncate`가 False면 `truncate: false`로 보낸다. 모델 최대 길이를
-          넘는 입력은 서버가 413으로 거절하고 `httpx.HTTPStatusError`가 난다. True면
+          넘는 입력은 서버가 422(`Input validation error: ... must have less than N tokens`)로
+          거절하고 `httpx.HTTPStatusError`가 난다(2026-10-08 실측. 413은 요청 본문 크기 한도를 넘을 때다). True면
           먼저 `/tokenize`로 입력별 토큰 수(특수 토큰 포함)를 세어 `/info`의
           `max_input_length`를 넘는 입력의 위치를 기록한 뒤, `truncate: true`로 보내
           서버가 뒤쪽을 잘라 임베딩하게 한다.

@@ -90,7 +90,12 @@ def test_tei_embedding_client_empty_input_sends_no_request() -> None:
 
 
 def test_tei_embedding_client_raises_on_http_error() -> None:
-    transport = httpx.MockTransport(lambda request: httpx.Response(413))
+    # TEI 1.9.4는 토큰 한도를 넘는 입력을 422로 거절한다(2026-10-08 실측)
+    too_long = {
+        "error": "Input validation error: `inputs` must have less than 8192 tokens. Given: 30003",
+        "error_type": "Validation",
+    }
+    transport = httpx.MockTransport(lambda request: httpx.Response(422, json=too_long))
     client = TEIEmbeddingClient(make_clients_config(), transport=transport)
 
     with pytest.raises(httpx.HTTPStatusError):

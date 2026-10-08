@@ -274,6 +274,103 @@ Document
 - **요구사항 ID 정확 일치 질문**("SFR-012가 뭐야?")은 BM25 `match`(must)에 `requirement_id` keyword 정확 일치 가산(`constant_score` boost 100, should)을 붙여 처리한다 — 직접 조회 대신 쿼리 쪽 가산으로 구현, 재색인 없음 (#75, [ADR-0003](adr/0003-requirement-id-boost.md))
 - 하이브리드: OpenSearch 검색 파이프라인의 **RRF**(2.19+) 사용 + 비교용으로 **앱 코드 RRF**도 구현 (f1-ragops 경험 재사용)
 
+### 검색 툴 `search_documents` (#18 PR ③, 초안 2026-10-08)
+
+Agent(#22)·MCP 서버(#24)·`/search`(#23)가 함께 부르는 문서 검색 함수. 서비스 검색 기본값은 [ADR-0004](adr/0004-hybrid-rerank-default.md)다.
+
+#### 시그니처
+
+```python
+# tools/search_documents.py
+def search_documents(
+    query: str,
+    top_k: int = DEFAULT_TOP_K,          # 10
+    doc_ids: list[str] | None = None,
+    *,
+    deps: SearchDeps,
+) -> list[DocumentHit]: ...
+```
+
+- LLM에게 보이는 인자는 `query`·`top_k`·`doc_ids`뿐이다. `deps`는 Agent·MCP 어댑터가 미리 묶어 넘긴다(툴 스키마에 나오지 않는다)
+- `SearchDeps`: 검색 클라이언트(OpenSearch)·임베더(TEI embed)·리랭커(TEI rerank) 묶음. `SearchDeps.from_env()`가 `config.py` 설정
+  (`OPENSEARCH_URL`·`OPENSEARCH_TIMEOUT_S`·`EMBED_*`·`RERANK_*`)으로 만든다. 테스트는 가짜 클라이언트를 넣는다
+- 상수(`search/hybrid.py`): `SERVICE_RERANK_N = 20`, `DEFAULT_TOP_K = 10`, `MAX_TOP_K = SERVICE_RERANK_N`. ADR-0004로 고정한 값이라
+  환경변수로 바꿀 수 없게 둔다(재측정 없이 값이 달라지지 않게)
+
+#### 내부 동작
+
+1. 입력 검증(아래 표). 실패하면 서버를 하나도 부르지 않는다
+2. 질의 임베딩: `query`를 `input_type="query"`(`EMBED_QUERY_PREFIX`)로 TEI에 보낸다
+3. 하이브리드: 별칭 `rfp_chunks`에 `hybrid` 질의 1회 — BM25(ID 가산 포함)·k-NN(k=50) 하위 질의, `pagination_depth` 50, 임시 RRF
+   파이프라인(`rank_constant` 60), `size` = `SERVICE_RERANK_N`(20)
+4. `doc_ids`가 있으면 **두 하위 질의 각각에** `terms: {doc_id: doc_ids}` 필터를 넣는다(BM25는 `bool.filter`, k-NN은 `knn.embedding.filter`).
+   hybrid 최상위 `filter`는 2.19.1이 400으로 거절하고, `post_filter`는 200을 주지만 전체에서 후보 50개씩 뽑은 뒤에 걸러 순위가 달라지므로
+   쓰지 않는다(2026-10-08 실측, 하위 질의 필터만 같은 필터의 앱 RRF와 순서까지 일치)
+5. 리랭크: hybrid 결과(최대 20개)를 질문 원문과 함께 리랭커에 보내 점수 내림차순으로 다시 정렬한다
+6. 상위 `top_k`개를 `DocumentHit`으로 바꿔 돌려준다
+
+#### 입력 검증 — 모두 서버를 부르기 전에 `ValueError`
+
+| 입력 | 처리 |
+|---|---|
+| `query`가 빈 문자열이거나 공백만 | `ValueError` |
+| `top_k`가 정수가 아니거나 1 미만·`MAX_TOP_K`(20) 초과 | `ValueError` (잘라서 맞추지 않는다) |
+| `doc_ids = None` | 필터 없음 — 전체 문서 검색 |
+| `doc_ids = []` | `ValueError` — "아무 문서도 아님"과 "전체"를 구별할 수 없어서 받지 않는다. 전체 검색은 `None` |
+| `doc_ids`에 빈 문자열 | `ValueError` |
+| `doc_ids`에 중복 | 그대로 받는다(필터 결과는 같다) |
+| 인덱스에 없는 `doc_id`가 섞임 | `ValueError` — 없는 ID 목록을 메시지에 적는다. LLM이 지어낸 ID로 검색해 빈 결과를 "문서에 없음"으로 읽는 것을 막는다. 확인은 `doc_ids`가 있을 때만 별칭에 `terms` 집계 1회로 한다(검색 요청 전) |
+
+#### 반환 — `list[DocumentHit]` (`schemas/search.py`, 평가용 `SearchHit`과 별개)
+
+| 필드 | 타입 | null | 출처(인덱스 필드) | 쓰는 곳 |
+|---|---|---|---|---|
+| `rank` | int | 아니오 | 반환 목록 안 위치(1부터) | Agent 답변 순서, #25 순위 채점 |
+| `chunk_id` | str | 아니오 | `chunk_id` | #25 근거 대조, 로그 |
+| `doc_id` | str | 아니오 | `doc_id` | 다음 호출의 `doc_ids`, PMS `documents`·`requirements.source_doc_id` 연결 |
+| `bid_title` | str | 아니오 | `bid_title` (#81) | #19 출처 표기의 문서명 |
+| `format` | str (`pdf`·`hwp`·`hwpx`) | 아니오 | `format` (#81) | #19 쪽번호를 붙일지 정함 |
+| `requirement_id` | str | 예 (블록 청크) | `requirement_id` | #19 출처의 요구사항 ID, #22·#25 평가 `expected_facts.requirement_ids` |
+| `page` | int | 예 (HWP·HWPX 전부) | `page` — 0부터 세는 PDF 페이지 | #19 인쇄 쪽번호가 없을 때의 대체 표기(2절 규칙) |
+| `printed_page` | int | 예 (블록 청크 전부, 못 읽은 요구사항) | `printed_page` (#81) | #19 출처의 `p.23(인쇄)` |
+| `block_type` | str (`paragraph`·`table`) | 예 (요구사항 청크) | `block_type` | Agent가 표 근거인지 구별 |
+| `text` | str | 아니오 | `text` (원문) | Agent 답변 근거, #19 근거 인용 |
+| `score` | float | 아니오 | **리랭커 점수** (TEI `/rerank`, 0~1) | 정렬 근거. 한 번의 호출 안에서만 비교한다 — 다른 질문의 점수와 비교하거나 답 있음/없음 기준으로 쓰지 않는다(#19에서 정한다) |
+
+- 결과가 `top_k`개보다 적을 수 있다(필터한 문서의 청크가 적을 때). 0개면 빈 목록이고 오류가 아니다
+- 인덱스의 `embedding`·해시·`indexed_at`·`method`·`source_ids`는 돌려주지 않는다
+
+#### 순서와 동점
+
+- `score`(리랭커 점수) 내림차순. `rank`는 그 순서다
+- 리랭커 점수가 같으면 hybrid(RRF) 순서를 지킨다(`rerank_hits`와 같은 규칙)
+- hybrid 안에서 RRF 점수가 같은 결과의 순서는 OpenSearch가 정한다 — 앱 RRF(`rrf_fuse`)와 다르게 끊을 수 있다(hybrid-search-measurement.md 5절 q002·q004)
+
+#### 오류
+
+| 상황 | 예외 | 비고 |
+|---|---|---|
+| 입력 검증 실패 | `ValueError` | 서버 호출 없음 |
+| OpenSearch 연결 거절 | `SearchUnavailableError(service="opensearch")` | 원래 예외(`opensearchpy.ConnectionError`)는 `__cause__`로 남긴다 |
+| OpenSearch 응답 없음 | `SearchUnavailableError(service="opensearch")` | `OPENSEARCH_TIMEOUT_S` 뒤 `ConnectionTimeout`(→ `ConnectionError`의 하위) |
+| OpenSearch 5xx(502·503·504) | `SearchUnavailableError(service="opensearch")` | 클라이언트가 3회 재시도한 뒤 |
+| OpenSearch 4xx(별칭 없음 404, 잘못된 질의 400 등) | 원래 예외 그대로(`opensearchpy.TransportError` 하위) | 서버 장애가 아니라 설정·코드 오류라 감싸지 않는다 |
+| tei-embed 연결 거절·응답 없음(`EMBED_TIMEOUT_S`) | `SearchUnavailableError(service="tei-embed")` | 원래 예외 `httpx.TransportError` 하위(`ConnectError`·`TimeoutException`) |
+| tei-embed 5xx | `SearchUnavailableError(service="tei-embed")` | `httpx.HTTPStatusError` |
+| tei-embed 4xx(질의가 모델 최대 길이 초과 413 등) | 원래 예외 그대로 | |
+| tei-rerank 연결 거절·응답 없음(`RERANK_TIMEOUT_S`)·5xx | `SearchUnavailableError(service="tei-rerank")` | **hybrid 검색이 성공했어도 실패로 끝낸다** — 리랭크 없는 결과는 측정하지 않은 품질이라 돌려주지 않는다(D5) |
+| tei-rerank 4xx | 원래 예외 그대로 | |
+
+- `SearchUnavailableError`는 `search/errors.py`에 둔다. 필드 `service: Literal["opensearch", "tei-embed", "tei-rerank"]`, 메시지에 서비스 이름과 원래 오류 요약
+- Agent·MCP는 `SearchUnavailableError`를 받아 "검색 서버(…)에 연결할 수 없다"는 툴 오류로 LLM에 돌려준다(#22·#24에서 구현). 그 밖의 예외는 버그로 보고 그대로 올린다
+
+#### 범위 밖
+
+- 출처 문자열 만들기(`[문서명 p.23(인쇄) · SFR-001]`)와 근거 없음 판정·거절 — #19. 이 함수는 재료 필드만 돌려준다
+- 권한 필터(`allowed_roles` 사전 필터) — Phase 2(8절). 지금 인덱스에는 권한 필드가 없다
+- 리랭커가 꺼졌을 때 하이브리드 결과만 돌려주는 대체 경로 — 만들지 않는다(D5)
+- `project_id`로 거르기 — 인덱스에 `project_id`가 없다(5절 "첫 인덱스 필드")
+
 ---
 
 ## 6. PMS 스키마 (PostgreSQL)

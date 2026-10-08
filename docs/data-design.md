@@ -284,7 +284,7 @@ Agent(#22)·MCP 서버(#24)·`/search`(#23)가 함께 부르는 문서 검색 �
 # tools/search_documents.py
 def search_documents(
     query: str,
-    top_k: int = DEFAULT_TOP_K,          # 10
+    top_k: int = DEFAULT_TOP_K,  # 10
     doc_ids: list[str] | None = None,
     *,
     deps: SearchDeps,

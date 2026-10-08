@@ -192,19 +192,13 @@ def knn_search(client: SearchClient, query_vector: list[float], top_k: int) -> l
     return to_search_hits(response)
 
 
-def hybrid_search(
-    client: SearchClient, query: str, query_vector: list[float], top_k: int
-) -> list[SearchHit]:
-    """BM25와 k-NN을 OpenSearch hybrid 쿼리로 한 번에 보내고 RRF로 합친 상위 top_k개를 돌려준다.
+def hybrid_body(query: str, query_vector: list[float], top_k: int) -> dict[str, Any]:
+    """hybrid 검색 요청 본문을 만든다. 요청은 보내지 않는다.
 
-    인자
-    - client: OpenSearch 클라이언트(`opensearchpy.OpenSearch` 또는 같은 `search`를 가진 가짜)
-    - query: 사용자 질문 그대로. BM25 하위 쿼리는 `bm25_query(query)`(요구사항 ID 가산 포함)
-    - query_vector: 색인과 같은 임베딩 모델로 만든 질의 벡터. k-NN 하위 쿼리는 `knn_query(query_vector)`
-    - top_k: 돌려받을 결과 수(= 요청 `size`). `KNN_CANDIDATES`(50) 이하.
-      넘으면 요청을 보내지 않고 ValueError — 후보 50개를 합친 결과보다 많이 받을 수 없다
+    `hybrid_search`와 `search_documents`(#18 PR ③ — 응답의 출처 필드가 필요해 본문만 받아 직접 보낸다)가
+    함께 쓴다. 인자는 `hybrid_search`와 같다. top_k가 `KNN_CANDIDATES`(50)를 넘으면 ValueError.
 
-    요청: `client.search(index=search_alias(), body=...)` 한 번. body는
+    본문
     - `size=top_k`, `_source`에서 `embedding` 제외
     - `query.hybrid.queries` = [`bm25_query(query)`, `knn_query(query_vector)`] (이 순서)
     - `query.hybrid.pagination_depth` = `KNN_CANDIDATES` — 하위 쿼리마다 가져올 후보 수. 빼면 하위
@@ -214,11 +208,10 @@ def hybrid_search(
       {"technique": "rrf", "parameters": {"rank_constant": RRF_RANK_CONSTANT}}}}]}`.
       `rank_constant`는 반드시 `combination.parameters` 안에 둔다 — `combination` 바로 아래에 두면
       (2.19 공식 문서 예시 형식) 2.19.1은 에러 없이 무시하고 기본값 60을 쓴다(2026-10-07 실측)
-    반환: `to_search_hits(응답)` — RRF 점수 내림차순. 점수는 0 초과 2/(RRF_RANK_CONSTANT+1) 이하.
     """
     if top_k > KNN_CANDIDATES:
         raise ValueError(f"top_k({top_k})는 KNN_CANDIDATES({KNN_CANDIDATES}) 이하여야 한다")
-    body = {
+    return {
         "size": top_k,
         "_source": {"excludes": list(EXCLUDED_SOURCE_FIELDS)},
         "query": {
@@ -240,5 +233,24 @@ def hybrid_search(
             ]
         },
     }
+
+
+def hybrid_search(
+    client: SearchClient, query: str, query_vector: list[float], top_k: int
+) -> list[SearchHit]:
+    """BM25와 k-NN을 OpenSearch hybrid 쿼리로 한 번에 보내고 RRF로 합친 상위 top_k개를 돌려준다.
+
+    인자
+    - client: OpenSearch 클라이언트(`opensearchpy.OpenSearch` 또는 같은 `search`를 가진 가짜)
+    - query: 사용자 질문 그대로. BM25 하위 쿼리는 `bm25_query(query)`(요구사항 ID 가산 포함)
+    - query_vector: 색인과 같은 임베딩 모델로 만든 질의 벡터. k-NN 하위 쿼리는 `knn_query(query_vector)`
+    - top_k: 돌려받을 결과 수(= 요청 `size`). `KNN_CANDIDATES`(50) 이하.
+      넘으면 요청을 보내지 않고 ValueError — 후보 50개를 합친 결과보다 많이 받을 수 없다
+
+    요청: `client.search(index=search_alias(), body=hybrid_body(query, query_vector, top_k))` 한 번.
+    본문 규칙은 `hybrid_body`.
+    반환: `to_search_hits(응답)` — RRF 점수 내림차순. 점수는 0 초과 2/(RRF_RANK_CONSTANT+1) 이하.
+    """
+    body = hybrid_body(query, query_vector, top_k)
     response = client.search(index=search_alias(), body=body)
     return to_search_hits(response)

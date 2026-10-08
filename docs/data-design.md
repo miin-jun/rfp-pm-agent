@@ -534,6 +534,7 @@ projects ─┬─< project_members >── users
 | `OPENSEARCH_URL` | `http://localhost:9200` | |
 | `OPENSEARCH_INDEX_ALIAS` | `rfp_chunks` | |
 | `OPENSEARCH_INDEX_NAME` | `rfp_chunks_v2_kure` | 색인 모듈이 쓰는 실제 인덱스(모델별). 검색 코드는 별칭만 쓴다 (#17) |
+| `OPENSEARCH_TIMEOUT_S` | `10` | `search_documents`(`SearchDeps.from_env`)가 쓰는 OpenSearch 요청 제한 시간(초). opensearch-py 기본값과 같다 (#18 PR ③) |
 | `POSTGRES_DSN` | `postgresql+psycopg://app:app@localhost:5432/si` | |
 | `POSTGRES_READONLY_DSN` | `postgresql+psycopg://agent_ro:...@localhost:5432/si` | 에이전트 툴 전용 읽기 계정 |
 | `NARA_API_KEY` | (비밀) | 나라장터 입찰공고정보서비스(공공데이터포털) 인증키 |

@@ -28,6 +28,7 @@ from typing import Any, Protocol
 
 from rfp_pm_agent.config import OpenSearchConfig
 from rfp_pm_agent.schemas.eval import SearchHit
+from rfp_pm_agent.schemas.search import DocumentHit
 
 # 검색 응답에서 빼는 필드. 벡터는 검색에 쓰고 돌려받지 않는다
 EXCLUDED_SOURCE_FIELDS = ("embedding",)
@@ -78,6 +79,33 @@ def to_search_hits(response: Mapping[str, Any]) -> list[SearchHit]:
             )
         )
     return hits
+
+
+def to_document_hits(response: Mapping[str, Any]) -> list[DocumentHit]:
+    """OpenSearch 검색 응답의 `hits.hits`를 순서 그대로 `DocumentHit` 목록으로 바꾼다 (#18 PR ③).
+
+    `to_search_hits`와 같은 검사(`embedding`이 섞였거나 `_score`가 null이면 ValueError)를 하고,
+    출처 필드(bid_title·format·requirement_id·page·printed_page·block_type)를 `_source`에서 옮긴다.
+    rank는 응답 안 위치(1부터), score는 `_score`(hybrid면 RRF 점수)다 — 리랭크한 뒤에는 호출하는 쪽이
+    rank·score를 다시 매긴다. `_source`에 출처 필드가 없으면(#81 이전 매핑의 인덱스) KeyError.
+    """
+    to_search_hits(response)  # 같은 검사를 한 곳에서 한다
+    return [
+        DocumentHit(
+            rank=rank,
+            chunk_id=raw["_source"]["chunk_id"],
+            doc_id=raw["_source"]["doc_id"],
+            bid_title=raw["_source"]["bid_title"],
+            format=raw["_source"]["format"],
+            requirement_id=raw["_source"]["requirement_id"],
+            page=raw["_source"]["page"],
+            printed_page=raw["_source"]["printed_page"],
+            block_type=raw["_source"]["block_type"],
+            text=raw["_source"]["text"],
+            score=float(raw["_score"]),
+        )
+        for rank, raw in enumerate(response["hits"]["hits"], start=1)
+    ]
 
 
 def extract_requirement_ids(query: str) -> list[str]:

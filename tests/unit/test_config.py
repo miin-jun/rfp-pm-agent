@@ -188,6 +188,16 @@ def test_opensearch_config_reads_env_names_from_env_example(
     assert config.index_name == "index_test"
 
 
+def test_opensearch_timeout_reads_env_and_defaults_to_client_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # search_documents가 쓰는 요청 제한 시간 (#18 PR ③). 기본값은 opensearch-py 기본값과 같은 10초
+    monkeypatch.delenv("OPENSEARCH_TIMEOUT_S", raising=False)
+    assert OpenSearchConfig.from_env().timeout_s == 10.0
+    monkeypatch.setenv("OPENSEARCH_TIMEOUT_S", "2.5")
+    assert OpenSearchConfig.from_env().timeout_s == 2.5
+
+
 def test_opensearch_config_index_name_defaults_to_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     # 인덱스 이름에는 모델 이름이 들어가므로 코드에 기본값을 두지 않는다
     monkeypatch.delenv("OPENSEARCH_INDEX_NAME", raising=False)

@@ -55,7 +55,7 @@ curl -s 'localhost:9200/_cat/aliases/rfp_chunks?v'   # v2 하나만 가리키는
 
 - 옮긴 뒤 `.env`의 `OPENSEARCH_INDEX_NAME`도 새 인덱스로 바꾼다. 그대로 두면 증분 색인이 옛 인덱스(v1)에 쓰려고 하고,
   v1 매핑에는 새 필드가 없어(`dynamic: strict`) bulk 오류로 멈춘다
-- 옛 인덱스는 지우지 않는다. 되돌릴 때는 위 actions의 두 인덱스를 바꿔 다시 보낸다
+- 옛 인덱스는 지우지 않는다. 별칭은 위 actions의 두 인덱스를 바꿔 보내면 되돌아가지만, 되돌리려면 별칭과 함께 코드(`METADATA_FIELDS`·`index_mapping.json`)도 #81 이전으로 돌려야 한다 — 지금 코드로는 v1의 metadata_hash가 3,499건 모두 달라 평가 가드(`check_alias_index`)가 멈추고, v1 매핑에 새 필드가 없어(`dynamic: strict`) 다시 색인해도 bulk 오류로 멈춘다
 - 옮긴 뒤 검색 결과를 옛 인덱스 기록과 비교한다(BM25 점수·동점 순서가 바뀔 수 있다 — docs/hybrid-search-measurement.md 6절)
 
 ### 검색 평가 — OpenSearch (#18)

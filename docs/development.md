@@ -20,9 +20,9 @@ uv run pytest tests/integration -m tei -q     # 실제 TEI 호출 테스트 (꺼
 
 ### OpenSearch 색인 (#17)
 
-`data/chunks/block_requirement.jsonl`을 `OPENSEARCH_INDEX_NAME`(예: `rfp_chunks_v1_kure`) 인덱스에 증분 색인한다. 리랭커는 필요 없으므로 `tei-embed`만 띄운다. 판정 규칙은 docs/data-design.md 5절.
+`data/chunks/block_requirement.jsonl`을 `OPENSEARCH_INDEX_NAME`(예: `rfp_chunks_v2_kure`) 인덱스에 증분 색인한다. 리랭커는 필요 없으므로 `tei-embed`만 띄운다. 판정 규칙은 docs/data-design.md 5절.
 
-`.env`에 `OPENSEARCH_INDEX_NAME=rfp_chunks_v1_kure`를 직접 추가해야 한다(`.env.example` 참고). 없으면 빈 문자열(`''`)로 읽혀 CLI가 "OPENSEARCH_INDEX_NAME이 비어 있다"며 멈춘다. 별칭 이름(`rfp_chunks`)을 넣어도 실행 전에 멈춘다.
+`.env`에 `OPENSEARCH_INDEX_NAME=rfp_chunks_v2_kure`를 직접 추가해야 한다(`.env.example` 참고). 없으면 빈 문자열(`''`)로 읽혀 CLI가 "OPENSEARCH_INDEX_NAME이 비어 있다"며 멈춘다. 별칭 이름(`rfp_chunks`)을 넣어도 실행 전에 멈춘다.
 
 ```bash
 cat /proc/sys/vm/max_map_count                # 262144 이상이어야 한다 (아래 "알려진 함정")
@@ -39,6 +39,24 @@ uv run python -m rfp_pm_agent.ingest.index_chunks
 - 삭제 대상이 인덱스 문서 수의 5%를 넘으면 `MassDeleteError`로 멈춘다(인덱스는 바뀌지 않는다). dry-run으로 삭제 대상 ID를 확인한 뒤에만 `--allow-mass-delete`를 붙인다
 - TEI `/info`의 `model_sha`가 null이면(TEI 1.9.4 기본) revision을 읽으려고 `docker run --rm`으로 일회용 컨테이너를 띄워 모델 볼륨의 `snapshots/`를 본다 — dry-run에서도 같다
 - 인덱스가 이미 있으면 매핑은 바꾸지 않는다. 매핑을 바꿨다면 새 인덱스 이름으로 색인한 뒤 별칭을 옮긴다
+
+#### 매핑을 바꾼 뒤 새 인덱스로 옮기기 (#81에서 v1 → v2로 한 절차)
+
+```bash
+# 1) 새 인덱스 이름으로 전체 색인. 별칭이 이미 v1을 가리키므로 색인 모듈은 별칭을 건드리지 않는다
+OPENSEARCH_INDEX_NAME=rfp_chunks_v2_kure uv run python -m rfp_pm_agent.ingest.index_chunks --dry-run   # create 3499 확인
+OPENSEARCH_INDEX_NAME=rfp_chunks_v2_kure uv run python -m rfp_pm_agent.ingest.index_chunks
+# 2) 별칭을 한 요청으로 옮긴다(remove·add를 같은 actions에 넣어 별칭이 비는 순간이 없게 한다)
+curl -s -H 'content-type: application/json' localhost:9200/_aliases -d '{"actions":[
+  {"remove":{"index":"rfp_chunks_v1_kure","alias":"rfp_chunks"}},
+  {"add":{"index":"rfp_chunks_v2_kure","alias":"rfp_chunks"}}]}'
+curl -s 'localhost:9200/_cat/aliases/rfp_chunks?v'   # v2 하나만 가리키는지
+```
+
+- 옮긴 뒤 `.env`의 `OPENSEARCH_INDEX_NAME`도 새 인덱스로 바꾼다. 그대로 두면 증분 색인이 옛 인덱스(v1)에 쓰려고 하고,
+  v1 매핑에는 새 필드가 없어(`dynamic: strict`) bulk 오류로 멈춘다
+- 옛 인덱스는 지우지 않는다. 별칭은 위 actions의 두 인덱스를 바꿔 보내면 되돌아가지만, 되돌리려면 별칭과 함께 코드(`METADATA_FIELDS`·`index_mapping.json`)도 #81 이전으로 돌려야 한다 — 지금 코드로는 v1의 metadata_hash가 3,499건 모두 달라 평가 가드(`check_alias_index`)가 멈추고, v1 매핑에 새 필드가 없어(`dynamic: strict`) 다시 색인해도 bulk 오류로 멈춘다
+- 옮긴 뒤 검색 결과를 옛 인덱스 기록과 비교한다(BM25 점수·동점 순서가 바뀔 수 있다 — docs/hybrid-search-measurement.md 6절)
 
 ### 검색 평가 — OpenSearch (#18)
 

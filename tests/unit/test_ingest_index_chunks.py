@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -69,6 +70,7 @@ def _document() -> Document:
                 text="요구사항 고유번호 SFR-001 로그인",
                 source_order=3,
                 pdf_page_start=3,
+                printed_page_start=2,
             ),
             Requirement(
                 requirement_id="SFR-002",
@@ -164,6 +166,9 @@ def test_created_documents_have_decided_fields(env: Env) -> None:
         "requirement_id",
         "block_type",
         "page",
+        "bid_title",
+        "format",
+        "printed_page",
         "embedding",
         "embedding_model",
         "content_hash",
@@ -181,6 +186,75 @@ def test_created_documents_have_decided_fields(env: Env) -> None:
     assert req["requirement_id"] == "SFR-001"
     assert req["block_type"] is None
     assert req["page"] == 3
+
+
+def test_documents_carry_citation_fields(env: Env) -> None:
+    """출처 표기(data-design.md 2절)에 쓰는 문서명·형식·인쇄 쪽번호 (#81)."""
+    env.run(_chunks())
+    docs = env.os.docs(ALIAS)
+
+    block = docs[f"{DOC_ID}:block_requirement:b0002"]
+    assert (block["bid_title"], block["format"]) == ("샘플 사업", "pdf")
+    assert block["printed_page"] is None  # Silver Block에는 인쇄 쪽번호가 없다
+    req = docs[f"{DOC_ID}:block_requirement:SFR-001"]
+    assert (req["bid_title"], req["format"], req["page"], req["printed_page"]) == (
+        "샘플 사업",
+        "pdf",
+        3,
+        2,
+    )
+    # 인쇄 쪽번호를 못 읽은 요구사항은 null — page(0부터 세는 PDF 페이지)로 채우지 않는다
+    assert docs[f"{DOC_ID}:block_requirement:SFR-002"]["printed_page"] is None
+
+
+def _set_bid_title(doc: Document) -> None:
+    doc.bid_title = "바뀐 사업명"
+
+
+def _set_format(doc: Document) -> None:
+    doc.format = "hwpx"
+
+
+def _set_printed_page(doc: Document) -> None:
+    doc.requirements[0].printed_page_start = 9
+
+
+@pytest.mark.parametrize(
+    ("field", "change", "new_value", "changed_ids"),
+    [
+        # 문서 단위 필드라 그 문서의 청크 5개가 모두 바뀐다
+        (
+            "bid_title",
+            _set_bid_title,
+            "바뀐 사업명",
+            ["b0001", "b0002", "b0003", "SFR-001", "SFR-002"],
+        ),
+        ("format", _set_format, "hwpx", ["b0001", "b0002", "b0003", "SFR-001", "SFR-002"]),
+        # 요구사항 하나의 인쇄 쪽번호라 그 청크 하나만 바뀐다
+        ("printed_page", _set_printed_page, 9, ["SFR-001"]),
+    ],
+)
+def test_citation_field_change_is_metadata_update_without_tei(
+    env: Env,
+    field: str,
+    change: Callable[[Document], None],
+    new_value: object,
+    changed_ids: list[str],
+) -> None:
+    """세 필드가 바뀌면 update(metadata)로 잡혀 부분 update된다 — 재임베딩 없음 (#81)."""
+    env.run(_chunks())
+    env.tei.embed_inputs.clear()
+    change(env.documents[DOC_ID])
+
+    report = env.run(_chunks())
+
+    assert report.updated_metadata == len(changed_ids)
+    assert report.updated_content == report.updated_model == 0
+    assert report.skipped == 5 - len(changed_ids)
+    assert env.tei.embed_inputs == []
+    docs = env.os.docs(ALIAS)
+    for source_id in changed_ids:
+        assert docs[f"{DOC_ID}:block_requirement:{source_id}"][field] == new_value
 
 
 def test_content_hash_is_sha256_of_string_sent_to_tei() -> None:
@@ -428,12 +502,19 @@ def test_mapping_matches_decision() -> None:
         "requirement_id",
         "block_type",
         "page",
+        "bid_title",
+        "format",
+        "printed_page",
         "embedding",
         "embedding_model",
         "content_hash",
         "metadata_hash",
         "indexed_at",
     }
+    # 출처 필드 (#81)
+    assert props["bid_title"] == {"type": "keyword"}
+    assert props["format"] == {"type": "keyword"}
+    assert props["printed_page"] == {"type": "integer"}
     assert props["text"] == {"type": "text", "analyzer": "korean"}
     embedding = props["embedding"]
     assert embedding["dimension"] == EMBEDDING_DIM
@@ -568,6 +649,9 @@ def test_metadata_hash_is_sha256_of_sorted_json() -> None:
         "requirement_id": None,
         "block_type": "paragraph",
         "page": 0,
+        "bid_title": "샘플 사업",
+        "format": "pdf",
+        "printed_page": None,
     }
     expected = hashlib.sha256(
         json.dumps(fields, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()

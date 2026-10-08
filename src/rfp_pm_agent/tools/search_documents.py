@@ -71,6 +71,21 @@ def search_documents(
     반환: `DocumentHit` 목록 — 리랭커 점수(0~1) 내림차순, rank 1부터. 결과가 top_k보다 적거나 0개일 수
     있다(0개는 오류가 아니다). score는 한 번의 호출 안에서만 비교한다.
 
-    동작·오류 규칙은 docs/data-design.md 5절 "검색 툴 search_documents".
+    동작·오류 규칙은 docs/data-design.md 5절 "검색 툴 search_documents". 구현 순서(소유자):
+    1. 입력 검증 — 실패하면 서버를 부르지 않는다
+    2. doc_ids가 있으면 없는 ID 확인: 별칭에 `size: 0` + `terms` 집계(field `doc_id`) 요청 1회.
+       응답 `aggregations.<이름>.buckets[].key`에 없는 ID가 있으면 ValueError(그 ID를 메시지에)
+    3. `deps.embedder.embed([query], input_type="query")` 1회
+    4. `deps.search_client.search(index=search_alias(), body=hybrid_body(query, 벡터, SERVICE_RERANK_N, doc_ids))`
+       1회 → `to_document_hits(응답)`
+    5. 결과가 없으면 리랭커를 부르지 않고 빈 목록. 있으면 `deps.reranker.rerank(query, [hit.text …])` 1회
+       (hybrid 순서 그대로) → 리랭커 점수 내림차순(동점이면 hybrid 순서), score를 리랭커 점수로, rank를 1부터 다시
+    6. 상위 top_k개
+    예외 바꾸기
+    - OpenSearch: `opensearchpy.ConnectionError`(ConnectionTimeout 포함)·`TransportError` 5xx →
+      `SearchUnavailableError("opensearch", …) from 원래예외`. 4xx는 그대로
+    - TEI(embed→"tei-embed", rerank→"tei-rerank"): `httpx.TransportError`(연결 거절·시간 초과)·5xx
+      `httpx.HTTPStatusError` → `SearchUnavailableError`. 422(입력 토큰 한도 초과)·413(본문 한도 초과) →
+      `ValueError("질의가 너무 깁니다: " + TEI 오류 문구)`. 그 밖의 4xx는 그대로
     """
     raise NotImplementedError("#18 PR ③ — 소유자 구현")

@@ -23,7 +23,7 @@ tests/unit/test_search_requirement_ids.py(ID 가산)에 있다.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any, Protocol
 
 from rfp_pm_agent.config import OpenSearchConfig
@@ -129,7 +129,7 @@ def extract_requirement_ids(query: str) -> list[str]:
     return ids
 
 
-def bm25_query(query: str) -> dict[str, Any]:
+def bm25_query(query: str, doc_ids: Sequence[str] | None = None) -> dict[str, Any]:
     """질문 문자열로 BM25(nori `korean` 분석기) 검색 요청의 `query` 절을 만든다.
 
     `bm25_search`와 하이브리드 검색(PR ②)의 BM25 하위 쿼리가 함께 쓴다. 요청은 보내지 않는다.
@@ -142,7 +142,17 @@ def bm25_query(query: str) -> dict[str, Any]:
     - 가산은 문서를 가리지 않는다. 같은 ID가 여러 문서에 있으면(예: SFR-013은 4개 문서) 다른 문서의
       같은 ID 청크도 함께 올라온다(ADR-0003 한계)
     - hybrid 쿼리의 하위 쿼리로 넣어도 그대로 동작한다(2026-10-07 OpenSearch 2.19.1 실측)
+
+    doc_ids (#18 PR ③ — 소유자 구현, 지금은 None이 아니면 NotImplementedError)
+    - None이면 위와 같다(필터 없음). 기존 호출(bm25_search·knn_search·평가)은 모두 None이다
+    - 목록이면 `{"terms": {"doc_id": list(doc_ids)}}` 필터를 붙인다. 빈 목록이면 ValueError —
+      빈 terms는 아무것도 맞지 않아 "결과 없음"과 구별되지 않는다
+      - ID 없음: `{"bool": {"must": [{"match": {"text": query}}], "filter": [필터]}}`
+      - ID 있음: 위 `bool`(must·should)에 `"filter": [필터]`를 더한다
+      filter 절은 점수에 영향을 주지 않으므로, 필터를 통과한 청크의 점수는 필터가 없을 때와 같다
     """
+    if doc_ids is not None:
+        raise NotImplementedError("#18 PR ③ doc_ids 필터 — 소유자 구현")
     requirement_ids = extract_requirement_ids(query)
     if not requirement_ids:
         return {"match": {"text": query}}
@@ -162,12 +172,22 @@ def bm25_query(query: str) -> dict[str, Any]:
     }
 
 
-def knn_query(query_vector: list[float]) -> dict[str, Any]:
+def knn_query(query_vector: list[float], doc_ids: Sequence[str] | None = None) -> dict[str, Any]:
     """질의 벡터로 k-NN 검색 요청의 `query` 절을 만든다. `k`는 `KNN_CANDIDATES`(50) 고정.
 
     `knn_search`와 하이브리드 검색(PR ②)의 k-NN 하위 쿼리가 함께 쓴다. 요청은 보내지 않는다.
     - query_vector: 색인과 같은 임베딩 모델로 만든 질의 벡터(`input_type="query"`, 1024차원)
+
+    doc_ids (#18 PR ③ — 소유자 구현, 지금은 None이 아니면 NotImplementedError)
+    - None이면 위와 같다(필터 없음). 기존 호출(bm25_search·knn_search·평가)은 모두 None이다
+    - 목록이면 `{"terms": {"doc_id": list(doc_ids)}}` 필터를 붙인다. 빈 목록이면 ValueError —
+      빈 terms는 아무것도 맞지 않아 "결과 없음"과 구별되지 않는다
+      - `{"knn": {"embedding": {"vector": query_vector, "k": KNN_CANDIDATES, "filter": 필터}}}`
+      lucene 엔진은 필터를 HNSW 탐색 안에서 적용해(efficient filtering) 필터를 통과한 문서 중 k개를 찾는다.
+      검색 뒤에 거르는 방식(post_filter)과 달리 후보가 줄지 않는다(2026-10-08 실측)
     """
+    if doc_ids is not None:
+        raise NotImplementedError("#18 PR ③ doc_ids 필터 — 소유자 구현")
     return {"knn": {"embedding": {"vector": query_vector, "k": KNN_CANDIDATES}}}
 
 
@@ -220,7 +240,12 @@ def knn_search(client: SearchClient, query_vector: list[float], top_k: int) -> l
     return to_search_hits(response)
 
 
-def hybrid_body(query: str, query_vector: list[float], top_k: int) -> dict[str, Any]:
+def hybrid_body(
+    query: str,
+    query_vector: list[float],
+    top_k: int,
+    doc_ids: Sequence[str] | None = None,
+) -> dict[str, Any]:
     """hybrid 검색 요청 본문을 만든다. 요청은 보내지 않는다.
 
     `hybrid_search`와 `search_documents`(#18 PR ③ — 응답의 출처 필드가 필요해 본문만 받아 직접 보낸다)가
@@ -236,9 +261,19 @@ def hybrid_body(query: str, query_vector: list[float], top_k: int) -> dict[str, 
       {"technique": "rrf", "parameters": {"rank_constant": RRF_RANK_CONSTANT}}}}]}`.
       `rank_constant`는 반드시 `combination.parameters` 안에 둔다 — `combination` 바로 아래에 두면
       (2.19 공식 문서 예시 형식) 2.19.1은 에러 없이 무시하고 기본값 60을 쓴다(2026-10-07 실측)
+
+    doc_ids (#18 PR ③ — 소유자 구현, 지금은 None이 아니면 NotImplementedError)
+    - None이면 위와 같다
+    - 목록이면 하위 쿼리 **각각에** 필터를 넣는다: `queries` = [`bm25_query(query, doc_ids)`,
+      `knn_query(query_vector, doc_ids)`]. 나머지 본문은 같다
+    - 본문에 `post_filter`를 넣지 않는다 — 200을 주지만 전체에서 후보 50개씩 뽑은 뒤에 걸러 순위가 달라진다.
+      `query.hybrid.filter`도 넣지 않는다 — 2.19.1은 400("Field is not supported by [hybrid] query")
+      (둘 다 2026-10-08 실측, data-design.md 5절)
     """
     if top_k > KNN_CANDIDATES:
         raise ValueError(f"top_k({top_k})는 KNN_CANDIDATES({KNN_CANDIDATES}) 이하여야 한다")
+    if doc_ids is not None:
+        raise NotImplementedError("#18 PR ③ doc_ids 필터 — 소유자 구현")
     return {
         "size": top_k,
         "_source": {"excludes": list(EXCLUDED_SOURCE_FIELDS)},
@@ -264,7 +299,11 @@ def hybrid_body(query: str, query_vector: list[float], top_k: int) -> dict[str, 
 
 
 def hybrid_search(
-    client: SearchClient, query: str, query_vector: list[float], top_k: int
+    client: SearchClient,
+    query: str,
+    query_vector: list[float],
+    top_k: int,
+    doc_ids: Sequence[str] | None = None,
 ) -> list[SearchHit]:
     """BM25와 k-NN을 OpenSearch hybrid 쿼리로 한 번에 보내고 RRF로 합친 상위 top_k개를 돌려준다.
 
@@ -274,11 +313,14 @@ def hybrid_search(
     - query_vector: 색인과 같은 임베딩 모델로 만든 질의 벡터. k-NN 하위 쿼리는 `knn_query(query_vector)`
     - top_k: 돌려받을 결과 수(= 요청 `size`). `KNN_CANDIDATES`(50) 이하.
       넘으면 요청을 보내지 않고 ValueError — 후보 50개를 합친 결과보다 많이 받을 수 없다
+    - doc_ids: 검색할 문서(None이면 전체). `hybrid_body`에 그대로 넘긴다 (#18 PR ③ — 소유자 구현)
 
-    요청: `client.search(index=search_alias(), body=hybrid_body(query, query_vector, top_k))` 한 번.
+    요청: `client.search(index=search_alias(), body=hybrid_body(query, query_vector, top_k, doc_ids))` 한 번.
     본문 규칙은 `hybrid_body`.
     반환: `to_search_hits(응답)` — RRF 점수 내림차순. 점수는 0 초과 2/(RRF_RANK_CONSTANT+1) 이하.
     """
+    if doc_ids is not None:
+        raise NotImplementedError("#18 PR ③ doc_ids 필터 — 소유자 구현")
     body = hybrid_body(query, query_vector, top_k)
     response = client.search(index=search_alias(), body=body)
     return to_search_hits(response)

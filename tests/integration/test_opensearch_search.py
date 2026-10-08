@@ -25,8 +25,10 @@ from rfp_pm_agent.search.opensearch import (
     KNN_CANDIDATES,
     REQUIREMENT_ID_BOOST,
     RRF_RANK_CONSTANT,
+    bm25_query,
     bm25_search,
     hybrid_search,
+    knn_query,
     knn_search,
     search_alias,
     to_search_hits,
@@ -279,4 +281,43 @@ def test_hybrid_search_matches_app_rrf_over_candidates(
         [bm25_search(client, QUERY, KNN_CANDIDATES), knn_search(client, vector, KNN_CANDIDATES)],
         top_k=TOP_K,
     )
+    assert [h.score for h in service] == pytest.approx([h.score for h in app], rel=1e-6)
+
+
+# --- doc_ids 필터 (#18 PR ③, 소유자 구현 — 구현 전에는 실패한다) ---
+
+
+def _filter_doc(client: OpenSearch) -> str:
+    """hybrid 상위 10에 두 문서 이상이 섞이는 질문에서, 1위가 아닌 문서 하나."""
+    hits = to_search_hits(
+        client.search(
+            index=search_alias(),
+            body={"size": TOP_K, "_source": SOURCE_WITHOUT_EMBEDDING, "query": bm25_query(QUERY)},
+        )
+    )
+    others = [h.doc_id for h in hits if h.doc_id != hits[0].doc_id]
+    assert others, "상위 10이 한 문서뿐이라 필터를 시험할 수 없다"
+    return others[0]
+
+
+def test_filtered_hybrid_returns_only_requested_docs_and_matches_app_rrf(
+    client: OpenSearch, stored_doc: dict[str, Any]
+) -> None:
+    """하위 쿼리마다 필터를 넣으면 같은 필터를 건 앱 RRF와 점수 목록이 같다(2026-10-08 실측과 같은 조건)."""
+    vector = stored_doc["embedding"]
+    doc = _filter_doc(client)
+
+    service = hybrid_search(client, QUERY, vector, TOP_K, [doc])
+
+    assert service and {h.doc_id for h in service} == {doc}
+    rankings = [
+        to_search_hits(
+            client.search(
+                index=search_alias(),
+                body={"size": KNN_CANDIDATES, "_source": SOURCE_WITHOUT_EMBEDDING, "query": q},
+            )
+        )
+        for q in (bm25_query(QUERY, [doc]), knn_query(vector, [doc]))
+    ]
+    app = rrf_fuse(rankings, top_k=TOP_K)
     assert [h.score for h in service] == pytest.approx([h.score for h in app], rel=1e-6)

@@ -20,6 +20,7 @@ from opensearchpy import OpenSearch
 from rfp_pm_agent.clients.embedding import EMBEDDING_DIM
 from rfp_pm_agent.config import ClientsConfig
 from rfp_pm_agent.ingest.index_chunks import (
+    METADATA_FIELDS,
     IndexingError,
     IndexReport,
     MassDeleteError,
@@ -69,6 +70,7 @@ def _document() -> Document:
                 text="요구사항 고유번호 SFR-001 로그인",
                 source_order=3,
                 pdf_page_start=3,
+                printed_page_start=2,
             ),
             Requirement(
                 requirement_id="SFR-002",
@@ -164,6 +166,9 @@ def test_created_documents_have_decided_fields(env: Env) -> None:
         "requirement_id",
         "block_type",
         "page",
+        "bid_title",
+        "format",
+        "printed_page",
         "embedding",
         "embedding_model",
         "content_hash",
@@ -181,6 +186,48 @@ def test_created_documents_have_decided_fields(env: Env) -> None:
     assert req["requirement_id"] == "SFR-001"
     assert req["block_type"] is None
     assert req["page"] == 3
+
+
+def test_documents_carry_citation_fields(env: Env) -> None:
+    """출처 표기(data-design.md 2절)에 쓰는 문서명·형식·인쇄 쪽번호 (#81)."""
+    env.run(_chunks())
+    docs = env.os.docs(ALIAS)
+
+    block = docs[f"{DOC_ID}:block_requirement:b0002"]
+    assert (block["bid_title"], block["format"]) == ("샘플 사업", "pdf")
+    assert block["printed_page"] is None  # Silver Block에는 인쇄 쪽번호가 없다
+    req = docs[f"{DOC_ID}:block_requirement:SFR-001"]
+    assert (req["bid_title"], req["format"], req["page"], req["printed_page"]) == (
+        "샘플 사업",
+        "pdf",
+        3,
+        2,
+    )
+    # 인쇄 쪽번호를 못 읽은 요구사항은 null — page(0부터 세는 PDF 페이지)로 채우지 않는다
+    assert docs[f"{DOC_ID}:block_requirement:SFR-002"]["printed_page"] is None
+
+
+@pytest.mark.parametrize(
+    ("field", "change"),
+    [
+        ("bid_title", lambda d: setattr(d, "bid_title", "바뀐 사업명")),
+        ("format", lambda d: setattr(d, "format", "hwpx")),
+        ("printed_page", lambda d: setattr(d.requirements[0], "printed_page_start", 9)),
+    ],
+)
+def test_citation_field_change_is_metadata_update_without_tei(
+    env: Env, field: str, change: Any
+) -> None:
+    """세 필드는 METADATA_FIELDS에 들어 있어 바뀌면 update(metadata)로 잡힌다 — 재임베딩 없음."""
+    env.run(_chunks())
+    env.tei.embed_inputs.clear()
+    change(env.documents[DOC_ID])
+
+    report = env.run(_chunks())
+
+    assert field in METADATA_FIELDS
+    assert report.updated_metadata >= 1 and report.updated_content == report.updated_model == 0
+    assert env.tei.embed_inputs == []
 
 
 def test_content_hash_is_sha256_of_string_sent_to_tei() -> None:
@@ -428,12 +475,19 @@ def test_mapping_matches_decision() -> None:
         "requirement_id",
         "block_type",
         "page",
+        "bid_title",
+        "format",
+        "printed_page",
         "embedding",
         "embedding_model",
         "content_hash",
         "metadata_hash",
         "indexed_at",
     }
+    # 출처 필드 (#81)
+    assert props["bid_title"] == {"type": "keyword"}
+    assert props["format"] == {"type": "keyword"}
+    assert props["printed_page"] == {"type": "integer"}
     assert props["text"] == {"type": "text", "analyzer": "korean"}
     embedding = props["embedding"]
     assert embedding["dimension"] == EMBEDDING_DIM
@@ -568,6 +622,9 @@ def test_metadata_hash_is_sha256_of_sorted_json() -> None:
         "requirement_id": None,
         "block_type": "paragraph",
         "page": 0,
+        "bid_title": "샘플 사업",
+        "format": "pdf",
+        "printed_page": None,
     }
     expected = hashlib.sha256(
         json.dumps(fields, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()

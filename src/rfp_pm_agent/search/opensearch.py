@@ -152,7 +152,13 @@ def bm25_query(query: str, doc_ids: Sequence[str] | None = None) -> dict[str, An
       filter 절은 점수에 영향을 주지 않으므로, 필터를 통과한 청크의 점수는 필터가 없을 때와 같다
     """
     if doc_ids is not None:
-        raise NotImplementedError("#18 PR ③ doc_ids 필터 — 소유자 구현")
+        if not doc_ids:
+            raise ValueError("doc_ids가 빈 목록이다. 전체 검색은 None을 넘긴다")
+        doc_filter = {"terms": {"doc_id": list(doc_ids)}}
+        base = bm25_query(query)
+        if "match" in base:
+            return {"bool": {"must": [base], "filter": [doc_filter]}}
+        return {"bool": {**base["bool"], "filter": [doc_filter]}}
     requirement_ids = extract_requirement_ids(query)
     if not requirement_ids:
         return {"match": {"text": query}}
@@ -186,9 +192,12 @@ def knn_query(query_vector: list[float], doc_ids: Sequence[str] | None = None) -
       lucene 엔진은 필터를 HNSW 탐색 안에서 적용해(efficient filtering) 필터를 통과한 문서 중 k개를 찾는다.
       검색 뒤에 거르는 방식(post_filter)과 달리 후보가 줄지 않는다(2026-10-08 실측)
     """
+    knn: dict[str, Any] = {"vector": query_vector, "k": KNN_CANDIDATES}
     if doc_ids is not None:
-        raise NotImplementedError("#18 PR ③ doc_ids 필터 — 소유자 구현")
-    return {"knn": {"embedding": {"vector": query_vector, "k": KNN_CANDIDATES}}}
+        if not doc_ids:
+            raise ValueError("doc_ids가 빈 목록이다. 전체 검색은 None을 넘긴다")
+        knn["filter"] = {"terms": {"doc_id": list(doc_ids)}}
+    return {"knn": {"embedding": knn}}
 
 
 def bm25_search(client: SearchClient, query: str, top_k: int) -> list[SearchHit]:
@@ -272,14 +281,12 @@ def hybrid_body(
     """
     if top_k > KNN_CANDIDATES:
         raise ValueError(f"top_k({top_k})는 KNN_CANDIDATES({KNN_CANDIDATES}) 이하여야 한다")
-    if doc_ids is not None:
-        raise NotImplementedError("#18 PR ③ doc_ids 필터 — 소유자 구현")
     return {
         "size": top_k,
         "_source": {"excludes": list(EXCLUDED_SOURCE_FIELDS)},
         "query": {
             "hybrid": {
-                "queries": [bm25_query(query), knn_query(query_vector)],
+                "queries": [bm25_query(query, doc_ids), knn_query(query_vector, doc_ids)],
                 "pagination_depth": KNN_CANDIDATES,
             }
         },
@@ -319,8 +326,6 @@ def hybrid_search(
     본문 규칙은 `hybrid_body`.
     반환: `to_search_hits(응답)` — RRF 점수 내림차순. 점수는 0 초과 2/(RRF_RANK_CONSTANT+1) 이하.
     """
-    if doc_ids is not None:
-        raise NotImplementedError("#18 PR ③ doc_ids 필터 — 소유자 구현")
-    body = hybrid_body(query, query_vector, top_k)
+    body = hybrid_body(query, query_vector, top_k, doc_ids)
     response = client.search(index=search_alias(), body=body)
     return to_search_hits(response)

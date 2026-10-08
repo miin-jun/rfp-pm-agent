@@ -11,16 +11,26 @@ docs/data-design.md 5절 "검색 툴 search_documents"가 기준이고, 서비�
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Literal
 
+import httpx
+import opensearchpy
 from opensearchpy import OpenSearch
 
 from rfp_pm_agent.clients.embedding import EmbeddingClient, TEIEmbeddingClient
 from rfp_pm_agent.clients.reranker import RerankerClient, TEIRerankerClient
 from rfp_pm_agent.config import ClientsConfig, OpenSearchConfig
 from rfp_pm_agent.schemas.search import DocumentHit
-from rfp_pm_agent.search.hybrid import DEFAULT_TOP_K
-from rfp_pm_agent.search.opensearch import SearchClient
+from rfp_pm_agent.search.errors import SearchUnavailableError
+from rfp_pm_agent.search.hybrid import DEFAULT_TOP_K, MAX_TOP_K, SERVICE_RERANK_N
+from rfp_pm_agent.search.opensearch import (
+    SearchClient,
+    hybrid_body,
+    search_alias,
+    to_document_hits,
+)
 
 
 @dataclass(frozen=True)
@@ -49,6 +59,48 @@ class SearchDeps:
             embedder=TEIEmbeddingClient(clients),
             reranker=TEIRerankerClient(clients),
         )
+
+
+def _call_tei[T](service: Literal["tei-embed", "tei-rerank"], call: Callable[[], T]) -> T:
+    try:
+        return call()
+    except httpx.HTTPStatusError as e:
+        status = e.response.status_code
+        if status in (413, 422):
+            raise ValueError(f"질의가 너무 깁니다: {e.response.text}") from e
+        if status >= 500:
+            raise SearchUnavailableError(service, str(e)) from e
+        raise
+    except httpx.TransportError as e:
+        raise SearchUnavailableError(service, str(e)) from e
+
+
+def _validate(query: str, top_k: int, doc_ids: list[str] | None) -> None:
+    if not query.strip():
+        raise ValueError("query가 비어 있다")
+    if isinstance(top_k, bool) or not isinstance(top_k, int):
+        raise ValueError(f"top_k는 정수여야 한다: {top_k!r}")  # noqa: TRY004 — 입력 오류는 ValueError로 통일(data-design 5절)
+    if not 1 <= top_k <= MAX_TOP_K:
+        raise ValueError(f"top_k({top_k})는 1 이상 {MAX_TOP_K} 이하여야 한다")
+    if doc_ids is not None:
+        if not doc_ids:
+            raise ValueError("doc_ids가 빈 목록이다. 전체 검색은 None을 넘긴다")
+        if any(not d.strip() for d in doc_ids):
+            raise ValueError("doc_ids에 빈 문자열이 있다")
+
+
+def _check_doc_ids(client: SearchClient, doc_ids: list[str]) -> None:
+    unique_ids = list(dict.fromkeys(doc_ids))
+    body = {
+        "size": 0,
+        "query": {"terms": {"doc_id": unique_ids}},
+        "aggs": {"found": {"terms": {"field": "doc_id", "size": len(unique_ids)}}},
+    }
+    response = client.search(index=search_alias(), body=body)
+    found = {b["key"] for b in response["aggregations"]["found"]["buckets"]}
+    missing = [d for d in unique_ids if d not in found]
+    if missing:
+        raise ValueError(f"인덱스에 없는 doc_id: {missing}")
 
 
 def search_documents(
@@ -88,4 +140,30 @@ def search_documents(
       `httpx.HTTPStatusError` → `SearchUnavailableError`. 422(입력 토큰 한도 초과)·413(본문 한도 초과) →
       `ValueError("질의가 너무 깁니다: " + TEI 오류 문구)`. 그 밖의 4xx는 그대로
     """
-    raise NotImplementedError("#18 PR ③ — 소유자 구현")
+    _validate(query, top_k, doc_ids)
+
+    try:
+        if doc_ids is not None:
+            _check_doc_ids(deps.search_client, doc_ids)
+        [query_vector] = _call_tei(
+            "tei-embed", lambda: deps.embedder.embed([query], input_type="query")
+        )
+        body = hybrid_body(query, query_vector, SERVICE_RERANK_N, doc_ids)
+        response = deps.search_client.search(index=search_alias(), body=body)
+    except opensearchpy.ConnectionError as e:
+        raise SearchUnavailableError("opensearch", str(e)) from e
+    except opensearchpy.TransportError as e:
+        if isinstance(e.status_code, int) and e.status_code >= 500:
+            raise SearchUnavailableError("opensearch", str(e)) from e
+        raise
+
+    hits = to_document_hits(response)
+    if not hits:
+        return []
+
+    scores = _call_tei("tei-rerank", lambda: deps.reranker.rerank(query, [h.text for h in hits]))
+    order = sorted(range(len(hits)), key=lambda i: -scores[i])
+    return [
+        hits[i].model_copy(update={"score": float(scores[i]), "rank": rank})
+        for rank, i in enumerate(order[:top_k], start=1)
+    ]

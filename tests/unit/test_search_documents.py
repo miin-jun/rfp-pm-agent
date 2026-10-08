@@ -1,4 +1,4 @@
-"""search_documents 단위 테스트 (#18 PR ③, 소유자 구현 대상 — 구현 전에는 실패한다).
+"""search_documents 단위 테스트 (#18 PR ③).
 
 규칙은 docs/data-design.md 5절 "검색 툴 search_documents". 서버 셋은 모두 가짜다:
 - FakeSearch: 집계 요청(`aggs`가 있는 본문)에는 KNOWN_DOCS 중 요청한 doc_id의 bucket을, 그 밖의 요청에는
@@ -148,6 +148,11 @@ TOO_LONG_422 = {
     "error": "Input validation error: `inputs` must have less than 8192 tokens. Given: 30006",
     "error_type": "Validation",
 }
+# 같은 422지만 입력 길이가 아니라 설정(클라이언트 배치 크기 > 서버 max_client_batch_size)이 원인
+BATCH_SIZE_422 = {
+    "error": "batch size 64 > maximum allowed batch size 32",
+    "error_type": "Validation",
+}
 
 
 # --- 정상 동작 ---
@@ -217,6 +222,24 @@ def test_doc_ids_checks_existence_then_sends_filtered_hybrid_body() -> None:
     assert len(embedder.calls) == 1
 
 
+def test_duplicate_doc_ids_are_checked_once_and_filter_keeps_them() -> None:
+    deps, search, *_ = _deps()
+
+    hits = search_documents("사업 기간", doc_ids=["docA", "docA"], deps=deps)
+
+    agg_call, search_call = search.calls
+    agg_body = agg_call["body"]
+    aggs = agg_body.get("aggs") or agg_body["aggregations"]
+    # 확인 요청은 고유 ID 기준: 질의 terms·집계 size 모두 1개
+    assert agg_body["query"] == {"terms": {"doc_id": ["docA"]}}
+    assert [a["terms"]["size"] for a in aggs.values()] == [1]
+    # 검색 필터는 받은 그대로(terms는 값 목록을 집합으로 다루므로 결과가 같다)
+    assert search_call["body"] == hybrid_body(
+        "사업 기간", VECTOR, SERVICE_RERANK_N, ["docA", "docA"]
+    )
+    assert len(hits) == 10
+
+
 def test_unknown_doc_id_is_rejected_before_embedding_or_hybrid_search() -> None:
     deps, search, embedder, reranker = _deps()
 
@@ -238,9 +261,16 @@ def test_unknown_doc_id_is_rejected_before_embedding_or_hybrid_search() -> None:
         ({"query": "q", "top_k": 0}, "top_k"),
         ({"query": "q", "top_k": 21}, "top_k"),
         ({"query": "q", "top_k": 2.5}, "top_k"),
+        ({"query": "q", "top_k": True}, "top_k"),  # bool은 int의 하위 클래스지만 1로 받지 않는다
+        ({"query": None}, "query"),
+        ({"query": 123}, "query"),
         ({"query": "q", "doc_ids": []}, "doc_ids"),
         ({"query": "q", "doc_ids": [""]}, "doc_ids"),
         ({"query": "q", "doc_ids": ["docA", " "]}, "doc_ids"),
+        ({"query": "q", "doc_ids": "docA"}, "doc_ids"),  # 문자열을 글자 목록으로 읽지 않는다
+        ({"query": "q", "doc_ids": ("docA",)}, "doc_ids"),
+        ({"query": "q", "doc_ids": [1]}, "doc_ids"),
+        ({"query": "q", "doc_ids": ["docA", None]}, "doc_ids"),
     ],
 )
 def test_invalid_input_raises_value_error_without_calling_servers(
@@ -260,9 +290,10 @@ def test_invalid_input_raises_value_error_without_calling_servers(
     [
         opensearchpy.ConnectionError("N/A", "Connection refused", Exception("refused")),
         opensearchpy.ConnectionTimeout("TIMEOUT", "Read timed out", Exception("timeout")),
+        opensearchpy.TransportError(500, "internal", {}),
         opensearchpy.TransportError(503, "unavailable", {}),
     ],
-    ids=["refused", "timeout", "503"],
+    ids=["refused", "timeout", "500", "503"],
 )
 def test_opensearch_unavailable_is_wrapped(error: Exception) -> None:
     deps, *_ = _deps(search=FakeSearch(error=error))
@@ -272,12 +303,20 @@ def test_opensearch_unavailable_is_wrapped(error: Exception) -> None:
     assert exc.value.__cause__ is error
 
 
-def test_opensearch_unavailable_during_doc_id_check_is_wrapped() -> None:
-    error = opensearchpy.ConnectionError("N/A", "Connection refused", Exception("refused"))
-    deps, *_ = _deps(search=FakeSearch(error=error))
+@pytest.mark.parametrize(
+    "error",
+    [
+        opensearchpy.ConnectionError("N/A", "Connection refused", Exception("refused")),
+        opensearchpy.TransportError(503, "unavailable", {}),
+    ],
+    ids=["refused", "503"],
+)
+def test_opensearch_unavailable_during_doc_id_check_is_wrapped(error: Exception) -> None:
+    deps, search, embedder, _ = _deps(search=FakeSearch(error=error))
     with pytest.raises(SearchUnavailableError) as exc:
         search_documents("사업 기간", doc_ids=["docA"], deps=deps)
-    assert exc.value.service == "opensearch"
+    assert exc.value.service == "opensearch" and exc.value.__cause__ is error
+    assert len(search.calls) == 1 and embedder.calls == []  # 확인 요청에서 끝난다
 
 
 @pytest.mark.parametrize(
@@ -285,8 +324,10 @@ def test_opensearch_unavailable_during_doc_id_check_is_wrapped() -> None:
     [
         opensearchpy.NotFoundError(404, "index_not_found_exception", {}),
         opensearchpy.RequestError(400, "parsing_exception", {}),
+        # ConnectionError가 아닌데 상태 코드가 정수가 아닌 경우: 크기 비교 없이 그대로 올린다
+        opensearchpy.TransportError("N/A", "sniff failed", {}),
     ],
-    ids=["404", "400"],
+    ids=["404", "400", "status-not-int"],
 )
 def test_opensearch_4xx_propagates_unwrapped(error: Exception) -> None:
     deps, *_ = _deps(search=FakeSearch(error=error))
@@ -339,11 +380,12 @@ def test_rerank_unavailable_fails_even_after_hybrid_succeeded(error: Exception) 
 def test_too_long_input_becomes_value_error(
     make_deps: Any, path: str, status: int, body: Any, detail: str
 ) -> None:
-    deps = make_deps(_http_error(status, body, path))
+    error = _http_error(status, body, path)
     with pytest.raises(ValueError, match="질의가 너무 깁니다") as exc:
-        search_documents("사업 기간", deps=deps)
+        search_documents("사업 기간", deps=make_deps(error))
     assert detail in str(exc.value)
     assert not isinstance(exc.value, SearchUnavailableError)
+    assert exc.value.__cause__ is error
 
 
 @pytest.mark.parametrize(
@@ -354,8 +396,15 @@ def test_too_long_input_becomes_value_error(
     ],
     ids=["embed", "rerank"],
 )
-def test_other_tei_4xx_propagates_unwrapped(make_deps: Any) -> None:
-    error = _http_error(400, {"error": "bad request", "error_type": "Validation"}, "/x")
+@pytest.mark.parametrize(
+    ("status", "body"),
+    [(400, {"error": "bad request", "error_type": "Validation"}), (422, BATCH_SIZE_422)],
+    ids=["400", "422-not-length"],
+)
+def test_other_tei_4xx_propagates_unwrapped(
+    make_deps: Any, status: int, body: dict[str, Any]
+) -> None:
+    error = _http_error(status, body, "/x")
     with pytest.raises(httpx.HTTPStatusError) as exc:
         search_documents("사업 기간", deps=make_deps(error))
     assert exc.value is error

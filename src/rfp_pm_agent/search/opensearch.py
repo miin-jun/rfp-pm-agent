@@ -190,7 +190,9 @@ def knn_query(query_vector: list[float], doc_ids: Sequence[str] | None = None) -
       빈 terms는 아무것도 맞지 않아 "결과 없음"과 구별되지 않는다
       - `{"knn": {"embedding": {"vector": query_vector, "k": KNN_CANDIDATES, "filter": 필터}}}`
       lucene 엔진은 필터를 HNSW 탐색 안에서 적용해(efficient filtering) 필터를 통과한 문서 중 k개를 찾는다.
-      검색 뒤에 거르는 방식(post_filter)과 달리 후보가 줄지 않는다(2026-10-08 실측)
+      요청 `post_filter`는 순위가 달라져 쓰지 않는다 — 필터가 하위 쿼리의 후보 선정 뒤에 적용되는 것으로
+      보이나 확인하지 않음(2026-10-08 hybrid 요청 실측: 57문항 모두 10건 반환, 순서가 기준과 같은 문항
+      20/57 — docs/adr/0005-search-documents-contract.md)
     """
     knn: dict[str, Any] = {"vector": query_vector, "k": KNN_CANDIDATES}
     if doc_ids is not None:
@@ -275,7 +277,8 @@ def hybrid_body(
     - None이면 위와 같다
     - 목록이면 하위 쿼리 **각각에** 필터를 넣는다: `queries` = [`bm25_query(query, doc_ids)`,
       `knn_query(query_vector, doc_ids)`]. 나머지 본문은 같다
-    - 본문에 `post_filter`를 넣지 않는다 — 200을 주지만 전체에서 후보 50개씩 뽑은 뒤에 걸러 순위가 달라진다.
+    - 본문에 `post_filter`를 넣지 않는다 — 200을 주지만 순위가 달라진다(필터가 하위 쿼리의 후보 선정 뒤에
+      적용되는 것으로 보이나 확인하지 않음).
       `query.hybrid.filter`도 넣지 않는다 — 2.19.1은 400("Field is not supported by [hybrid] query")
       (둘 다 2026-10-08 실측, data-design.md 5절)
     """

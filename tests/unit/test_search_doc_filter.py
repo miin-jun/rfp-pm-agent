@@ -1,7 +1,8 @@
 """doc_ids 필터의 요청 본문 (#18 PR ③).
 
-필터는 BM25·k-NN 하위 쿼리마다 넣는다. hybrid 최상위 filter(2.19.1이 400)와 post_filter(후보를 뽑은 뒤에
-걸러 순위가 달라짐)는 쓰지 않는다 — docs/data-design.md 5절 "검색 툴 search_documents".
+필터는 BM25·k-NN 하위 쿼리마다 넣는다. hybrid 최상위 filter(2.19.1이 400)와 post_filter는 쓰지 않는다.
+post_filter는 순위가 달라진다(필터가 하위 쿼리의 후보 선정 뒤에 적용되는 것으로 보이나 확인하지 않음)
+— docs/data-design.md 5절 "검색 툴 search_documents".
 """
 
 from __future__ import annotations

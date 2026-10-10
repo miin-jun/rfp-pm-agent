@@ -304,7 +304,7 @@ def search_documents(
 3. 하이브리드: 별칭 `rfp_chunks`에 `hybrid` 질의 1회 — BM25(ID 가산 포함)·k-NN(k=50) 하위 질의, `pagination_depth` 50, 임시 RRF
    파이프라인(`rank_constant` 60), `size` = `SERVICE_RERANK_N`(20)
 4. `doc_ids`가 있으면 **두 하위 질의 각각에** `terms: {doc_id: doc_ids}` 필터를 넣는다(BM25는 `bool.filter`, k-NN은 `knn.embedding.filter`).
-   hybrid 최상위 `filter`는 2.19.1이 400으로 거절하고, `post_filter`는 200을 주지만 전체에서 후보 50개씩 뽑은 뒤에 걸러 순위가 달라지므로
+   hybrid 최상위 `filter`는 2.19.1이 400으로 거절하고, `post_filter`는 200을 주지만 순위가 달라지므로(필터가 하위 질의의 후보 선정 뒤에 적용되는 것으로 보이나 확인하지 않음)
    쓰지 않는다(2026-10-08 실측, 하위 질의 필터만 같은 필터의 앱 RRF와 점수 목록이 일치 — 4가지 위치 비교는 [ADR-0005](adr/0005-search-documents-contract.md))
 5. 리랭크: hybrid 결과(최대 20개)를 질문 원문과 함께 리랭커에 보내 점수 내림차순으로 다시 정렬한다
 6. 상위 `top_k`개를 `DocumentHit`으로 바꿔 돌려준다

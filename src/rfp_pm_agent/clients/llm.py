@@ -27,7 +27,10 @@ class LLMResponse(BaseModel):
     content: str
     model: str
     input_tokens: int
+    # 추론 토큰을 포함한 출력 토큰 전체(OpenAI `completion_tokens`). 비용은 이 값으로 계산한다
     output_tokens: int
+    # output_tokens 중 추론(reasoning)에 쓴 토큰. 서버가 알려 주지 않으면 0
+    reasoning_tokens: int = 0
 
 
 class LLMClient(Protocol):
@@ -41,6 +44,9 @@ class OpenAICompatLLMClient:
     API를 제공)로 전환된다. 실제 네트워크 호출은 `chat()`에서만 일어나므로,
     단위 테스트에서는 이 클래스를 만들기만 하고 `chat()`은 부르지 않는 방식으로
     (예: `client.base_url` 확인) 네트워크 없이도 base_url 배선을 검증할 수 있다.
+
+    요청마다 `reasoning_effort`(`config.llm_reasoning_effort`, 기본 low)를 보낸다. 추론 토큰은 출력
+    토큰으로 과금되므로 서버 기본값에 맡기지 않는다 (ADR-0006 결정 3).
     """
 
     def __init__(self, config: ClientsConfig, *, default_model: str | None = None) -> None:
@@ -64,12 +70,15 @@ class OpenAICompatLLMClient:
                 list[ChatCompletionMessageParam],
                 [{"role": m.role, "content": m.content} for m in messages],
             ),
+            reasoning_effort=self._config.llm_reasoning_effort,
         )
         choice = response.choices[0]
         usage = response.usage
+        details = usage.completion_tokens_details if usage else None
         return LLMResponse(
             content=choice.message.content or "",
             model=response.model,
             input_tokens=usage.prompt_tokens if usage else 0,
             output_tokens=usage.completion_tokens if usage else 0,
+            reasoning_tokens=(details.reasoning_tokens or 0) if details else 0,
         )

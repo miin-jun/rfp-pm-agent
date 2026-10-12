@@ -24,6 +24,8 @@ class CostLogEntry:
     output_tokens: int
     cost_usd: float
     latency_ms: float
+    # output_tokens 중 추론 토큰(LLM만). 비용은 output_tokens 전체로 계산하므로 이 값을 더하지 않는다
+    reasoning_tokens: int = 0
 
 
 class CostLogger:

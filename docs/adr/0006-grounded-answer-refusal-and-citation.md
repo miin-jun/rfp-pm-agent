@@ -104,20 +104,30 @@ C에서 점수가 높은 4문항(q045 0.855, q034 0.783, q056 0.695, q032 0.426)
   천안시 PDF에서 `printed_page == page`였던 것은 우연이었다(data-design.md 2절). 틀린 쪽번호는 없는 것보다 나쁘다
 - **`p.23(인쇄)`처럼 "(인쇄)"를 붙이는 표기** — 인쇄 쪽이 아닌 경우에 "PDF"를 붙여 구별하므로 뺐다
 
-## 결정 3: 개발 모델은 GPT-5.6 Luna
+## 결정 3: 개발 모델은 GPT-6 Luna
 
-- API 모델 ID `gpt-5.6-luna`. `.env`의 `LLM_MODEL_DEV`에 넣는다
-- 가격(OpenAI 공식 가격표, 2026-10-12 확인): 입력 $0.20 / 출력 $1.20 per 1M 토큰(캐시된 입력 $0.02).
-  `LLM_PRICE_INPUT_PER_1M=0.20`, `LLM_PRICE_OUTPUT_PER_1M=1.20`
+- API 모델 ID `gpt-6-luna`(날짜 붙은 스냅샷 없음). `.env`의 `LLM_MODEL_DEV`에 넣는다
+- 가격(OpenAI 공식 가격표·모델 페이지, 2026-10-12 확인): 입력 $0.10 / 출력 $0.50 per 1M 토큰(캐시된 입력 $0.01).
+  `LLM_PRICE_INPUT_PER_1M=0.10`, `LLM_PRICE_OUTPUT_PER_1M=0.50`.
+  입력이 272K 토큰을 넘는 요청은 입력 $0.20 / 출력 $0.75다 — #19는 청크 10~20개라 해당하지 않는다
+- 추론 강도는 `low`로 호출한다(`LLM_REASONING_EFFORT`, 기본 `low`)
 - 최종 평가 모델(`LLM_MODEL_EVAL`)은 #25에서 정한다
+
+### 근거
+
+- 설계 원칙이 "개발 중은 가장 싼 모델"이다(tech-stack.md 5절, CLAUDE.md 비용). 같은 날 공식 가격표에서
+  `gpt-5.6-luna`는 입력 $0.20 / 출력 $1.20, `gpt-6-luna`는 입력 $0.10 / 출력 $0.50이었다
+- 처음에는 `gpt-5.6-luna`로 정했다가(2026-10-12), 모델 목록에서 더 싼 `gpt-6-luna`를 확인하고 같은 날 바꿨다.
+  두 모델의 답변 품질은 비교하지 않았다 — 가격만으로 골랐다
 
 ### 주의 (2026-10-12 공식 문서 확인)
 
-- 이 모델은 추론(reasoning) 토큰을 쓴다. 추론 강도 기본값은 `medium`이고 `none`·`low`·`medium`·`high`·`xhigh`·`max`를 받는다
+- 이 모델은 추론(reasoning) 토큰을 쓴다. 추론 강도는 `none`·`low`·`medium`·`high`·`xhigh`·`max`를 받고 기본값은 `medium`이다
 - 추론 토큰은 응답에 보이지 않지만 출력 토큰으로 과금된다. 답변이 짧아도 출력 토큰 수가 답변 길이보다 클 수 있다
-- 추론 강도는 Chat Completions의 `reasoning_effort` 인자로 정한다. 지금 `clients/llm.py`의 `chat()`은 `model`과 `messages`만
-  보내므로 기본값 `medium`으로 호출된다. 인자를 추가할지는 #19 구현에서 정한다
-- 출처: <https://developers.openai.com/api/docs/pricing>, <https://developers.openai.com/api/docs/models/gpt-5.6-luna>,
+- 추론 강도는 Chat Completions의 `reasoning_effort` 인자로 정한다. `clients/llm.py`가 `LLM_REASONING_EFFORT` 값을 보낸다
+- 모델 페이지에 따르면 Chat Completions에서 함수 호출(function calling)은 추론 강도가 `none`일 때만 된다.
+  #19는 함수 호출을 쓰지 않아 영향이 없지만, #22(에이전트)는 Responses API를 쓰거나 `none`으로 불러야 한다 — #22에서 정한다
+- 출처: <https://developers.openai.com/api/docs/pricing>, <https://developers.openai.com/api/docs/models/gpt-6-luna>,
   <https://developers.openai.com/api/docs/guides/reasoning>
 
 ## 한계

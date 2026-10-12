@@ -15,7 +15,7 @@
 | 임베딩 모델 | **KURE-v1** (RunPod) — #16 선정 실험 후 채택 ([ADR-0001](adr/0001-embedding-model.md)) | 확정 (2026-09-27) | — |
 | 리랭커 | **bge-reranker-v2-m3** (RunPod), 후보 N=20 — #16 선정 실험 후 채택 ([ADR-0002](adr/0002-reranker.md)) | 확정 (2026-09-27) | — |
 | 임베딩·리랭커 서빙 | **Hugging Face TEI** (RunPod, 로컬 대체 가능) | 확정 | — |
-| 답변·에이전트 LLM | **OpenAI mini급** | 기본값(모델명 미확정, 착수 시 가격표로 확정) | **vLLM on RunPod** (Private LLM) |
+| 답변·에이전트 LLM | **OpenAI GPT-6 Luna** (`gpt-6-luna`, 추론 강도 low) | 개발 모델 확정 (2026-10-12, #19, [ADR-0006](adr/0006-grounded-answer-refusal-and-citation.md)) · 최종 평가 모델은 #25 | **vLLM on RunPod** (Private LLM) |
 | 평가 채점 LLM | OpenAI mini급 | 기본값(모델명 미확정) | — |
 | 에이전트 | **LangGraph** + langchain-openai | 확정 | HITL(쓰기 동작) |
 | API / MCP | **FastAPI** / **MCP Python SDK (FastMCP)** | 확정 | Streamable HTTP 원격 배포 |
@@ -93,7 +93,8 @@
 
 ## 5. LLM
 
-- MVP: **OpenAI mini급** — 정확한 모델명·가격은 착수 시 OpenAI 공식 가격표로 확정
+- 개발 모델: **GPT-6 Luna**(`gpt-6-luna`) — 입력 $0.10 / 출력 $0.50 per 1M(2026-10-12 공식 가격표), 추론 강도 `low`(`LLM_REASONING_EFFORT`).
+  추론 토큰은 출력 토큰으로 과금된다 (#19, [ADR-0006](adr/0006-grounded-answer-refusal-and-citation.md) 결정 3). 최종 평가 모델은 #25에서 정한다
 - 개발 중: 가장 싼 모델 / 최종 평가: 한 단계 위 모델
 - 호출부는 OpenAI SDK의 `base_url` 하나로 추상화 → Phase 2에 **vLLM(RunPod)** 으로 교체
 - **구조화 출력(Structured Outputs)** + Pydantic 검증

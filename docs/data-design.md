@@ -111,10 +111,15 @@ Document
 
 ### 출처 표기 규칙 (Grounded 답변에 사용)
 
-| 파일 형식 | 출처 표기 |
+청크 종류 5가지로 나눠 적는다([ADR-0006](adr/0006-grounded-answer-refusal-and-citation.md) 결정 2, #19). 문서명은 `bid_title`이다.
+
+| 청크 종류 | 출처 표기 |
 |---|---|
-| PDF | `[문서명 p.23(인쇄) · SFR-001]` — `printed_page_start`가 있으면 그 값, 없으면 `pdf_page_start`(0-based)에 안내 문구를 붙여 구분 |
-| HWP·HWPX | `[문서명 · SFR-001]` (페이지 개념이 없어 요구사항 ID만으로 인용) |
+| PDF 요구사항, 인쇄 쪽번호 있음 | `[문서명 p.23 · SFR-001]` — `p.23`은 `printed_page`(= `printed_page_start`) 그대로 |
+| PDF 요구사항, 인쇄 쪽번호 없음(null) | `[문서명 PDF 15쪽 · SFR-001]` — `PDF n쪽`의 n은 `page + 1`(PDF 뷰어에 보이는 쪽번호). "PDF"를 붙여 인쇄 쪽번호와 구별한다 |
+| PDF 블록 | `[문서명 PDF 15쪽]` — 블록 청크는 요구사항 ID와 인쇄 쪽번호가 없다 |
+| HWP·HWPX 요구사항 | `[문서명 · SFR-001]` (페이지 개념이 없어 요구사항 ID만으로 인용) |
+| HWP·HWPX 블록 | `[문서명]` — 요구사항 ID도 페이지도 없어 문서 안 위치를 가리키지 못한다(파서 한계) |
 
 ※ 페이지를 억지로 계산(예: "장 번호 - 1" 같은 고정 오프셋)하지 않는다 — 인쇄 쪽번호는 페이지 하단 텍스트를 실제로 읽어서 채우고, 못 읽으면 null로 둔다(docs/parsing-exploration.md, 천안시 PDF 실측: 1쪽이 표지라 번호가 없고, 그 뒤로는 우연히 `printed_page == pdf_page(0-based)`였다 — 이 우연을 코드에 고정 규칙으로 넣지 않는다).
 
@@ -334,11 +339,11 @@ def search_documents(
 | `bid_title` | str | 아니오 | `bid_title` (#81) | #19 출처 표기의 문서명 |
 | `format` | str (`pdf`·`hwp`·`hwpx`) | 아니오 | `format` (#81) | #19 쪽번호를 붙일지 정함 |
 | `requirement_id` | str | 예 (블록 청크) | `requirement_id` | #19 출처의 요구사항 ID, #22·#25 평가 `expected_facts.requirement_ids` |
-| `page` | int | 예 (HWP·HWPX 전부) | `page` — 0부터 세는 PDF 페이지 | #19 인쇄 쪽번호가 없을 때의 대체 표기(2절 규칙) |
-| `printed_page` | int | 예 (블록 청크 전부, 못 읽은 요구사항) | `printed_page` (#81) | #19 출처의 `p.23(인쇄)` |
+| `page` | int | 예 (HWP·HWPX 전부) | `page` — 0부터 세는 PDF 페이지 | #19 인쇄 쪽번호가 없을 때의 표기 `PDF n쪽`(n = `page + 1`, 2절 규칙) |
+| `printed_page` | int | 예 (블록 청크 전부, 못 읽은 요구사항) | `printed_page` (#81) | #19 출처의 `p.23` |
 | `block_type` | str (`paragraph`·`table`) | 예 (요구사항 청크) | `block_type` | Agent가 표 근거인지 구별 |
 | `text` | str | 아니오 | `text` (원문) | Agent 답변 근거, #19 근거 인용 |
-| `score` | float | 아니오 | **리랭커 점수** (TEI `/rerank` 기본 응답, 0~1) | 정렬 근거. 한 번의 호출 안에서만 비교한다 — 다른 질문의 점수와 비교하거나 답 있음/없음 기준으로 쓰지 않는다(#19에서 정한다) |
+| `score` | float | 아니오 | **리랭커 점수** (TEI `/rerank` 기본 응답, 0~1) | 정렬 근거. 한 번의 호출 안에서만 비교한다 — 다른 질문의 점수와 비교하거나 답 있음/없음 기준으로 쓰지 않는다 — 답 있음과 답 없음의 1위 점수가 겹쳐 임계값으로 가를 수 없다(2026-10-12 실측, [ADR-0006](adr/0006-grounded-answer-refusal-and-citation.md) 결정 1). 거절은 LLM이 청크 내용을 보고 판단한다 |
 
 - 결과가 `top_k`개보다 적을 수 있다(필터한 문서의 청크가 적을 때). 0개면 빈 목록이고 오류가 아니다
 - `score` 범위 확인(2026-10-08, TEI 1.9.4 `bge-reranker-v2-m3`): qa_v2 57문항 × 청크 20개(정답 청크 + 무작위, seed 0) = 1,140쌍을 `/rerank`에 보내
@@ -378,7 +383,7 @@ def search_documents(
 
 #### 범위 밖
 
-- 출처 문자열 만들기(`[문서명 p.23(인쇄) · SFR-001]`)와 근거 없음 판정·거절 — #19. 이 함수는 재료 필드만 돌려준다
+- 출처 문자열 만들기(`[문서명 p.23 · SFR-001]` 등 2절의 5가지)와 근거 없음 판정·거절 — #19. 이 함수는 재료 필드만 돌려준다
 - 권한 필터(`allowed_roles` 사전 필터) — Phase 2(8절). 지금 인덱스에는 권한 필드가 없다
 - 리랭커가 꺼졌을 때 하이브리드 결과만 돌려주는 대체 경로 — 만들지 않는다(D5)
 - `project_id`로 거르기 — 인덱스에 `project_id`가 없다(5절 "첫 인덱스 필드")

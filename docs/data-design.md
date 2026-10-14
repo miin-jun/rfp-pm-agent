@@ -407,11 +407,14 @@ def answer_question(
     deps: SearchDeps,
     llm: LLMClient,
     top_k: int = DEFAULT_TOP_K,  # 10
+    doc_ids: list[str] | None = None,  # 2026-10-14 추가(소유자 구현 대기, 테스트는 xfail)
 ) -> GroundedAnswer: ...
 ```
 
 - `llm`은 `clients/`의 `LLMClient`다. 서비스·평가 실행에서는 `LoggingLLMClient`로 감싼 것을 넘긴다(비용 로그). 테스트는 가짜를 넣는다
 - `top_k`가 LLM에 넣는 청크 수다. `search_documents`에 그대로 넘기고, 돌려받은 청크를 모두 프롬프트에 넣는다
+- `doc_ids`도 `search_documents`에 그대로 넘긴다. None이면 전체 문서 검색이다. 검증(빈 목록, 인덱스에 없는 doc_id → `ValueError`)은
+  `search_documents`가 한다
 - `format_citation`은 LLM 호출과 분리된 함수다 — #22 에이전트가 같은 함수를 쓴다
 
 #### 동작
@@ -643,6 +646,25 @@ projects ─┬─< project_members >── users
  "verified_by": "miin-jun", "verified_at": "2026-10-14", "note": ""}
 ```
 
+### 근거 답변 실행 조건 — `run_grounded_answer --scope` (#19)
+
+| scope | qa_v2 57문항 | 무관 질문 5문항 |
+|---|---|---|
+| `all`(기본) | 전체 문서 검색(`doc_ids` 없음) | 전체 문서 검색 |
+| `doc` | `doc_ids=[그 문항의 doc_id]` | 전체 문서 검색 — 무관 질문에는 `doc_id`가 없다 |
+
+- **`doc` 조건은 `all` 결과를 본 뒤에 추가했다(2026-10-14).** 첫 실행(`all`, 프롬프트 v1)이 DoD ②를 통과하지 못했다 — 정답이 상위 10 안인
+  33문항 중 11개를 잘못 거절했고, 그중 8개가 질문에 사업명이 없는 문항("이 사업의 …")이었다. 같은 유형의 q010은 다른 사업의 금액을
+  출처까지 달아 답했다(정답 499,620,000원, 답 281,000,000원)
+- 추가한 근거: qa_v2 질문은 특정 문서를 보고 있다는 전제로 만들었고, 실제 사용도 RFP 하나를 열어 두고 묻는 방식이다
+- 통과 기준(이슈 #19 DoD ②)은 바꾸지 않는다. 두 조건의 결과를 모두 남기고, `all` 결과는 미통과로 기록한다
+- 프롬프트는 두 조건 모두 v1이다(한 번에 하나만 바꾼다)
+- A·B는 조건마다 그 실행의 검색 결과로 다시 판정한다. `doc` 조건에서는 정답 문서 안에서만 찾으므로 A 문항 수가 33과 다를 수 있다.
+  기준은 "잘못 거절 3개 이하"(개수) 그대로 적용한다
+- qa_v2 57문항의 `doc_id`는 10개 문서이고 모두 인덱스(`rfp_chunks_v2_kure`)에 있다(2026-10-14 확인)
+- 결과 파일: `data/eval/results/answer/grounded_answer_<YYYYMMDD>_<scope>.{jsonl,md}`·`_run.json`(`run.scope`). 같은 이름이 있으면 실행 전에 멈춘다.
+  첫 실행 `grounded_answer_20261014.*`은 scope가 생기기 전 이름이고 조건은 `all`이다
+
 ### `data/eval/agent_v1.jsonl` — 에이전트 평가 (#25)
 
 ```json
@@ -659,7 +681,7 @@ projects ─┬─< project_members >── users
 - **평가 실행 진입점**: `rfp_pm_agent.eval` 패키지 안의 모듈 — 청킹 비교는
   `uv run python -m rfp_pm_agent.eval.run_chunk_eval` (#13), 검색 평가는
   `uv run python -m rfp_pm_agent.eval.run_retrieval` (#16·#18), 근거 답변(qa_v2 + 무관 질문, LLM 비용 있음)은
-  `uv run python -m rfp_pm_agent.eval.run_grounded_answer --out-dir data/eval/results/answer` (#19). 에이전트 평가(`run_agent`)는 #25에서 같은 자리에 추가한다
+  `uv run python -m rfp_pm_agent.eval.run_grounded_answer --out-dir data/eval/results/answer [--scope doc]` (#19). 에이전트 평가(`run_agent`)는 #25에서 같은 자리에 추가한다
 - **기준선 비교**: 지금은 별도 기준선 파일을 두지 않는다. `run_retrieval --compare <run_id> <run_id> ... --out-dir data/eval/results/<실험>`이
   그 실험의 `runs.jsonl` 하나에서 실행 기록을 찾아, Recall@10(전부 적중)이 가장 많은 실행을 1위로 두고 나머지를 문항별 McNemar로
   비교한다 — 같은 기록 위치의 실행끼리만 비교되고, `--out-dir`를 빼면 `model_selection`을 읽는다.

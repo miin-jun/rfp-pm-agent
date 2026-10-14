@@ -12,19 +12,24 @@
 실패한 문항은 재시도하지 않고 오류를 기록한 뒤 다음 문항으로 간다. LLM 호출은 `LoggingLLMClient`로 하므로
 `COST_LOG_PATH`(기본 data/cost_log.jsonl)에 호출마다 비용이 남는다.
 
-출력(`--out-dir`, 파일 이름은 `grounded_answer_<YYYYMMDD>`)
+검색 범위(`--scope`): all은 전체 문서, doc은 qa_v2 문항의 doc_id로 좁힌다(무관 질문은 두 조건 모두 전체).
+doc 조건은 v1(all) 결과를 본 뒤 추가했다 — data-design.md 9절 "근거 답변 실행 조건".
+
+출력(`--out-dir`, 파일 이름은 `grounded_answer_<YYYYMMDD>_<scope>`. 같은 이름이 있으면 실행 전에 멈춘다)
 - `.jsonl`: 문항별 결과 / `_run.json`: 실행 정보(모델·추론 강도·프롬프트 버전·인덱스·시각)와 요약
 - `.md`: 요약과 A·B 문항의 qa_v2 정답 ↔ LLM 답 대조 표(사람 판정 칸은 비워 둔다)
 
 OpenSearch·tei-embed·tei-rerank와 OpenAI API가 필요하다. **이 실행은 비용이 든다** — 실행 전에 예상 호출 수
 (62회)를 사용자에게 알린다(CLAUDE.md 비용).
 
-CLI: `uv run python -m rfp_pm_agent.eval.run_grounded_answer --out-dir data/eval/results/answer`
+CLI: `uv run python -m rfp_pm_agent.eval.run_grounded_answer --out-dir data/eval/results/answer [--scope doc]`
+요약만 다시 만들기(비용 없음): `... --from-rows <결과>.jsonl [--note <메모>]`
 """
 
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 import re
 import time
@@ -32,7 +37,7 @@ from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -57,6 +62,10 @@ DEFAULT_PREVIOUS_GROUPS = Path("data/eval/results/answer/reranker_score_dist_202
 TOP_K = DEFAULT_TOP_K  # 10
 
 Group = Literal["A", "B", "C", "U"]
+# 검색 범위. all: 전체 문서(doc_ids 없음), doc: qa_v2 문항의 doc_id로 좁힘. 무관 질문(U)은 doc_id가 없어
+# 두 조건 모두 전체 검색이다 (data-design.md 9절 "근거 답변 실행 조건")
+Scope = Literal["all", "doc"]
+SCOPES: tuple[Scope, ...] = ("all", "doc")
 
 # DoD ② 통과 기준(이슈 #19, 2026-10-12 고정)
 C_MIN_REFUSED = 5  # 답 없음 6문항 중
@@ -87,6 +96,7 @@ class AnswerRow(BaseModel):
     cost_usd: float | None
     latency_ms: float
     error: str | None
+    doc_ids: list[str] | None = None  # 검색에 넘긴 doc_ids. 전체 검색이면 None
 
 
 class RunInfo(BaseModel):
@@ -103,6 +113,7 @@ class RunInfo(BaseModel):
     qa_file: str
     irrelevant_file: str
     question_count: int
+    scope: Scope = "all"  # 2026-10-14 첫 실행(v1)은 이 필드가 생기기 전이라 기본값 all
     notes: list[str] = []  # 실행 뒤에 덧붙인 기록(예: 요약을 문항별 결과에서 다시 만든 이유)
 
 
@@ -181,6 +192,7 @@ def build_answer_row(
     error: str | None,
     latency_ms: float,
     config: ClientsConfig,
+    doc_ids: list[str] | None = None,
 ) -> AnswerRow:
     """실행 결과 하나를 행으로 만든다. gold가 None이면 무관 질문(U)이다.
 
@@ -231,6 +243,7 @@ def build_answer_row(
         ),
         latency_ms=round(latency_ms, 1),
         error=error,
+        doc_ids=doc_ids,
     )
 
 
@@ -270,9 +283,13 @@ def run(
     deps: SearchDeps,
     llm: LLMClient,
     config: ClientsConfig,
+    scope: Scope = "all",
     clock: Callable[[], float] = time.monotonic,
 ) -> list[AnswerRow]:
-    """문항마다 `answer_question`을 1회 부른다. 예외는 문항 결과에 남기고 다음 문항으로 간다(재시도 없음)."""
+    """문항마다 `answer_question`을 1회 부른다. 예외는 문항 결과에 남기고 다음 문항으로 간다(재시도 없음).
+
+    scope="doc"이면 qa_v2 문항마다 doc_ids=[그 문항의 doc_id]를 넘긴다. 무관 질문은 doc_id가 없어 넘기지 않는다.
+    """
     items: list[tuple[str, str, list[str], EvalQuestionV2 | None]] = [
         (q.question_id, q.question, [str(t) for t in q.tags], q) for q in qa_questions
     ] + [(q.question_id, q.question, [], None) for q in irrelevant]
@@ -284,8 +301,12 @@ def run(
             start = clock()
             answer: GroundedAnswer | None = None
             error: str | None = None
+            doc_ids = [gold.doc_id] if scope == "doc" and gold is not None else None
+            # answer_question이 doc_ids 인자를 받기 전(#19 소유자 구현)에도 전체 검색은 돌도록, doc_ids가 있을 때만
+            # 키워드로 넘긴다. 인자가 생기면 `doc_ids=doc_ids`로 바로 넘기도록 바꾼다
+            extra: dict[str, Any] = {"doc_ids": doc_ids} if doc_ids is not None else {}
             try:
-                answer = answer_question(question, deps=deps, llm=llm, top_k=TOP_K)
+                answer = answer_question(question, deps=deps, llm=llm, top_k=TOP_K, **extra)
             except Exception as e:  # noqa: BLE001 — 문항 하나의 실패로 실행 전체를 멈추지 않는다(오류는 기록)
                 error = f"{type(e).__name__}: {e}"
             latency_ms = (clock() - start) * 1000
@@ -301,9 +322,19 @@ def run(
                     error=error,
                     latency_ms=latency_ms,
                     config=config,
+                    doc_ids=doc_ids,
                 )
             )
     return rows
+
+
+def output_stem(date: str, scope: Scope) -> str:
+    """결과 파일 이름(확장자 제외). date는 YYYYMMDD. 2026-10-14 v1 결과는 scope가 붙기 전 이름(전체 검색)이다."""
+    return f"grounded_answer_{date}_{scope}"
+
+
+def output_paths(out_dir: Path, stem: str) -> list[Path]:
+    return [out_dir / f"{stem}.jsonl", out_dir / f"{stem}_run.json", out_dir / f"{stem}.md"]
 
 
 # --- 요약 ---
@@ -482,6 +513,7 @@ def write_summary_files(
     md_path.write_text(
         f"# 근거 답변 실행 {stem}\n\n"
         f"- 모델 `{info.model}`, 추론 강도 `{info.reasoning_effort}`, 프롬프트 `{info.prompt_version}`\n"
+        f"- 검색 범위 `{info.scope}` (all: 전체 문서 / doc: qa_v2 문항의 doc_id로 좁힘, 무관 질문은 전체)\n"
         f"- 별칭 `{info.index_alias}` → {info.index_names}, top_k={info.top_k}, 문항 {info.question_count}\n"
         f"- 시각 {info.started_at} ~ {info.finished_at}\n"
         f"{notes}\n"
@@ -524,6 +556,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--previous-groups", type=Path, default=DEFAULT_PREVIOUS_GROUPS)
     parser.add_argument("--out-dir", type=Path, help="실행 결과를 쓸 폴더(실행할 때 필요)")
     parser.add_argument(
+        "--scope",
+        choices=SCOPES,
+        default="all",
+        help="all: 전체 문서 검색 / doc: qa_v2 문항의 doc_id로 검색을 좁힌다(무관 질문은 두 조건 모두 전체)",
+    )
+    parser.add_argument(
         "--from-rows",
         type=Path,
         help="실행하지 않고 이 .jsonl(문항별 결과)로 _run.json 요약과 .md만 다시 만든다(비용 없음)",
@@ -545,6 +583,16 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.out_dir is None:
         parser.error("--out-dir가 필요하다(또는 --from-rows)")
+    scope: Scope = args.scope
+    if scope == "doc" and "doc_ids" not in inspect.signature(answer_question).parameters:
+        parser.error(
+            "answer_question이 아직 doc_ids를 받지 않는다(#19 소유자 구현). --scope doc은 그 뒤에 실행한다"
+        )
+    stem = output_stem(datetime.now(UTC).astimezone().strftime("%Y%m%d"), scope)
+    existing = [p for p in output_paths(args.out_dir, stem) if p.exists()]
+    if existing:
+        # LLM 비용을 쓰기 전에 멈춘다. 같은 날 같은 조건을 다시 돌리면 이전 결과를 지우지 않게 한다
+        parser.error(f"결과 파일이 이미 있다: {[str(p) for p in existing]}")
     qa_questions = load_questions_v2(args.qa_file)
     irrelevant = load_irrelevant(args.irrelevant_file)
     config = ClientsConfig.from_env()
@@ -556,7 +604,9 @@ def main(argv: list[str] | None = None) -> int:
     llm = LoggingLLMClient(OpenAICompatLLMClient(config), config, CostLogger(config.cost_log_path))
 
     started = datetime.now(UTC)
-    rows = run(qa_questions, irrelevant, deps=SearchDeps.from_env(), llm=llm, config=config)
+    rows = run(
+        qa_questions, irrelevant, deps=SearchDeps.from_env(), llm=llm, config=config, scope=scope
+    )
     finished = datetime.now(UTC)
 
     info = RunInfo(
@@ -571,9 +621,9 @@ def main(argv: list[str] | None = None) -> int:
         qa_file=str(args.qa_file),
         irrelevant_file=str(args.irrelevant_file),
         question_count=len(rows),
+        scope=scope,
     )
     summary = summarize(rows, load_previous_groups(args.previous_groups))
-    stem = f"grounded_answer_{started.astimezone().strftime('%Y%m%d')}"
     for path in write_outputs(args.out_dir, stem, rows, info, summary, qa_questions):
         print(path)
     print(format_summary(summary))

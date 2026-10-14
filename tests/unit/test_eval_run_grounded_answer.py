@@ -421,3 +421,85 @@ def test_resummarize_rebuilds_summary_and_md_from_rows_without_touching_rows(
     md = (tmp_path / "grounded_answer_20261014.md").read_text(encoding="utf-8")
     assert "- 메모: B 표시 수정" in md
     assert "| a00 | A |" in md
+
+
+# --- 검색 범위(--scope) ---
+
+
+def _patch_recording_search(
+    monkeypatch: pytest.MonkeyPatch,
+) -> list[tuple[str, list[str] | None]]:
+    """검색에 넘어온 (질문, doc_ids)를 기록하고 HITS를 돌려준다."""
+    calls: list[tuple[str, list[str] | None]] = []
+
+    def fake_search(
+        query: str, top_k: int = 10, doc_ids: list[str] | None = None, *, deps: SearchDeps
+    ) -> list[DocumentHit]:
+        calls.append((query, doc_ids))
+        return HITS
+
+    monkeypatch.setattr(rga, "search_documents", fake_search)
+    return calls
+
+
+def test_scope_all_searches_every_question_without_doc_ids(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = _patch_recording_search(monkeypatch)
+    llm = ScriptedLLMClient(["답 [1].", REFUSAL_TEXT])
+
+    rows = rga.run(
+        [_question("q001", [["b0001"]])],
+        [_irrelevant("u001")],
+        deps=_deps(),
+        llm=llm,
+        config=CONFIG,
+        scope="all",
+    )
+
+    assert calls == [("q001 질문", None), ("u001 무관", None)]
+    assert [r.doc_ids for r in rows] == [None, None]
+
+
+# answer_question이 doc_ids를 받기 전이라 run이 문항 오류(TypeError)를 기록하고 검색이 불리지 않아 단언이 실패한다
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason="소유자 구현: answer_question에 doc_ids 인자 추가 (#19)",
+)
+def test_scope_doc_passes_each_qa_doc_id_and_leaves_irrelevant_unfiltered(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = _patch_recording_search(monkeypatch)
+    llm = ScriptedLLMClient(["답 [1].", REFUSAL_TEXT, REFUSAL_TEXT])
+    other_doc = _question("q002", None).model_copy(update={"doc_id": "docB"})
+
+    rows = rga.run(
+        [_question("q001", [["b0001"]]), other_doc],
+        [_irrelevant("u001")],
+        deps=_deps(),
+        llm=llm,
+        config=CONFIG,
+        scope="doc",
+    )
+
+    assert [r.error for r in rows] == [None, None, None]
+    assert calls == [("q001 질문", ["docA"]), ("q002 질문", ["docB"]), ("u001 무관", None)]
+    assert [r.doc_ids for r in rows] == [["docA"], ["docB"], None]
+
+
+@pytest.mark.parametrize("scope", ["all", "doc"])
+def test_output_stem_carries_date_and_scope(scope: rga.Scope) -> None:
+    assert rga.output_stem("20261015", scope) == f"grounded_answer_20261015_{scope}"
+
+
+def test_main_refuses_to_overwrite_existing_results_before_running(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(rga, "output_stem", lambda date, scope: "same")
+    (tmp_path / "same.jsonl").write_text("", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as raised:
+        rga.main(["--out-dir", str(tmp_path)])
+
+    assert raised.value.code == 2  # argparse 오류 — LLM·검색 클라이언트를 만들기 전에 멈춘다

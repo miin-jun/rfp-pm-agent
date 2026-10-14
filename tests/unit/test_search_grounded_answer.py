@@ -3,7 +3,7 @@
 규칙은 docs/data-design.md 5절 "근거 답변 answer_question"과 2절 "출처 표기 규칙"(ADR-0006 결정 2).
 
 `format_citation`·`build_prompt`와 `answer_question`의 LLM 호출 이후는 소유자가 구현한다(학습 모드).
-그 테스트는 `OWNER_TODO`(xfail strict)로 표시했다 — 구현하면 XPASS가 실패로 잡히므로 표시를 지운다.
+그 테스트는 `OWNER_TODO`·`OWNER_TODO_DOC_IDS`(xfail strict)로 표시했다 — 구현하면 XPASS가 실패로 잡히므로 표시를 지운다.
 표시가 없는 테스트(거절 판정, 인용 번호 파싱, 프롬프트 파일 읽기, 검색 0건·예외)는 지금 통과한다.
 
 검색은 `grounded_answer.search_documents`를 바꿔 끼워 정해 둔 결과나 예외를 낸다. LLM은 `ScriptedLLMClient`다.
@@ -38,6 +38,10 @@ from tests.fakes.fake_search_client import RecordingSearchClient
 
 OWNER_TODO = pytest.mark.xfail(
     strict=True, raises=NotImplementedError, reason="소유자 구현 (#19 학습 모드)"
+)
+# answer_question에 doc_ids 인자가 아직 없어 TypeError(unexpected keyword)로 실패한다. 인자를 추가하면 표시를 지운다
+OWNER_TODO_DOC_IDS = pytest.mark.xfail(
+    strict=True, raises=TypeError, reason="소유자 구현: answer_question에 doc_ids 인자 추가 (#19)"
 )
 
 QUERY = "충전기는 몇 대 설치하나요?"
@@ -329,6 +333,22 @@ def test_answer_question_lets_search_errors_through_without_calling_llm(
 
     assert raised.value is error
     assert llm.calls == []
+
+
+# --- answer_question: doc_ids (소유자 구현 — 시그니처에 doc_ids 인자 추가) ---
+
+
+@OWNER_TODO_DOC_IDS
+def test_answer_question_passes_doc_ids_to_search(monkeypatch: pytest.MonkeyPatch) -> None:
+    """doc_ids를 그대로 search_documents에 넘긴다. 안 주면 None — test_answer_question_passes_query_top_k_and_deps_to_search."""
+    calls = _patch_search(monkeypatch, [])
+    deps = _deps()
+    # 시그니처에 doc_ids가 생기기 전에도 mypy를 통과하도록 키워드를 dict로 넘긴다. 구현 뒤 doc_ids=[...]로 바꿔도 된다
+    kwargs: dict[str, Any] = {"doc_ids": ["docA", "docB"]}
+
+    answer_question(QUERY, deps=deps, llm=ScriptedLLMClient([]), top_k=7, **kwargs)
+
+    assert calls == [{"query": QUERY, "top_k": 7, "doc_ids": ["docA", "docB"], "deps": deps}]
 
 
 # --- answer_question: LLM 호출 이후 (소유자 구현) ---

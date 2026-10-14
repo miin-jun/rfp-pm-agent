@@ -29,7 +29,6 @@ CLI: `uv run python -m rfp_pm_agent.eval.run_grounded_answer --out-dir data/eval
 from __future__ import annotations
 
 import argparse
-import inspect
 import json
 import re
 import time
@@ -37,7 +36,7 @@ from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -302,11 +301,8 @@ def run(
             answer: GroundedAnswer | None = None
             error: str | None = None
             doc_ids = [gold.doc_id] if scope == "doc" and gold is not None else None
-            # answer_question이 doc_ids 인자를 받기 전(#19 소유자 구현)에도 전체 검색은 돌도록, doc_ids가 있을 때만
-            # 키워드로 넘긴다. 인자가 생기면 `doc_ids=doc_ids`로 바로 넘기도록 바꾼다
-            extra: dict[str, Any] = {"doc_ids": doc_ids} if doc_ids is not None else {}
             try:
-                answer = answer_question(question, deps=deps, llm=llm, top_k=TOP_K, **extra)
+                answer = answer_question(question, deps=deps, llm=llm, top_k=TOP_K, doc_ids=doc_ids)
             except Exception as e:  # noqa: BLE001 — 문항 하나의 실패로 실행 전체를 멈추지 않는다(오류는 기록)
                 error = f"{type(e).__name__}: {e}"
             latency_ms = (clock() - start) * 1000
@@ -584,10 +580,6 @@ def main(argv: list[str] | None = None) -> int:
     if args.out_dir is None:
         parser.error("--out-dir가 필요하다(또는 --from-rows)")
     scope: Scope = args.scope
-    if scope == "doc" and "doc_ids" not in inspect.signature(answer_question).parameters:
-        parser.error(
-            "answer_question이 아직 doc_ids를 받지 않는다(#19 소유자 구현). --scope doc은 그 뒤에 실행한다"
-        )
     stem = output_stem(datetime.now(UTC).astimezone().strftime("%Y%m%d"), scope)
     existing = [p for p in output_paths(args.out_dir, stem) if p.exists()]
     if existing:

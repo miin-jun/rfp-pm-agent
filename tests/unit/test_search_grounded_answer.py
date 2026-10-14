@@ -3,7 +3,7 @@
 규칙은 docs/data-design.md 5절 "근거 답변 answer_question"과 2절 "출처 표기 규칙"(ADR-0006 결정 2).
 
 `format_citation`·`build_prompt`와 `answer_question`의 LLM 호출 이후는 소유자가 구현한다(학습 모드).
-그 테스트는 `OWNER_TODO`·`OWNER_TODO_DOC_IDS`(xfail strict)로 표시했다 — 구현하면 XPASS가 실패로 잡히므로 표시를 지운다.
+그 테스트는 `OWNER_TODO`(xfail strict)로 표시했다 — 구현하면 XPASS가 실패로 잡히므로 표시를 지운다.
 표시가 없는 테스트(거절 판정, 인용 번호 파싱, 프롬프트 파일 읽기, 검색 0건·예외)는 지금 통과한다.
 
 검색은 `grounded_answer.search_documents`를 바꿔 끼워 정해 둔 결과나 예외를 낸다. LLM은 `ScriptedLLMClient`다.
@@ -38,10 +38,6 @@ from tests.fakes.fake_search_client import RecordingSearchClient
 
 OWNER_TODO = pytest.mark.xfail(
     strict=True, raises=NotImplementedError, reason="소유자 구현 (#19 학습 모드)"
-)
-# answer_question에 doc_ids 인자가 아직 없어 TypeError(unexpected keyword)로 실패한다. 인자를 추가하면 표시를 지운다
-OWNER_TODO_DOC_IDS = pytest.mark.xfail(
-    strict=True, raises=TypeError, reason="소유자 구현: answer_question에 doc_ids 인자 추가 (#19)"
 )
 
 QUERY = "충전기는 몇 대 설치하나요?"

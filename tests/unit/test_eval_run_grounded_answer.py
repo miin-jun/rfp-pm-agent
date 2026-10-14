@@ -335,6 +335,30 @@ def test_summary_marks_group_with_error_as_undecided() -> None:
     assert (verdict.refused, verdict.errors, verdict.passed) == (4, 1, None)
 
 
+def test_search_error_on_answerable_question_makes_a_and_b_undecided() -> None:
+    """답 있는 문항에서 검색 오류가 나면 그룹(A·B)을 정할 수 없다. 그 문항이 A였을 수 있으므로 A를 통과로 두지 않는다."""
+    rows = _passing_rows()
+    rows.append(
+        _row(
+            "q099", None, None, error="SearchUnavailableError: x", input_tokens=None, cost_usd=None
+        )
+    )
+
+    summary = rga.summarize(rows)
+
+    verdicts = {v.group: (v.total, v.errors, v.passed) for v in summary.verdicts}
+    assert verdicts == {
+        "A": (34, 1, None),
+        "B": (1, 1, None),
+        "C": (6, 0, True),
+        "U": (5, 0, True),
+    }
+    lines = {line[0]: line for line in rga.format_summary(summary).splitlines() if " | " in line}
+    assert lines["A"].endswith("| 판정 불가")
+    assert lines["B"].endswith("| 판정 불가")
+    assert summary.error_qids == ["q099"]
+
+
 def test_summary_counts_citations_tokens_cost_and_group_changes() -> None:
     rows = [
         _row("q001", "A", False),

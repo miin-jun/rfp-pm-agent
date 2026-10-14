@@ -120,7 +120,7 @@ class GroupVerdict(BaseModel):
     group: Group
     total: int
     refused: int
-    errors: int
+    errors: int  # A·B는 검색 오류로 그룹을 정하지 못한 문항도 센다(그래서 total보다 클 수 있다)
     rule: str
     has_rule: bool  # B는 통과 기준이 없다(DoD ③, 검색에서 생긴 결과)
     passed: bool | None  # 기준이 없거나 오류가 있으면 None
@@ -340,6 +340,10 @@ def _verdict(rows: Sequence[AnswerRow], group: Group) -> GroupVerdict:
     members = [r for r in rows if r.group == group]
     refused = sum(r.refused is True for r in members)
     errors = sum(r.error is not None for r in members)
+    if group in ("A", "B"):
+        # 답 있는 문항에서 검색 오류가 나면 group이 None이다(A·B를 정할 수 없음). 그 문항이 어느 쪽이었는지 모르므로
+        # A·B 모두의 오류로 센다 — 빼고 세면 A가 실제보다 적은 문항으로 "통과" 판정된다
+        errors += sum(r.group is None and r.error is not None for r in rows)
     ok: bool | None
     if group == "A":
         rule, ok = f"잘못 거절 ≤ {A_MAX_REFUSED}", refused <= A_MAX_REFUSED
@@ -403,7 +407,7 @@ def format_summary(summary: Summary) -> str:
     for v in s.verdicts:
         mark = (
             {True: "통과", False: "미통과", None: "판정 불가"}[v.passed]
-            if v.has_rule
+            if v.has_rule or v.errors
             else "기준 없음"
         )
         lines.append(f"{v.group} | {v.total} | {v.refused} | {v.errors} | {v.rule} | {mark}")

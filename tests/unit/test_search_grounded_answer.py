@@ -4,7 +4,7 @@
 
 `format_citation`·`build_prompt`와 `answer_question`의 LLM 호출 이후는 소유자가 구현한다(학습 모드).
 그 테스트는 `OWNER_TODO`(xfail strict)로 표시했다 — 구현하면 XPASS가 실패로 잡히므로 표시를 지운다.
-표시가 없는 테스트(인용 번호 파싱, 프롬프트 파일 읽기, 검색 0건·예외)는 지금 통과한다.
+표시가 없는 테스트(거절 판정, 인용 번호 파싱, 프롬프트 파일 읽기, 검색 0건·예외)는 지금 통과한다.
 
 검색은 `grounded_answer.search_documents`를 바꿔 끼워 정해 둔 결과나 예외를 낸다. LLM은 `ScriptedLLMClient`다.
 """
@@ -26,6 +26,7 @@ from rfp_pm_agent.search.grounded_answer import (
     build_prompt,
     extract_citation_numbers,
     format_citation,
+    is_refusal,
     load_system_prompt,
 )
 from rfp_pm_agent.search.hybrid import DEFAULT_TOP_K
@@ -113,6 +114,41 @@ def _patch_search(
 
     monkeypatch.setattr(grounded_answer, "search_documents", fake_search)
     return calls
+
+
+# --- is_refusal (Claude 구현) ---
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "문서에서 찾을 수 없음",
+        "  문서에서 찾을 수 없음\n",
+        "문서에서 찾을 수 없음.",
+        "문서에서 찾을 수 없음。",
+        "\t문서에서 찾을 수 없음. \n",
+    ],
+)
+def test_is_refusal_accepts_surrounding_whitespace_and_one_trailing_period(text: str) -> None:
+    assert is_refusal(text) is True
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "문서에서 찾을 수 없음. 다만 사업 기간은 3개월이다 [1].",
+        "문서에서 찾을 수 없음 [1]",
+        "문서에서 찾을 수 없음..",
+        "문서에서 찾을 수 없음.。",
+        "문서에서 찾을 수 없음 .",
+        "문서에서 찾을 수 없음!",
+        "문서에서 찾을 수 없습니다.",
+        "충전기 수는 문서에서 찾을 수 없음.",
+        "",
+    ],
+)
+def test_is_refusal_rejects_extra_text_or_other_endings(text: str) -> None:
+    assert is_refusal(text) is False
 
 
 # --- extract_citation_numbers (Claude 구현) ---
@@ -280,6 +316,7 @@ def test_answer_question_refuses_without_calling_llm_when_no_hits(
         answer=REFUSAL_TEXT,
         refused=True,
         citations=[],
+        citation_map={},
         cited_chunk_ids=[],
         invalid_citations=[],
         hit_count=0,
@@ -339,6 +376,11 @@ def test_answer_question_turns_cited_numbers_into_citations_in_first_seen_order(
         answer="표에 10대로 적혀 있다 [2]. 요구사항도 같다 [1][2]. 납품 기한은 30일이다 [5, 1].",
         refused=False,
         citations=["[A 사업 PDF 15쪽]", "[A 사업 p.23 · SFR-001]", "[B 사업 · DAR-002]"],
+        citation_map={
+            2: "[A 사업 PDF 15쪽]",
+            1: "[A 사업 p.23 · SFR-001]",
+            5: "[B 사업 · DAR-002]",
+        },
         cited_chunk_ids=["chunk-2", "chunk-1", "chunk-5"],
         invalid_citations=[],
         hit_count=5,
@@ -357,11 +399,14 @@ def test_answer_question_keeps_one_citation_for_chunks_with_the_same_citation_st
     result = answer_question(QUERY, deps=_deps(), llm=llm)
 
     assert result.citations == ["[B 사업]"]
+    assert result.citation_map == {3: "[B 사업]", 4: "[B 사업]"}
     assert result.cited_chunk_ids == ["chunk-3", "chunk-4"]
 
 
 @OWNER_TODO
-@pytest.mark.parametrize("reply", [REFUSAL_TEXT, f"  {REFUSAL_TEXT}\n"])
+@pytest.mark.parametrize(
+    "reply", [REFUSAL_TEXT, f"  {REFUSAL_TEXT}\n", f"{REFUSAL_TEXT}.", f"{REFUSAL_TEXT}。"]
+)
 def test_answer_question_refusal_reply_has_no_citations(
     monkeypatch: pytest.MonkeyPatch, reply: str
 ) -> None:
@@ -374,6 +419,7 @@ def test_answer_question_refusal_reply_has_no_citations(
         answer=REFUSAL_TEXT,
         refused=True,
         citations=[],
+        citation_map={},
         cited_chunk_ids=[],
         invalid_citations=[],
         hit_count=5,
@@ -392,6 +438,7 @@ def test_answer_question_records_out_of_range_numbers_and_does_not_cite_them(
 
     assert result.refused is False
     assert result.citations == ["[A 사업 p.23 · SFR-001]"]
+    assert result.citation_map == {1: "[A 사업 p.23 · SFR-001]"}
     assert result.cited_chunk_ids == ["chunk-1"]
     assert result.invalid_citations == [15, 0, 6]
 
@@ -409,5 +456,33 @@ def test_answer_question_answer_without_citation_numbers_is_not_turned_into_refu
     assert result.refused is False
     assert result.answer == "충전기는 10대다."
     assert result.citations == []
+    assert result.citation_map == {}
     assert result.cited_chunk_ids == []
     assert result.invalid_citations == []
+
+
+@OWNER_TODO
+def test_answer_question_refusal_phrase_followed_by_explanation_is_an_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """거절 문구 뒤에 설명이 붙으면 거절이 아니다(is_refusal). 인용 번호는 출처로 바꾼다."""
+    _patch_search(monkeypatch, _hits())
+    llm = ScriptedLLMClient([f"{REFUSAL_TEXT}. 다만 사업 기간은 3개월이다 [1]."])
+
+    result = answer_question(QUERY, deps=_deps(), llm=llm)
+
+    assert result.refused is False
+    assert result.answer == f"{REFUSAL_TEXT}. 다만 사업 기간은 3개월이다 [1]."
+    assert result.citation_map == {1: "[A 사업 p.23 · SFR-001]"}
+
+
+@OWNER_TODO
+def test_answer_question_citation_map_keeps_first_seen_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_search(monkeypatch, _hits())
+    llm = ScriptedLLMClient(["나중 번호가 먼저 나온다 [5]. 그다음 [2][5]."])
+
+    result = answer_question(QUERY, deps=_deps(), llm=llm)
+
+    assert list(result.citation_map) == [5, 2]

@@ -23,6 +23,8 @@ class GroundedAnswer(BaseModel):
     refused: bool
     # 출처 문자열(data-design.md 2절 5가지). 답에 처음 나온 순서, 같은 문자열은 한 번만
     citations: list[str]
+    # 답에 나온 유효 인용 번호(1~hit_count) → 그 청크의 출처 문자열. 답에 처음 나온 순서. 거절이면 빈 dict
+    citation_map: dict[int, str]
     # 인용된 청크의 chunk_id. 답에 처음 나온 순서, 같은 청크는 한 번만
     cited_chunk_ids: list[str]
     # 검색 결과 범위(1~hit_count) 밖의 인용 번호. 처음 나온 순서, 같은 번호는 한 번만

@@ -399,6 +399,7 @@ def search_documents(
 # search/grounded_answer.py
 def format_citation(hit: DocumentHit) -> str: ...
 def build_prompt(query: str, hits: list[DocumentHit]) -> list[ChatMessage]: ...
+def is_refusal(text: str) -> bool: ...
 def extract_citation_numbers(text: str) -> list[int]: ...
 def answer_question(
     query: str,
@@ -420,7 +421,7 @@ def answer_question(
 3. `build_prompt`로 메시지를 만든다: system 1개(프롬프트 파일 내용) + user 1개(청크 목록과 질문). 청크는 검색 결과 순서대로
    `[1]`~`[n]` 번호를 붙여 넣는다 — 번호 i는 `hits[i-1]`이다
 4. `llm.chat(messages)`를 1회 부른다
-5. LLM 답(앞뒤 공백을 뗀 것)이 거절 문구와 같으면 거절로 처리한다
+5. LLM 답이 거절 문구이면(`is_refusal`, 아래 "거절 판정") 거절로 처리한다
 6. 아니면 답에서 인용 번호를 뽑아(`extract_citation_numbers`) 번호 → `DocumentHit` → `format_citation`으로 출처를 만든다
 
 LLM은 번호만 인용한다. 문서명·쪽번호·요구사항 ID를 LLM이 직접 쓰게 하지 않는다 — LLM이 쓴 출처는 청크에 없는 쪽번호일 수 있고,
@@ -433,19 +434,34 @@ LLM은 번호만 인용한다. 문서명·쪽번호·요구사항 ID를 LLM이 �
 | `answer` | str | LLM 답(앞뒤 공백을 뗀 것, 인용 번호 `[n]` 포함). 거절이면 거절 문구 |
 | `refused` | bool | 거절 여부 |
 | `citations` | list[str] | 출처 문자열(2절 5가지). 답에 처음 나온 순서, 같은 문자열은 한 번만. 거절이면 빈 목록 |
+| `citation_map` | dict[int, str] | 답에 나온 유효 인용 번호(1~`hit_count`) → 그 청크의 출처 문자열. 답에 처음 나온 순서. 거절이면 빈 dict. `answer` 안의 `[n]`이 어느 출처인지 이것으로 찾는다 |
 | `cited_chunk_ids` | list[str] | 인용된 청크의 `chunk_id`. 답에 처음 나온 순서, 같은 청크는 한 번만. 거절이면 빈 목록 |
 | `invalid_citations` | list[int] | 검색 결과 범위(1~`hit_count`) 밖의 인용 번호. 처음 나온 순서, 같은 번호는 한 번만 |
 | `hit_count` | int | 검색 결과 수(LLM에 넣은 청크 수) |
 | `llm_usage` | `LLMUsage` \| None | `input_tokens`·`output_tokens`(추론 토큰 포함)·`reasoning_tokens`. LLM을 부르지 않았으면 None |
 
 - `citations`와 `cited_chunk_ids`의 길이는 다를 수 있다. 같은 HWP 문서의 블록 청크 두 개는 출처가 둘 다 `[문서명]`이라
-  `citations`에는 하나, `cited_chunk_ids`에는 둘이 들어간다
-- 거절 문구: `문서에서 찾을 수 없음` (`REFUSAL_TEXT`). LLM 답에서 앞뒤 공백을 뗀 것이 이 문구와 완전히 같을 때만 거절이다.
-  문구 뒤에 설명이 붙은 답은 거절로 보지 않는다
-- 거절이면 `citations`·`cited_chunk_ids`·`invalid_citations`는 모두 빈 목록이다(ADR-0006: 거절 응답에는 출처를 달지 않는다)
+  `citations`에는 하나, `cited_chunk_ids`와 `citation_map`에는 둘(`{3: "[문서명]", 4: "[문서명]"}`)이 들어간다
+- 범위 밖 번호는 `citation_map`에 넣지 않는다(`invalid_citations`에만 남는다)
+- 거절이면 `citations`·`citation_map`·`cited_chunk_ids`·`invalid_citations`는 모두 비어 있다(ADR-0006: 거절 응답에는 출처를 달지 않는다)
 - 범위 밖 번호(청크 10개인데 `[15]`, 또는 `[0]`)는 출처로 쓰지 않고 `invalid_citations`에 남긴다. 예외를 내지 않는다
 - 거절이 아닌데 유효한 인용 번호가 하나도 없는 답은 `refused=False`, `citations=[]`로 그대로 돌려준다.
   이 함수가 거절로 바꾸지 않는다 — DoD ①(거절하지 않은 답변에 출처 1개 이상)은 실행 결과에서 센다
+
+#### 거절 판정 (`is_refusal`)
+
+거절 문구는 `문서에서 찾을 수 없음`(`REFUSAL_TEXT`)이다. LLM 답의 앞뒤 공백을 떼고, 끝의 마침표 하나(반각 `.` 또는 전각 `。`)를
+뗀 것이 이 문구와 완전히 같을 때만 거절이다. 거절이면 `answer`는 `REFUSAL_TEXT`(마침표 없음)로 돌려준다.
+
+| LLM 답 | 거절 |
+|---|---|
+| `문서에서 찾을 수 없음` · `  문서에서 찾을 수 없음\n` | 예 |
+| `문서에서 찾을 수 없음.` · `문서에서 찾을 수 없음。` | 예 |
+| `문서에서 찾을 수 없음. 다만 ~`(뒤에 설명) · `문서에서 찾을 수 없음 [1]` | 아니오 |
+| `문서에서 찾을 수 없음..`(마침표 둘) · `문서에서 찾을 수 없음 .`(마침표 앞 공백) · `문서에서 찾을 수 없음!` | 아니오 |
+| `문서에서 찾을 수 없습니다.`(다른 어미) · `충전기 수는 문서에서 찾을 수 없음.`(앞에 글자) | 아니오 |
+
+거절이 아닌 답은 일반 답변으로 처리한다(인용 번호를 출처로 바꾼다).
 
 #### 인용 번호 형태 (`extract_citation_numbers`)
 

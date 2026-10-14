@@ -22,8 +22,10 @@ from rfp_pm_agent.schemas.search import DocumentHit
 from rfp_pm_agent.search.hybrid import DEFAULT_TOP_K
 from rfp_pm_agent.tools.search_documents import SearchDeps, search_documents
 
-# LLM이 근거가 없을 때 쓰는 문구. 답(앞뒤 공백 제거)이 이 문구와 완전히 같을 때만 거절이다
+# LLM이 근거가 없을 때 쓰는 문구. 판정은 is_refusal(앞뒤 공백과 끝 마침표 하나만 허용)
 REFUSAL_TEXT = "문서에서 찾을 수 없음"
+# 거절 문구 끝에 하나까지 허용하는 마침표: 반각 "."와 전각 "。"
+_REFUSAL_END_MARKS = (".", "。")
 
 # 프롬프트 파일 이름(확장자 제외)이 곧 버전이다. 내용을 바꾸면 파일을 고치지 않고 _v2를 새로 만든다
 PROMPT_VERSION = "grounded_answer_v1"
@@ -36,6 +38,18 @@ def load_system_prompt() -> str:
     """system 메시지 내용을 프롬프트 파일(`search/prompts/<PROMPT_VERSION>.md`)에서 읽는다."""
     path = resources.files("rfp_pm_agent.search").joinpath("prompts", f"{PROMPT_VERSION}.md")
     return path.read_text("utf-8")
+
+
+def is_refusal(text: str) -> bool:
+    """LLM 답이 거절 문구인지 판정한다.
+
+    앞뒤 공백을 떼고, 끝의 마침표(`.` 또는 `。`) 하나를 뗀 것이 `REFUSAL_TEXT`와 완전히 같을 때만 True.
+    마침표 두 개(`..`), 마침표 앞 공백(`없음 .`), 문구 뒤에 설명이 붙은 답(`없음. 다만 ~`)은 거절이 아니다.
+    """
+    stripped = text.strip()
+    if stripped.endswith(_REFUSAL_END_MARKS):
+        stripped = stripped[:-1]
+    return stripped == REFUSAL_TEXT
 
 
 def extract_citation_numbers(text: str) -> list[int]:
@@ -87,6 +101,7 @@ def answer_question(
             answer=REFUSAL_TEXT,
             refused=True,
             citations=[],
+            citation_map={},
             cited_chunk_ids=[],
             invalid_citations=[],
             hit_count=0,
@@ -94,5 +109,5 @@ def answer_question(
         )
 
     # 여기부터 소유자 구현(학습 모드, #19) — data-design.md 5절 "근거 답변" 동작 3~6:
-    # build_prompt → llm.chat 1회 → 거절 문구 확인 → extract_citation_numbers → format_citation
+    # build_prompt → llm.chat 1회 → is_refusal → extract_citation_numbers → format_citation
     raise NotImplementedError("소유자 구현 (#19)")

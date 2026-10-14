@@ -407,19 +407,19 @@ def answer_question(
     deps: SearchDeps,
     llm: LLMClient,
     top_k: int = DEFAULT_TOP_K,  # 10
-    doc_ids: list[str] | None = None,  # 2026-10-14 추가(소유자 구현 대기, 테스트는 xfail)
+    doc_ids: list[str] | None = None,  # 2026-10-14 추가
 ) -> GroundedAnswer: ...
 ```
 
 - `llm`은 `clients/`의 `LLMClient`다. 서비스·평가 실행에서는 `LoggingLLMClient`로 감싼 것을 넘긴다(비용 로그). 테스트는 가짜를 넣는다
 - `top_k`가 LLM에 넣는 청크 수다. `search_documents`에 그대로 넘기고, 돌려받은 청크를 모두 프롬프트에 넣는다
 - `doc_ids`도 `search_documents`에 그대로 넘긴다. None이면 전체 문서 검색이다. 검증(빈 목록, 인덱스에 없는 doc_id → `ValueError`)은
-  `search_documents`가 한다
+  `search_documents`가 한다. 근거 답변은 문서 지정을 전제로 쓴다(ADR-0006 결정 4) — 전체 검색 조건은 #19 DoD ②를 통과하지 못했다
 - `format_citation`은 LLM 호출과 분리된 함수다 — #22 에이전트가 같은 함수를 쓴다
 
 #### 동작
 
-1. `search_documents(query, top_k, deps=deps)`를 부른다
+1. `search_documents(query, top_k, doc_ids=doc_ids, deps=deps)`를 부른다
 2. 결과가 0건이면 **LLM을 부르지 않고** 거절한다(비용 0). 넘길 근거가 없어 LLM이 답할 수 있는 것이 없다
 3. `build_prompt`로 메시지를 만든다: system 1개(프롬프트 파일 내용) + user 1개(청크 목록과 질문). 청크는 검색 결과 순서대로
    `[1]`~`[n]` 번호를 붙여 넣는다 — 번호 i는 `hits[i-1]`이다

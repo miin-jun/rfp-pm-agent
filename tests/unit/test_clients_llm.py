@@ -9,7 +9,7 @@ from rfp_pm_agent.clients.cost import CostLogger, compute_llm_cost
 from rfp_pm_agent.clients.llm import ChatMessage, OpenAICompatLLMClient
 from rfp_pm_agent.clients.logged import LoggingLLMClient
 from rfp_pm_agent.config import ClientsConfig
-from tests.fakes.fake_llm import FakeLLMClient
+from tests.fakes.fake_llm import FakeLLMClient, ScriptedLLMClient
 from tests.unit.conftest import make_clients_config
 
 
@@ -24,6 +24,30 @@ def test_fake_llm_client_is_deterministic() -> None:
     assert first.content == "echo: hello there"
     assert first.input_tokens == 2
     assert first.output_tokens == 3
+
+
+def test_scripted_llm_client_returns_responses_in_order_and_records_calls() -> None:
+    fake = ScriptedLLMClient(
+        ["첫 답", "둘째 답"], input_tokens=7, output_tokens=5, reasoning_tokens=2
+    )
+    first_messages = [ChatMessage(role="user", content="질문 1")]
+    second_messages = [ChatMessage(role="user", content="질문 2")]
+
+    first = fake.chat(first_messages)
+    second = fake.chat(second_messages, model="other-model")
+
+    assert (first.content, first.model) == ("첫 답", "fake-llm")
+    assert (second.content, second.model) == ("둘째 답", "other-model")
+    assert (first.input_tokens, first.output_tokens, first.reasoning_tokens) == (7, 5, 2)
+    assert fake.calls == [(first_messages, None), (second_messages, "other-model")]
+
+
+def test_scripted_llm_client_fails_when_called_more_than_scripted() -> None:
+    fake = ScriptedLLMClient([])
+
+    with pytest.raises(AssertionError, match="정해 둔 응답 0개"):
+        fake.chat([ChatMessage(role="user", content="질문")])
+    assert len(fake.calls) == 1
 
 
 def test_openai_compat_client_uses_configured_base_url_without_network() -> None:

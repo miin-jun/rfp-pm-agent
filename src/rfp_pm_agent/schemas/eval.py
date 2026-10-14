@@ -94,6 +94,20 @@ class EvalQuestionV2(BaseModel):
         return self
 
 
+class IrrelevantQuestion(BaseModel):
+    """공고 문서와 관계없는 질문 하나 (이슈 #19, data/eval/irrelevant_v1.jsonl).
+
+    정답은 모두 "거절"이라 답 필드가 없다. 필드 설명은 data-design.md 9절 "무관 질문 세트".
+    """
+
+    question_id: str
+    question: str
+    category: str
+    verified_by: str | None = None
+    verified_at: str | None = None
+    note: str = ""
+
+
 class SearchHit(BaseModel):
     """검색 결과 한 건. 점수 내림차순의 몇 번째인지는 목록 안 위치로 나타낸다."""
 

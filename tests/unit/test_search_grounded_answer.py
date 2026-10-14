@@ -334,7 +334,6 @@ def test_answer_question_lets_search_errors_through_without_calling_llm(
 # --- answer_question: LLM 호출 이후 (소유자 구현) ---
 
 
-@OWNER_TODO
 def test_answer_question_calls_llm_once_with_build_prompt_messages(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -348,7 +347,6 @@ def test_answer_question_calls_llm_once_with_build_prompt_messages(
     assert llm.calls[0][0] == build_prompt(QUERY, hits)
 
 
-@OWNER_TODO
 def test_answer_question_turns_cited_numbers_into_citations_in_first_seen_order(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -378,7 +376,6 @@ def test_answer_question_turns_cited_numbers_into_citations_in_first_seen_order(
     )
 
 
-@OWNER_TODO
 def test_answer_question_keeps_one_citation_for_chunks_with_the_same_citation_string(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -393,7 +390,6 @@ def test_answer_question_keeps_one_citation_for_chunks_with_the_same_citation_st
     assert result.cited_chunk_ids == ["chunk-3", "chunk-4"]
 
 
-@OWNER_TODO
 @pytest.mark.parametrize(
     "reply", [REFUSAL_TEXT, f"  {REFUSAL_TEXT}\n", f"{REFUSAL_TEXT}.", f"{REFUSAL_TEXT}。"]
 )
@@ -417,7 +413,6 @@ def test_answer_question_refusal_reply_has_no_citations(
     )
 
 
-@OWNER_TODO
 def test_answer_question_records_out_of_range_numbers_and_does_not_cite_them(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -433,7 +428,6 @@ def test_answer_question_records_out_of_range_numbers_and_does_not_cite_them(
     assert result.invalid_citations == [15, 0, 6]
 
 
-@OWNER_TODO
 def test_answer_question_answer_without_citation_numbers_is_not_turned_into_refusal(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -451,7 +445,6 @@ def test_answer_question_answer_without_citation_numbers_is_not_turned_into_refu
     assert result.invalid_citations == []
 
 
-@OWNER_TODO
 def test_answer_question_refusal_phrase_followed_by_explanation_is_an_answer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -466,7 +459,6 @@ def test_answer_question_refusal_phrase_followed_by_explanation_is_an_answer(
     assert result.citation_map == {1: "[A 사업 p.23 · SFR-001]"}
 
 
-@OWNER_TODO
 def test_answer_question_citation_map_keeps_first_seen_order(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -17,7 +17,7 @@ import re
 from importlib import resources
 
 from rfp_pm_agent.clients.llm import ChatMessage, LLMClient
-from rfp_pm_agent.schemas.answer import GroundedAnswer
+from rfp_pm_agent.schemas.answer import GroundedAnswer, LLMUsage
 from rfp_pm_agent.schemas.search import DocumentHit
 from rfp_pm_agent.search.hybrid import DEFAULT_TOP_K
 from rfp_pm_agent.tools.search_documents import SearchDeps, search_documents
@@ -130,4 +130,50 @@ def answer_question(
 
     # 여기부터 소유자 구현(학습 모드, #19) — data-design.md 5절 "근거 답변" 동작 3~6:
     # build_prompt → llm.chat 1회 → is_refusal → extract_citation_numbers → format_citation
-    raise NotImplementedError("소유자 구현 (#19)")
+    messages = build_prompt(query, hits)
+    response = llm.chat(messages)
+    usage = LLMUsage(
+        input_tokens=response.input_tokens,
+        output_tokens=response.output_tokens,
+        reasoning_tokens=response.reasoning_tokens,
+    )
+
+    if is_refusal(response.content):
+        return GroundedAnswer(
+            answer=REFUSAL_TEXT,
+            refused=True,
+            citations=[],
+            citation_map={},
+            cited_chunk_ids=[],
+            invalid_citations=[],
+            hit_count=len(hits),
+            llm_usage=usage,
+        )
+
+    citations: list[str] = []
+    citation_map: dict[int, str] = {}
+    cited_chunk_ids: list[str] = []
+    invalid_citations: list[int] = []
+
+    for number in extract_citation_numbers(response.content):
+        if 1 <= number <= len(hits):
+            hit = hits[number - 1]
+            citation = format_citation(hit)
+            citation_map[number] = citation
+            if citation not in citations:
+                citations.append(citation)
+            if hit.chunk_id not in cited_chunk_ids:
+                cited_chunk_ids.append(hit.chunk_id)
+        else:
+            invalid_citations.append(number)
+
+    return GroundedAnswer(
+        answer=response.content.strip(),
+        refused=False,
+        citations=citations,
+        citation_map=citation_map,
+        cited_chunk_ids=cited_chunk_ids,
+        invalid_citations=invalid_citations,
+        hit_count=len(hits),
+        llm_usage=usage,
+    )

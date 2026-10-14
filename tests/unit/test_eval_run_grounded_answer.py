@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -291,7 +292,7 @@ def test_summary_passes_at_the_boundary_of_each_rule() -> None:
     verdicts = {v.group: (v.total, v.refused, v.passed) for v in summary.verdicts}
     assert verdicts == {
         "A": (34, 3, True),
-        "B": (1, 1, True),
+        "B": (1, 1, None),
         "C": (6, 5, True),
         "U": (5, 5, True),
     }
@@ -310,7 +311,19 @@ def test_summary_fails_one_step_past_the_rule(qid: str, refused: bool, group: st
     verdicts: dict[str, bool | None] = {v.group: v.passed for v in rga.summarize(rows).verdicts}
 
     assert verdicts[group] is False
-    assert all(ok for g, ok in verdicts.items() if g != group)
+    assert all(ok for g, ok in verdicts.items() if g not in (group, "B"))
+
+
+def test_group_b_has_no_rule_and_is_shown_as_no_rule() -> None:
+    summary = rga.summarize(_passing_rows())
+
+    b = next(v for v in summary.verdicts if v.group == "B")
+    assert (b.has_rule, b.passed) == (False, None)
+    b_line = next(
+        line for line in rga.format_summary(summary).splitlines() if line.startswith("B |")
+    )
+    assert b_line.endswith("| 기준 없음")
+    assert "통과" not in b_line
 
 
 def test_summary_marks_group_with_error_as_undecided() -> None:
@@ -372,3 +385,39 @@ def test_load_irrelevant_reads_the_confirmed_set() -> None:
     questions = rga.load_irrelevant(Path("data/eval/irrelevant_v1.jsonl"))
 
     assert [q.question_id for q in questions] == ["u001", "u002", "u003", "u004", "u005"]
+
+
+def test_resummarize_rebuilds_summary_and_md_from_rows_without_touching_rows(
+    tmp_path: Path,
+) -> None:
+    qa_file = tmp_path / "qa.jsonl"
+    qa_file.write_text(_question("a00", [["b0001"]]).model_dump_json() + "\n", encoding="utf-8")
+    rows_path = tmp_path / "grounded_answer_20261014.jsonl"
+    rows_text = "".join(r.model_dump_json() + "\n" for r in _passing_rows())
+    rows_path.write_text(rows_text, encoding="utf-8")
+    info = rga.RunInfo(
+        started_at="s",
+        finished_at="f",
+        model="m",
+        reasoning_effort="low",
+        prompt_version="p",
+        index_alias="a",
+        index_names=["i"],
+        top_k=10,
+        qa_file="qa",
+        irrelevant_file="ir",
+        question_count=46,
+    )
+    run_path = tmp_path / "grounded_answer_20261014_run.json"
+    run_path.write_text(json.dumps({"run": info.model_dump(), "summary": {}}), encoding="utf-8")
+
+    rga.resummarize(rows_path, qa_file, tmp_path / "없음.jsonl", note="B 표시 수정")
+
+    assert rows_path.read_text(encoding="utf-8") == rows_text
+    saved = json.loads(run_path.read_text(encoding="utf-8"))
+    assert saved["run"]["notes"] == ["B 표시 수정"]
+    assert saved["run"]["model"] == "m"
+    assert {v["group"]: v["passed"] for v in saved["summary"]["verdicts"]}["A"] is True
+    md = (tmp_path / "grounded_answer_20261014.md").read_text(encoding="utf-8")
+    assert "- 메모: B 표시 수정" in md
+    assert "| a00 | A |" in md

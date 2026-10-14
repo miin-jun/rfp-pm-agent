@@ -103,6 +103,7 @@ class RunInfo(BaseModel):
     qa_file: str
     irrelevant_file: str
     question_count: int
+    notes: list[str] = []  # 실행 뒤에 덧붙인 기록(예: 요약을 문항별 결과에서 다시 만든 이유)
 
 
 class GroupVerdict(BaseModel):
@@ -111,7 +112,8 @@ class GroupVerdict(BaseModel):
     refused: int
     errors: int
     rule: str
-    passed: bool | None  # 오류가 있으면 None(판정 불가)
+    has_rule: bool  # B는 통과 기준이 없다(DoD ③, 검색에서 생긴 결과)
+    passed: bool | None  # 기준이 없거나 오류가 있으면 None
 
 
 class Summary(BaseModel):
@@ -311,6 +313,7 @@ def _verdict(rows: Sequence[AnswerRow], group: Group) -> GroupVerdict:
     members = [r for r in rows if r.group == group]
     refused = sum(r.refused is True for r in members)
     errors = sum(r.error is not None for r in members)
+    ok: bool | None
     if group == "A":
         rule, ok = f"잘못 거절 ≤ {A_MAX_REFUSED}", refused <= A_MAX_REFUSED
     elif group == "C":
@@ -318,14 +321,15 @@ def _verdict(rows: Sequence[AnswerRow], group: Group) -> GroupVerdict:
     elif group == "U":
         rule, ok = f"거절 ≥ {U_MIN_REFUSED}", refused >= U_MIN_REFUSED
     else:
-        rule, ok = "기준 없음(검색에서 생긴 결과, DoD ③)", True
+        rule, ok = "기준 없음(검색에서 생긴 결과, DoD ③)", None
     return GroupVerdict(
         group=group,
         total=len(members),
         refused=refused,
         errors=errors,
         rule=rule,
-        passed=None if errors else ok,
+        has_rule=ok is not None,
+        passed=None if errors or ok is None else ok,
     )
 
 
@@ -370,7 +374,11 @@ def format_summary(summary: Summary) -> str:
         "== DoD ② 거절 (그룹 | 문항 | 거절 | 오류 | 기준 | 판정)",
     ]
     for v in s.verdicts:
-        mark = {True: "통과", False: "미통과", None: "판정 불가"}[v.passed]
+        mark = (
+            {True: "통과", False: "미통과", None: "판정 불가"}[v.passed]
+            if v.has_rule
+            else "기준 없음"
+        )
         lines.append(f"{v.group} | {v.total} | {v.refused} | {v.errors} | {v.rule} | {mark}")
     lines += [
         "",
@@ -444,11 +452,24 @@ def write_outputs(
 ) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     rows_path = out_dir / f"{stem}.jsonl"
-    run_path = out_dir / f"{stem}_run.json"
-    md_path = out_dir / f"{stem}.md"
     with rows_path.open("w", encoding="utf-8") as f:
         for row in rows:
             f.write(row.model_dump_json() + "\n")
+    return [rows_path, *write_summary_files(out_dir, stem, rows, info, summary, qa_questions)]
+
+
+def write_summary_files(
+    out_dir: Path,
+    stem: str,
+    rows: Sequence[AnswerRow],
+    info: RunInfo,
+    summary: Summary,
+    qa_questions: Sequence[EvalQuestionV2],
+) -> list[Path]:
+    """`_run.json`(실행 정보·요약)과 `.md`(요약·대조 표)를 쓴다. 문항별 결과(.jsonl)는 건드리지 않는다."""
+    run_path = out_dir / f"{stem}_run.json"
+    md_path = out_dir / f"{stem}.md"
+    notes = "".join(f"- 메모: {n}\n" for n in info.notes)
     run_path.write_text(
         json.dumps(
             {"run": info.model_dump(), "summary": summary.model_dump()},
@@ -462,13 +483,38 @@ def write_outputs(
         f"# 근거 답변 실행 {stem}\n\n"
         f"- 모델 `{info.model}`, 추론 강도 `{info.reasoning_effort}`, 프롬프트 `{info.prompt_version}`\n"
         f"- 별칭 `{info.index_alias}` → {info.index_names}, top_k={info.top_k}, 문항 {info.question_count}\n"
-        f"- 시각 {info.started_at} ~ {info.finished_at}\n\n"
+        f"- 시각 {info.started_at} ~ {info.finished_at}\n"
+        f"{notes}\n"
         f"```\n{format_summary(summary)}\n```\n\n"
         "## A·B 문항 대조 (사람 판정 칸은 비워 둔다)\n\n"
         f"{format_comparison_table(rows, qa_questions)}\n",
         encoding="utf-8",
     )
-    return [rows_path, run_path, md_path]
+    return [run_path, md_path]
+
+
+def load_rows(path: Path) -> list[AnswerRow]:
+    with path.open(encoding="utf-8") as f:
+        return [AnswerRow.model_validate_json(line) for line in f if line.strip()]
+
+
+def resummarize(
+    rows_path: Path, qa_file: Path, previous_groups: Path, note: str | None = None
+) -> list[Path]:
+    """문항별 결과(.jsonl)만으로 `_run.json`의 요약과 `.md`를 다시 만든다. LLM·검색 서버를 부르지 않는다.
+
+    실행 정보는 기존 `_run.json`의 "run"을 그대로 쓰고, note가 있으면 `notes`에 덧붙인다.
+    """
+    stem = rows_path.stem
+    run_path = rows_path.with_name(f"{stem}_run.json")
+    info = RunInfo.model_validate(json.loads(run_path.read_text(encoding="utf-8"))["run"])
+    if note:
+        info = info.model_copy(update={"notes": [*info.notes, note]})
+    rows = load_rows(rows_path)
+    summary = summarize(rows, load_previous_groups(previous_groups))
+    return write_summary_files(
+        rows_path.parent, stem, rows, info, summary, load_questions_v2(qa_file)
+    )
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -476,7 +522,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--qa-file", type=Path, default=DEFAULT_QA_FILE)
     parser.add_argument("--irrelevant-file", type=Path, default=DEFAULT_IRRELEVANT_FILE)
     parser.add_argument("--previous-groups", type=Path, default=DEFAULT_PREVIOUS_GROUPS)
-    parser.add_argument("--out-dir", type=Path, required=True)
+    parser.add_argument("--out-dir", type=Path, help="실행 결과를 쓸 폴더(실행할 때 필요)")
+    parser.add_argument(
+        "--from-rows",
+        type=Path,
+        help="실행하지 않고 이 .jsonl(문항별 결과)로 _run.json 요약과 .md만 다시 만든다(비용 없음)",
+    )
+    parser.add_argument("--note", help="--from-rows로 다시 만들 때 _run.json notes에 남길 메모")
     return parser
 
 
@@ -485,7 +537,14 @@ def main(argv: list[str] | None = None) -> int:
 
     from rfp_pm_agent.search.opensearch import search_alias
 
-    args = build_arg_parser().parse_args(argv)
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
+    if args.from_rows is not None:
+        for path in resummarize(args.from_rows, args.qa_file, args.previous_groups, args.note):
+            print(path)
+        return 0
+    if args.out_dir is None:
+        parser.error("--out-dir가 필요하다(또는 --from-rows)")
     qa_questions = load_questions_v2(args.qa_file)
     irrelevant = load_irrelevant(args.irrelevant_file)
     config = ClientsConfig.from_env()

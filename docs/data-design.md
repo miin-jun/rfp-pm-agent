@@ -628,6 +628,21 @@ projects ─┬─< project_members >── users
  "verified_by": "minjurry", "verified_at": "2026-09-..", "note": ""}
 ```
 
+### 무관 질문 세트 — `data/eval/irrelevant_v1.jsonl` (#19)
+
+공고 문서와 관계없는 질문 5개. #19 근거 답변 실행에서 qa_v2 57문항과 함께 돌려 **5/5 거절**을 확인한다(이슈 #19 DoD ②).
+문항은 소유자가 확정했다(2026-10-14).
+
+- qa_v2에 넣지 않고 따로 둔다 — qa_v2는 검색 평가 세트라 `evidence`·`doc_id`·`gold_chunk_ids`가 있고 검색 지표가 57문항 기준이다.
+  섞으면 검색 기록과 문항 수가 달라진다
+- 필드: `question_id`(`u001`~), `question`, `category`(질문 종류), `verified_by`, `verified_at`, `note`. 정답은 모두 "거절"이라 답 필드가 없다
+- 종류: 일반 상식·계산·생활(요리)·다른 분야 업무(노무)·사업과 무관한 기술 질문. `u005`(파이썬 정렬)는 RFP의 개발 언어 요구사항과 주제가 겹칠 수 있다
+
+```json
+{"question_id": "u001", "question": "대한민국의 수도는 어디인가요?", "category": "일반 상식",
+ "verified_by": "miin-jun", "verified_at": "2026-10-14", "note": ""}
+```
+
 ### `data/eval/agent_v1.jsonl` — 에이전트 평가 (#25)
 
 ```json

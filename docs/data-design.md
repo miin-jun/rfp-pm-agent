@@ -388,6 +388,106 @@ def search_documents(
 - 리랭커가 꺼졌을 때 하이브리드 결과만 돌려주는 대체 경로 — 만들지 않는다(D5)
 - `project_id`로 거르기 — 인덱스에 `project_id`가 없다(5절 "첫 인덱스 필드")
 
+### 근거 답변 `answer_question` (#19, 초안 2026-10-14)
+
+질문 하나를 받아 `search_documents`로 청크를 찾고, LLM이 그 청크만 보고 답하게 한 뒤 출처를 붙인다.
+거절 판단·출처 표기·모델은 [ADR-0006](adr/0006-grounded-answer-refusal-and-citation.md)이 기준이다.
+
+#### 시그니처
+
+```python
+# search/grounded_answer.py
+def format_citation(hit: DocumentHit) -> str: ...
+def build_prompt(query: str, hits: list[DocumentHit]) -> list[ChatMessage]: ...
+def extract_citation_numbers(text: str) -> list[int]: ...
+def answer_question(
+    query: str,
+    *,
+    deps: SearchDeps,
+    llm: LLMClient,
+    top_k: int = DEFAULT_TOP_K,  # 10
+) -> GroundedAnswer: ...
+```
+
+- `llm`은 `clients/`의 `LLMClient`다. 서비스·평가 실행에서는 `LoggingLLMClient`로 감싼 것을 넘긴다(비용 로그). 테스트는 가짜를 넣는다
+- `top_k`가 LLM에 넣는 청크 수다. `search_documents`에 그대로 넘기고, 돌려받은 청크를 모두 프롬프트에 넣는다
+- `format_citation`은 LLM 호출과 분리된 함수다 — #22 에이전트가 같은 함수를 쓴다
+
+#### 동작
+
+1. `search_documents(query, top_k, deps=deps)`를 부른다
+2. 결과가 0건이면 **LLM을 부르지 않고** 거절한다(비용 0). 넘길 근거가 없어 LLM이 답할 수 있는 것이 없다
+3. `build_prompt`로 메시지를 만든다: system 1개(프롬프트 파일 내용) + user 1개(청크 목록과 질문). 청크는 검색 결과 순서대로
+   `[1]`~`[n]` 번호를 붙여 넣는다 — 번호 i는 `hits[i-1]`이다
+4. `llm.chat(messages)`를 1회 부른다
+5. LLM 답(앞뒤 공백을 뗀 것)이 거절 문구와 같으면 거절로 처리한다
+6. 아니면 답에서 인용 번호를 뽑아(`extract_citation_numbers`) 번호 → `DocumentHit` → `format_citation`으로 출처를 만든다
+
+LLM은 번호만 인용한다. 문서명·쪽번호·요구사항 ID를 LLM이 직접 쓰게 하지 않는다 — LLM이 쓴 출처는 청크에 없는 쪽번호일 수 있고,
+코드가 만든 출처는 그 실행의 검색 결과에 있는 청크만 가리킨다(DoD ①을 코드로 확인할 수 있다).
+
+#### 반환 — `GroundedAnswer` (`schemas/answer.py`)
+
+| 필드 | 타입 | 내용 |
+|---|---|---|
+| `answer` | str | LLM 답(앞뒤 공백을 뗀 것, 인용 번호 `[n]` 포함). 거절이면 거절 문구 |
+| `refused` | bool | 거절 여부 |
+| `citations` | list[str] | 출처 문자열(2절 5가지). 답에 처음 나온 순서, 같은 문자열은 한 번만. 거절이면 빈 목록 |
+| `cited_chunk_ids` | list[str] | 인용된 청크의 `chunk_id`. 답에 처음 나온 순서, 같은 청크는 한 번만. 거절이면 빈 목록 |
+| `invalid_citations` | list[int] | 검색 결과 범위(1~`hit_count`) 밖의 인용 번호. 처음 나온 순서, 같은 번호는 한 번만 |
+| `hit_count` | int | 검색 결과 수(LLM에 넣은 청크 수) |
+| `llm_usage` | `LLMUsage` \| None | `input_tokens`·`output_tokens`(추론 토큰 포함)·`reasoning_tokens`. LLM을 부르지 않았으면 None |
+
+- `citations`와 `cited_chunk_ids`의 길이는 다를 수 있다. 같은 HWP 문서의 블록 청크 두 개는 출처가 둘 다 `[문서명]`이라
+  `citations`에는 하나, `cited_chunk_ids`에는 둘이 들어간다
+- 거절 문구: `문서에서 찾을 수 없음` (`REFUSAL_TEXT`). LLM 답에서 앞뒤 공백을 뗀 것이 이 문구와 완전히 같을 때만 거절이다.
+  문구 뒤에 설명이 붙은 답은 거절로 보지 않는다
+- 거절이면 `citations`·`cited_chunk_ids`·`invalid_citations`는 모두 빈 목록이다(ADR-0006: 거절 응답에는 출처를 달지 않는다)
+- 범위 밖 번호(청크 10개인데 `[15]`, 또는 `[0]`)는 출처로 쓰지 않고 `invalid_citations`에 남긴다. 예외를 내지 않는다
+- 거절이 아닌데 유효한 인용 번호가 하나도 없는 답은 `refused=False`, `citations=[]`로 그대로 돌려준다.
+  이 함수가 거절로 바꾸지 않는다 — DoD ①(거절하지 않은 답변에 출처 1개 이상)은 실행 결과에서 센다
+
+#### 인용 번호 형태 (`extract_citation_numbers`)
+
+대괄호 안에 숫자(0~9)만 있거나, 숫자를 쉼표로 나열한 것을 인용 번호로 읽는다. 처음 나온 순서로, 같은 번호는 한 번만 돌려준다.
+
+| 답에 적힌 형태 | 읽은 번호 |
+|---|---|
+| `[1]` | 1 |
+| `[1][3]` | 1, 3 |
+| `[1, 3]`·`[1,3]`·`[ 1 , 3 ]` | 1, 3 |
+| `[1-3]`·`[1~3]`(범위) | 읽지 않는다 |
+| `(1)`·`［1］`(전각 괄호)·`[１]`(전각 숫자) | 읽지 않는다 |
+| `[SFR-001]`·`[문서명 p.23]`·`[1번]` | 읽지 않는다 |
+
+- 범위 확인은 하지 않는다(`[15]`도 15로 돌려준다). 범위 밖인지는 `answer_question`이 검색 결과 수와 비교해 정한다
+- 답에 `[2026]`처럼 대괄호로 싼 숫자가 인용이 아닌 뜻으로 쓰이면 인용 번호로 읽힌다(범위 밖이면 `invalid_citations`에 남는다)
+
+#### 오류
+
+| 상황 | 동작 |
+|---|---|
+| 검색 결과 0건 | 예외 아님. LLM 호출 0회, `refused=True`, `answer` = 거절 문구, `hit_count=0`, `llm_usage=None` |
+| `SearchUnavailableError`(검색 서버 장애) | 잡지 않고 그대로 올린다([ADR-0005](adr/0005-search-documents-contract.md) 계약. #22 에이전트가 처리) |
+| `ValueError`(빈 질문, `top_k` 범위 밖, 너무 긴 질의) | 잡지 않고 그대로 올린다 |
+| LLM 호출 예외 | 잡지 않고 그대로 올린다 |
+
+검색 예외가 나면 LLM은 부르지 않는다.
+
+#### 프롬프트 파일
+
+- 위치: `src/rfp_pm_agent/search/prompts/grounded_answer_v1.md` — system 메시지 내용 전체다. `load_system_prompt()`가 읽는다
+- 버전: 파일 이름 끝의 `_v1`이 버전이다. 코드의 `PROMPT_VERSION = "grounded_answer_v1"`이 읽을 파일을 정한다.
+  내용을 바꾸면 파일을 고치지 않고 `_v2` 파일을 새로 만들어 `PROMPT_VERSION`을 바꾼다 — 실행 기록에 적힌 버전의 프롬프트를 나중에도 그대로 볼 수 있다
+- 평가 실행 기록(`data/eval/results/answer/`)에 `PROMPT_VERSION`을 모델·추론 강도와 함께 적는다(architecture.md 4-10 "프롬프트·모델 버전 관리")
+- 청크 목록과 질문을 넣는 user 메시지 형식은 `build_prompt` 코드에 둔다
+
+#### 범위 밖
+
+- 답변 내용이 맞는지 자동 채점(Faithfulness·Citation 정확도) — #25
+- PMS 사실(WBS·Risk)의 출처 — #21·#22
+- 답변 문장 안의 `[n]`을 출처 문자열로 바꿔 넣기 — 하지 않는다. 출처는 `citations`로 따로 돌려준다
+
 ---
 
 ## 6. PMS 스키마 (PostgreSQL)

@@ -461,12 +461,6 @@ def test_scope_all_searches_every_question_without_doc_ids(
     assert [r.doc_ids for r in rows] == [None, None]
 
 
-# answer_question이 doc_ids를 받기 전이라 run이 문항 오류(TypeError)를 기록하고 검색이 불리지 않아 단언이 실패한다
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="소유자 구현: answer_question에 doc_ids 인자 추가 (#19)",
-)
 def test_scope_doc_passes_each_qa_doc_id_and_leaves_irrelevant_unfiltered(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

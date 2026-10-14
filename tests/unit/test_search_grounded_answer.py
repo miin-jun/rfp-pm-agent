@@ -338,7 +338,6 @@ def test_answer_question_lets_search_errors_through_without_calling_llm(
 # --- answer_question: doc_ids (소유자 구현 — 시그니처에 doc_ids 인자 추가) ---
 
 
-@OWNER_TODO_DOC_IDS
 def test_answer_question_passes_doc_ids_to_search(monkeypatch: pytest.MonkeyPatch) -> None:
     """doc_ids를 그대로 search_documents에 넘긴다. 안 주면 None — test_answer_question_passes_query_top_k_and_deps_to_search."""
     calls = _patch_search(monkeypatch, [])

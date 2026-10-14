@@ -109,13 +109,14 @@ def answer_question(
     deps: SearchDeps,
     llm: LLMClient,
     top_k: int = DEFAULT_TOP_K,
+    doc_ids: list[str] | None = None,
 ) -> GroundedAnswer:
     """질문에 검색 결과만 근거로 답하고 출처를 붙인다. 근거가 없으면 거절한다.
 
     - 검색 결과가 0건이면 LLM을 부르지 않고 거절한다
     - `SearchUnavailableError`·`ValueError`(검색)와 LLM 예외는 잡지 않는다
     """
-    hits = search_documents(query, top_k, deps=deps)
+    hits = search_documents(query, top_k, doc_ids=doc_ids, deps=deps)
     if not hits:
         return GroundedAnswer(
             answer=REFUSAL_TEXT,

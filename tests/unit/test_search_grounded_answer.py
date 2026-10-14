@@ -246,7 +246,6 @@ def test_format_citation_empty_requirement_id_is_treated_as_missing() -> None:
 # --- build_prompt (소유자 구현) ---
 
 
-@OWNER_TODO
 def test_build_prompt_is_system_from_prompt_file_then_one_user_message() -> None:
     messages = build_prompt(QUERY, _hits())
 
@@ -254,7 +253,6 @@ def test_build_prompt_is_system_from_prompt_file_then_one_user_message() -> None
     assert messages[0].content == load_system_prompt()
 
 
-@OWNER_TODO
 def test_build_prompt_numbers_chunks_1_to_n_in_hit_order() -> None:
     hits = _hits()
 
@@ -269,7 +267,6 @@ def test_build_prompt_numbers_chunks_1_to_n_in_hit_order() -> None:
     assert f"[{len(hits) + 1}]" not in user
 
 
-@OWNER_TODO
 def test_build_prompt_includes_the_question() -> None:
     assert QUERY in build_prompt(QUERY, _hits())[1].content
 

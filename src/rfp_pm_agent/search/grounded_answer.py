@@ -90,7 +90,17 @@ def build_prompt(query: str, hits: list[DocumentHit]) -> list[ChatMessage]:
 
     소유자 구현(학습 모드, #19). 번호 i는 `hits[i-1]`이다.
     """
-    raise NotImplementedError("소유자 구현 (#19)")
+    lines = []
+    for number, hit in enumerate(hits, start=1):
+        lines.append(f"[{number}] (문서: {hit.bid_title})\n{hit.text}")
+    chunks = "\n\n".join(lines)
+
+    user_content = f"{chunks}\n\n질문: {query}"
+
+    return [
+        ChatMessage(role="system", content=load_system_prompt()),
+        ChatMessage(role="user", content=user_content),
+    ]
 
 
 def answer_question(

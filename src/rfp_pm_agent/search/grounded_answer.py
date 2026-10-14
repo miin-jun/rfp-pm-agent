@@ -1,0 +1,98 @@
+"""근거 답변 (이슈 #19).
+
+질문 → `search_documents` → LLM 답변 → 출처 붙이기. 규칙은 docs/data-design.md 5절 "근거 답변
+answer_question", 거절 판단과 출처 표기는 docs/adr/0006-grounded-answer-refusal-and-citation.md가 기준이다.
+
+- LLM은 프롬프트의 청크 번호(`[1]`~`[n]`)만 인용한다. 번호 → `DocumentHit` → 출처 문자열은 코드가 바꾼다
+- `format_citation`은 LLM 호출과 분리돼 있다 — #22 에이전트가 같은 함수를 쓴다
+- 검색 예외(`SearchUnavailableError`·`ValueError`)와 LLM 예외는 잡지 않는다
+
+`format_citation`·`build_prompt`와 `answer_question`의 LLM 호출 이후는 소유자가 구현한다(학습 모드).
+테스트: tests/unit/test_search_grounded_answer.py
+"""
+
+from __future__ import annotations
+
+import re
+from importlib import resources
+
+from rfp_pm_agent.clients.llm import ChatMessage, LLMClient
+from rfp_pm_agent.schemas.answer import GroundedAnswer
+from rfp_pm_agent.schemas.search import DocumentHit
+from rfp_pm_agent.search.hybrid import DEFAULT_TOP_K
+from rfp_pm_agent.tools.search_documents import SearchDeps, search_documents
+
+# LLM이 근거가 없을 때 쓰는 문구. 답(앞뒤 공백 제거)이 이 문구와 완전히 같을 때만 거절이다
+REFUSAL_TEXT = "문서에서 찾을 수 없음"
+
+# 프롬프트 파일 이름(확장자 제외)이 곧 버전이다. 내용을 바꾸면 파일을 고치지 않고 _v2를 새로 만든다
+PROMPT_VERSION = "grounded_answer_v1"
+
+# 대괄호 안에 숫자만 있거나 숫자를 쉼표로 나열한 것: [1], [1, 3]. \d는 전각 숫자도 받아 [0-9]로 적는다
+_CITATION_RE = re.compile(r"\[\s*([0-9]+(?:\s*,\s*[0-9]+)*)\s*\]")
+
+
+def load_system_prompt() -> str:
+    """system 메시지 내용을 프롬프트 파일(`search/prompts/<PROMPT_VERSION>.md`)에서 읽는다."""
+    path = resources.files("rfp_pm_agent.search").joinpath("prompts", f"{PROMPT_VERSION}.md")
+    return path.read_text("utf-8")
+
+
+def extract_citation_numbers(text: str) -> list[int]:
+    """답변에서 인용 번호를 처음 나온 순서로, 같은 번호는 한 번만 뽑는다.
+
+    읽는 형태: `[1]`, `[1][3]`, `[1, 3]`(쉼표 나열, 공백 허용). 범위(`[1-3]`)·소괄호·전각 괄호와 숫자·
+    숫자가 아닌 글자가 섞인 대괄호(`[SFR-001]`)는 읽지 않는다. 검색 결과 범위 안인지는 확인하지 않는다.
+    """
+    numbers: list[int] = []
+    for match in _CITATION_RE.finditer(text):
+        for part in match.group(1).split(","):
+            number = int(part)
+            if number not in numbers:
+                numbers.append(number)
+    return numbers
+
+
+def format_citation(hit: DocumentHit) -> str:
+    """검색 결과 한 건의 출처 문자열(ADR-0006 결정 2의 5가지).
+
+    소유자 구현(학습 모드, #19). 규칙: docs/data-design.md 2절 "출처 표기 규칙".
+    """
+    raise NotImplementedError("소유자 구현 (#19)")
+
+
+def build_prompt(query: str, hits: list[DocumentHit]) -> list[ChatMessage]:
+    """LLM에 보낼 메시지: system(`load_system_prompt()`) + user(청크 `[1]`~`[n]`과 질문).
+
+    소유자 구현(학습 모드, #19). 번호 i는 `hits[i-1]`이다.
+    """
+    raise NotImplementedError("소유자 구현 (#19)")
+
+
+def answer_question(
+    query: str,
+    *,
+    deps: SearchDeps,
+    llm: LLMClient,
+    top_k: int = DEFAULT_TOP_K,
+) -> GroundedAnswer:
+    """질문에 검색 결과만 근거로 답하고 출처를 붙인다. 근거가 없으면 거절한다.
+
+    - 검색 결과가 0건이면 LLM을 부르지 않고 거절한다
+    - `SearchUnavailableError`·`ValueError`(검색)와 LLM 예외는 잡지 않는다
+    """
+    hits = search_documents(query, top_k, deps=deps)
+    if not hits:
+        return GroundedAnswer(
+            answer=REFUSAL_TEXT,
+            refused=True,
+            citations=[],
+            cited_chunk_ids=[],
+            invalid_citations=[],
+            hit_count=0,
+            llm_usage=None,
+        )
+
+    # 여기부터 소유자 구현(학습 모드, #19) — data-design.md 5절 "근거 답변" 동작 3~6:
+    # build_prompt → llm.chat 1회 → 거절 문구 확인 → extract_citation_numbers → format_citation
+    raise NotImplementedError("소유자 구현 (#19)")

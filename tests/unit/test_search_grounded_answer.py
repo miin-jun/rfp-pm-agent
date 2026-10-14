@@ -204,37 +204,31 @@ def test_load_system_prompt_reads_the_versioned_prompt_file() -> None:
 # --- format_citation (소유자 구현) ---
 
 
-@OWNER_TODO
 def test_format_citation_pdf_requirement_with_printed_page() -> None:
     assert format_citation(_hit()) == "[A 사업 p.23 · SFR-001]"
 
 
-@OWNER_TODO
 def test_format_citation_pdf_requirement_without_printed_page_uses_pdf_page_plus_one() -> None:
     assert format_citation(_hit(printed_page=None)) == "[A 사업 PDF 15쪽 · SFR-001]"
 
 
-@OWNER_TODO
 def test_format_citation_pdf_block() -> None:
     hit = _hit(requirement_id=None, printed_page=None, block_type="paragraph")
     assert format_citation(hit) == "[A 사업 PDF 15쪽]"
 
 
-@OWNER_TODO
 @pytest.mark.parametrize("fmt", ["hwp", "hwpx"])
 def test_format_citation_hwp_requirement(fmt: str) -> None:
     hit = _hit(format=fmt, page=None, printed_page=None)
     assert format_citation(hit) == "[A 사업 · SFR-001]"
 
 
-@OWNER_TODO
 @pytest.mark.parametrize("fmt", ["hwp", "hwpx"])
 def test_format_citation_hwp_block(fmt: str) -> None:
     hit = _hit(format=fmt, requirement_id=None, page=None, printed_page=None, block_type="table")
     assert format_citation(hit) == "[A 사업]"
 
 
-@OWNER_TODO
 def test_format_citation_page_zero_is_pdf_page_one() -> None:
     """page는 0부터 센다. 0을 "없음"으로 읽지 않는다."""
     assert format_citation(_hit(page=0, printed_page=None)) == "[A 사업 PDF 1쪽 · SFR-001]"
@@ -242,7 +236,6 @@ def test_format_citation_page_zero_is_pdf_page_one() -> None:
     assert format_citation(block) == "[A 사업 PDF 1쪽]"
 
 
-@OWNER_TODO
 def test_format_citation_empty_requirement_id_is_treated_as_missing() -> None:
     pdf = _hit(requirement_id="", printed_page=None, block_type="paragraph")
     assert format_citation(pdf) == "[A 사업 PDF 15쪽]"

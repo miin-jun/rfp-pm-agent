@@ -72,7 +72,17 @@ def format_citation(hit: DocumentHit) -> str:
 
     소유자 구현(학습 모드, #19). 규칙: docs/data-design.md 2절 "출처 표기 규칙".
     """
-    raise NotImplementedError("소유자 구현 (#19)")
+    head = hit.bid_title
+
+    if hit.format == "pdf":
+        if hit.printed_page is not None:
+            head += f" p.{hit.printed_page}"
+        elif hit.page is not None:
+            head += f" PDF {hit.page + 1}쪽"
+
+    if hit.requirement_id:
+        return f"[{head} · {hit.requirement_id}]"
+    return f"[{head}]"
 
 
 def build_prompt(query: str, hits: list[DocumentHit]) -> list[ChatMessage]:

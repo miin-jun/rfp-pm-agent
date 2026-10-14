@@ -1,0 +1,103 @@
+{
+  "run": {
+    "started_at": "2026-10-14T06:37:51+00:00",
+    "finished_at": "2026-10-14T06:39:51+00:00",
+    "model": "gpt-6-luna",
+    "reasoning_effort": "low",
+    "prompt_version": "grounded_answer_v1",
+    "index_alias": "rfp_chunks",
+    "index_names": [
+      "rfp_chunks_v2_kure"
+    ],
+    "top_k": 10,
+    "qa_file": "data/eval/qa_v2.jsonl",
+    "irrelevant_file": "data/eval/irrelevant_v1.jsonl",
+    "question_count": 62,
+    "scope": "doc",
+    "notes": [
+      "측정 전 예상(실행 전 고정, 2026-10-14): 조건 --scope doc, 프롬프트 grounded_answer_v1 그대로(v1 실행과 다른 것은 doc_ids 하나). 통과 기준 그대로(답 없음 5/6 이상 거절, 무관 5/5 거절, A 잘못 거절 3개 이하). 사용자 예상: 답 없음 6/6, 잘못 거절 3. Claude 예상: 답 없음 5~6/6, 잘못 거절 3~4 — 사업명 없는 8개는 문서가 좁혀져 대부분 답하고, q037(표 범위)·q027(표현 차이)·q038(잘못된 전제)은 프롬프트 규칙 2 때문이라 남을 것. 무관 질문은 두 조건 모두 필터 없이 실행해 v1과 같은 조건이다. 입력 토큰 추정 346,839, 예상 비용 보통 $0.036·최악 $0.097, 호출 62회"
+    ]
+  },
+  "summary": {
+    "answered": 44,
+    "answered_with_citation": 44,
+    "answered_without_citation": [],
+    "format_error_qids": [],
+    "refused_with_citation": [],
+    "verdicts": [
+      {
+        "group": "A",
+        "total": 40,
+        "refused": 1,
+        "errors": 0,
+        "rule": "잘못 거절 ≤ 3",
+        "has_rule": true,
+        "passed": true
+      },
+      {
+        "group": "B",
+        "total": 11,
+        "refused": 6,
+        "errors": 0,
+        "rule": "기준 없음(검색에서 생긴 결과, DoD ③)",
+        "has_rule": false,
+        "passed": null
+      },
+      {
+        "group": "C",
+        "total": 6,
+        "refused": 6,
+        "errors": 0,
+        "rule": "거절 ≥ 5",
+        "has_rule": true,
+        "passed": true
+      },
+      {
+        "group": "U",
+        "total": 5,
+        "refused": 5,
+        "errors": 0,
+        "rule": "거절 ≥ 5",
+        "has_rule": true,
+        "passed": true
+      }
+    ],
+    "b_qids": [
+      "q020",
+      "q031",
+      "q039",
+      "q042",
+      "q043",
+      "q046",
+      "q048",
+      "q050",
+      "q051",
+      "q053",
+      "q054"
+    ],
+    "b_refused": [
+      "q031",
+      "q039",
+      "q042",
+      "q043",
+      "q048",
+      "q051"
+    ],
+    "invalid_citation_qids": [],
+    "error_qids": [],
+    "group_changes": [
+      "q004 B→A",
+      "q007 B→A",
+      "q008 B→A",
+      "q023 B→A",
+      "q025 B→A",
+      "q028 B→A",
+      "q029 B→A"
+    ],
+    "llm_calls": 62,
+    "input_tokens": 346777,
+    "output_tokens": 2124,
+    "reasoning_tokens": 271,
+    "cost_usd": 0.0357397
+  }
+}

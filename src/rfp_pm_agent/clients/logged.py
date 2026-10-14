@@ -39,6 +39,7 @@ class LoggingLLMClient:
                 output_tokens=response.output_tokens,
                 cost_usd=cost_usd,
                 latency_ms=latency_ms,
+                reasoning_tokens=response.reasoning_tokens,
             )
         )
         return response

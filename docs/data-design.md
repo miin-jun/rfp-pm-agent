@@ -111,10 +111,15 @@ Document
 
 ### 출처 표기 규칙 (Grounded 답변에 사용)
 
-| 파일 형식 | 출처 표기 |
+청크 종류 5가지로 나눠 적는다([ADR-0006](adr/0006-grounded-answer-refusal-and-citation.md) 결정 2, #19). 문서명은 `bid_title`이다.
+
+| 청크 종류 | 출처 표기 |
 |---|---|
-| PDF | `[문서명 p.23(인쇄) · SFR-001]` — `printed_page_start`가 있으면 그 값, 없으면 `pdf_page_start`(0-based)에 안내 문구를 붙여 구분 |
-| HWP·HWPX | `[문서명 · SFR-001]` (페이지 개념이 없어 요구사항 ID만으로 인용) |
+| PDF 요구사항, 인쇄 쪽번호 있음 | `[문서명 p.23 · SFR-001]` — `p.23`은 `printed_page`(= `printed_page_start`) 그대로 |
+| PDF 요구사항, 인쇄 쪽번호 없음(null) | `[문서명 PDF 15쪽 · SFR-001]` — `PDF n쪽`의 n은 `page + 1`(PDF 뷰어에 보이는 쪽번호). "PDF"를 붙여 인쇄 쪽번호와 구별한다 |
+| PDF 블록 | `[문서명 PDF 15쪽]` — 블록 청크는 요구사항 ID와 인쇄 쪽번호가 없다 |
+| HWP·HWPX 요구사항 | `[문서명 · SFR-001]` (페이지 개념이 없어 요구사항 ID만으로 인용) |
+| HWP·HWPX 블록 | `[문서명]` — 요구사항 ID도 페이지도 없어 문서 안 위치를 가리키지 못한다(파서 한계) |
 
 ※ 페이지를 억지로 계산(예: "장 번호 - 1" 같은 고정 오프셋)하지 않는다 — 인쇄 쪽번호는 페이지 하단 텍스트를 실제로 읽어서 채우고, 못 읽으면 null로 둔다(docs/parsing-exploration.md, 천안시 PDF 실측: 1쪽이 표지라 번호가 없고, 그 뒤로는 우연히 `printed_page == pdf_page(0-based)`였다 — 이 우연을 코드에 고정 규칙으로 넣지 않는다).
 
@@ -334,11 +339,11 @@ def search_documents(
 | `bid_title` | str | 아니오 | `bid_title` (#81) | #19 출처 표기의 문서명 |
 | `format` | str (`pdf`·`hwp`·`hwpx`) | 아니오 | `format` (#81) | #19 쪽번호를 붙일지 정함 |
 | `requirement_id` | str | 예 (블록 청크) | `requirement_id` | #19 출처의 요구사항 ID, #22·#25 평가 `expected_facts.requirement_ids` |
-| `page` | int | 예 (HWP·HWPX 전부) | `page` — 0부터 세는 PDF 페이지 | #19 인쇄 쪽번호가 없을 때의 대체 표기(2절 규칙) |
-| `printed_page` | int | 예 (블록 청크 전부, 못 읽은 요구사항) | `printed_page` (#81) | #19 출처의 `p.23(인쇄)` |
+| `page` | int | 예 (HWP·HWPX 전부) | `page` — 0부터 세는 PDF 페이지 | #19 인쇄 쪽번호가 없을 때의 표기 `PDF n쪽`(n = `page + 1`, 2절 규칙) |
+| `printed_page` | int | 예 (블록 청크 전부, 못 읽은 요구사항) | `printed_page` (#81) | #19 출처의 `p.23` |
 | `block_type` | str (`paragraph`·`table`) | 예 (요구사항 청크) | `block_type` | Agent가 표 근거인지 구별 |
 | `text` | str | 아니오 | `text` (원문) | Agent 답변 근거, #19 근거 인용 |
-| `score` | float | 아니오 | **리랭커 점수** (TEI `/rerank` 기본 응답, 0~1) | 정렬 근거. 한 번의 호출 안에서만 비교한다 — 다른 질문의 점수와 비교하거나 답 있음/없음 기준으로 쓰지 않는다(#19에서 정한다) |
+| `score` | float | 아니오 | **리랭커 점수** (TEI `/rerank` 기본 응답, 0~1) | 정렬 근거. 한 번의 호출 안에서만 비교한다 — 다른 질문의 점수와 비교하거나 답 있음/없음 기준으로 쓰지 않는다 — 답 있음과 답 없음의 1위 점수가 겹쳐 임계값으로 가를 수 없다(2026-10-12 실측, [ADR-0006](adr/0006-grounded-answer-refusal-and-citation.md) 결정 1). 거절은 LLM이 청크 내용을 보고 판단한다 |
 
 - 결과가 `top_k`개보다 적을 수 있다(필터한 문서의 청크가 적을 때). 0개면 빈 목록이고 오류가 아니다
 - `score` 범위 확인(2026-10-08, TEI 1.9.4 `bge-reranker-v2-m3`): qa_v2 57문항 × 청크 20개(정답 청크 + 무작위, seed 0) = 1,140쌍을 `/rerank`에 보내
@@ -378,10 +383,129 @@ def search_documents(
 
 #### 범위 밖
 
-- 출처 문자열 만들기(`[문서명 p.23(인쇄) · SFR-001]`)와 근거 없음 판정·거절 — #19. 이 함수는 재료 필드만 돌려준다
+- 출처 문자열 만들기(`[문서명 p.23 · SFR-001]` 등 2절의 5가지)와 근거 없음 판정·거절 — #19. 이 함수는 재료 필드만 돌려준다
 - 권한 필터(`allowed_roles` 사전 필터) — Phase 2(8절). 지금 인덱스에는 권한 필드가 없다
 - 리랭커가 꺼졌을 때 하이브리드 결과만 돌려주는 대체 경로 — 만들지 않는다(D5)
 - `project_id`로 거르기 — 인덱스에 `project_id`가 없다(5절 "첫 인덱스 필드")
+
+### 근거 답변 `answer_question` (#19, 초안 2026-10-14)
+
+질문 하나를 받아 `search_documents`로 청크를 찾고, LLM이 그 청크만 보고 답하게 한 뒤 출처를 붙인다.
+거절 판단·출처 표기·모델은 [ADR-0006](adr/0006-grounded-answer-refusal-and-citation.md)이 기준이다.
+
+#### 시그니처
+
+```python
+# search/grounded_answer.py
+def format_citation(hit: DocumentHit) -> str: ...
+def build_prompt(query: str, hits: list[DocumentHit]) -> list[ChatMessage]: ...
+def is_refusal(text: str) -> bool: ...
+def extract_citation_numbers(text: str) -> list[int]: ...
+def answer_question(
+    query: str,
+    *,
+    deps: SearchDeps,
+    llm: LLMClient,
+    top_k: int = DEFAULT_TOP_K,  # 10
+    doc_ids: list[str] | None = None,  # 2026-10-14 추가
+) -> GroundedAnswer: ...
+```
+
+- `llm`은 `clients/`의 `LLMClient`다. 서비스·평가 실행에서는 `LoggingLLMClient`로 감싼 것을 넘긴다(비용 로그). 테스트는 가짜를 넣는다
+- `top_k`가 LLM에 넣는 청크 수다. `search_documents`에 그대로 넘기고, 돌려받은 청크를 모두 프롬프트에 넣는다
+- `doc_ids`도 `search_documents`에 그대로 넘긴다. None이면 전체 문서 검색이다. 검증(빈 목록, 인덱스에 없는 doc_id → `ValueError`)은
+  `search_documents`가 한다. 근거 답변은 문서 지정을 전제로 쓴다(ADR-0006 결정 4) — 전체 검색 조건은 #19 DoD ②를 통과하지 못했다
+- `format_citation`은 LLM 호출과 분리된 함수다 — #22 에이전트가 같은 함수를 쓴다
+
+#### 동작
+
+1. `search_documents(query, top_k, doc_ids=doc_ids, deps=deps)`를 부른다
+2. 결과가 0건이면 **LLM을 부르지 않고** 거절한다(비용 0). 넘길 근거가 없어 LLM이 답할 수 있는 것이 없다
+3. `build_prompt`로 메시지를 만든다: system 1개(프롬프트 파일 내용) + user 1개(청크 목록과 질문). 청크는 검색 결과 순서대로
+   `[1]`~`[n]` 번호를 붙여 넣는다 — 번호 i는 `hits[i-1]`이다
+4. `llm.chat(messages)`를 1회 부른다
+5. LLM 답이 거절 문구이면(`is_refusal`, 아래 "거절 판정") 거절로 처리한다
+6. 아니면 답에서 인용 번호를 뽑아(`extract_citation_numbers`) 번호 → `DocumentHit` → `format_citation`으로 출처를 만든다
+
+LLM은 번호만 인용한다. 문서명·쪽번호·요구사항 ID를 LLM이 직접 쓰게 하지 않는다 — LLM이 쓴 출처는 청크에 없는 쪽번호일 수 있고,
+코드가 만든 출처는 그 실행의 검색 결과에 있는 청크만 가리킨다(DoD ①을 코드로 확인할 수 있다).
+
+#### 반환 — `GroundedAnswer` (`schemas/answer.py`)
+
+| 필드 | 타입 | 내용 |
+|---|---|---|
+| `answer` | str | LLM 답(앞뒤 공백을 뗀 것, 인용 번호 `[n]` 포함). 거절이면 거절 문구 |
+| `refused` | bool | 거절 여부 |
+| `citations` | list[str] | 출처 문자열(2절 5가지). 답에 처음 나온 순서, 같은 문자열은 한 번만. 거절이면 빈 목록 |
+| `citation_map` | dict[int, str] | 답에 나온 유효 인용 번호(1~`hit_count`) → 그 청크의 출처 문자열. 답에 처음 나온 순서. 거절이면 빈 dict. `answer` 안의 `[n]`이 어느 출처인지 이것으로 찾는다 |
+| `cited_chunk_ids` | list[str] | 인용된 청크의 `chunk_id`. 답에 처음 나온 순서, 같은 청크는 한 번만. 거절이면 빈 목록 |
+| `invalid_citations` | list[int] | 검색 결과 범위(1~`hit_count`) 밖의 인용 번호. 처음 나온 순서, 같은 번호는 한 번만 |
+| `hit_count` | int | 검색 결과 수(LLM에 넣은 청크 수) |
+| `llm_usage` | `LLMUsage` \| None | `input_tokens`·`output_tokens`(추론 토큰 포함)·`reasoning_tokens`. LLM을 부르지 않았으면 None |
+
+- `citations`와 `cited_chunk_ids`의 길이는 다를 수 있다. 같은 HWP 문서의 블록 청크 두 개는 출처가 둘 다 `[문서명]`이라
+  `citations`에는 하나, `cited_chunk_ids`와 `citation_map`에는 둘(`{3: "[문서명]", 4: "[문서명]"}`)이 들어간다
+- 범위 밖 번호는 `citation_map`에 넣지 않는다(`invalid_citations`에만 남는다)
+- 거절이면 `citations`·`citation_map`·`cited_chunk_ids`·`invalid_citations`는 모두 비어 있다(ADR-0006: 거절 응답에는 출처를 달지 않는다)
+- 범위 밖 번호(청크 10개인데 `[15]`, 또는 `[0]`)는 출처로 쓰지 않고 `invalid_citations`에 남긴다. 예외를 내지 않는다
+- 거절이 아닌데 유효한 인용 번호가 하나도 없는 답은 `refused=False`, `citations=[]`로 그대로 돌려준다.
+  이 함수가 거절로 바꾸지 않는다 — DoD ①(거절하지 않은 답변에 출처 1개 이상)은 실행 결과에서 센다
+
+#### 거절 판정 (`is_refusal`)
+
+거절 문구는 `문서에서 찾을 수 없음`(`REFUSAL_TEXT`)이다. LLM 답의 앞뒤 공백을 떼고, 끝의 마침표 하나(반각 `.` 또는 전각 `。`)를
+뗀 것이 이 문구와 완전히 같을 때만 거절이다. 거절이면 `answer`는 `REFUSAL_TEXT`(마침표 없음)로 돌려준다.
+
+| LLM 답 | 거절 |
+|---|---|
+| `문서에서 찾을 수 없음` · `  문서에서 찾을 수 없음\n` | 예 |
+| `문서에서 찾을 수 없음.` · `문서에서 찾을 수 없음。` | 예 |
+| `문서에서 찾을 수 없음. 다만 ~`(뒤에 설명) · `문서에서 찾을 수 없음 [1]` | 아니오 |
+| `문서에서 찾을 수 없음..`(마침표 둘) · `문서에서 찾을 수 없음 .`(마침표 앞 공백) · `문서에서 찾을 수 없음!` | 아니오 |
+| `문서에서 찾을 수 없습니다.`(다른 어미) · `충전기 수는 문서에서 찾을 수 없음.`(앞에 글자) | 아니오 |
+
+거절이 아닌 답은 일반 답변으로 처리한다(인용 번호를 출처로 바꾼다).
+
+#### 인용 번호 형태 (`extract_citation_numbers`)
+
+대괄호 안에 숫자(0~9)만 있거나, 숫자를 쉼표로 나열한 것을 인용 번호로 읽는다. 처음 나온 순서로, 같은 번호는 한 번만 돌려준다.
+
+| 답에 적힌 형태 | 읽은 번호 |
+|---|---|
+| `[1]` | 1 |
+| `[1][3]` | 1, 3 |
+| `[1, 3]`·`[1,3]`·`[ 1 , 3 ]` | 1, 3 |
+| `[1-3]`·`[1~3]`(범위) | 읽지 않는다 |
+| `(1)`·`［1］`(전각 괄호)·`[１]`(전각 숫자) | 읽지 않는다 |
+| `[SFR-001]`·`[문서명 p.23]`·`[1번]` | 읽지 않는다 |
+
+- 범위 확인은 하지 않는다(`[15]`도 15로 돌려준다). 범위 밖인지는 `answer_question`이 검색 결과 수와 비교해 정한다
+- 답에 `[2026]`처럼 대괄호로 싼 숫자가 인용이 아닌 뜻으로 쓰이면 인용 번호로 읽힌다(범위 밖이면 `invalid_citations`에 남는다)
+
+#### 오류
+
+| 상황 | 동작 |
+|---|---|
+| 검색 결과 0건 | 예외 아님. LLM 호출 0회, `refused=True`, `answer` = 거절 문구, `hit_count=0`, `llm_usage=None` |
+| `SearchUnavailableError`(검색 서버 장애) | 잡지 않고 그대로 올린다([ADR-0005](adr/0005-search-documents-contract.md) 계약. #22 에이전트가 처리) |
+| `ValueError`(빈 질문, `top_k` 범위 밖, 너무 긴 질의) | 잡지 않고 그대로 올린다 |
+| LLM 호출 예외 | 잡지 않고 그대로 올린다 |
+
+검색 예외가 나면 LLM은 부르지 않는다.
+
+#### 프롬프트 파일
+
+- 위치: `src/rfp_pm_agent/search/prompts/grounded_answer_v1.md` — system 메시지 내용 전체다. `load_system_prompt()`가 읽는다
+- 버전: 파일 이름 끝의 `_v1`이 버전이다. 코드의 `PROMPT_VERSION = "grounded_answer_v1"`이 읽을 파일을 정한다.
+  내용을 바꾸면 파일을 고치지 않고 `_v2` 파일을 새로 만들어 `PROMPT_VERSION`을 바꾼다 — 실행 기록에 적힌 버전의 프롬프트를 나중에도 그대로 볼 수 있다
+- 평가 실행 기록(`data/eval/results/answer/`)에 `PROMPT_VERSION`을 모델·추론 강도와 함께 적는다(architecture.md 4-10 "프롬프트·모델 버전 관리")
+- 청크 목록과 질문을 넣는 user 메시지 형식은 `build_prompt` 코드에 둔다
+
+#### 범위 밖
+
+- 답변 내용이 맞는지 자동 채점(Faithfulness·Citation 정확도) — #25
+- PMS 사실(WBS·Risk)의 출처 — #21·#22
+- 답변 문장 안의 `[n]`을 출처 문자열로 바꿔 넣기 — 하지 않는다. 출처는 `citations`로 따로 돌려준다
 
 ---
 
@@ -507,6 +631,40 @@ projects ─┬─< project_members >── users
  "verified_by": "minjurry", "verified_at": "2026-09-..", "note": ""}
 ```
 
+### 무관 질문 세트 — `data/eval/irrelevant_v1.jsonl` (#19)
+
+공고 문서와 관계없는 질문 5개. #19 근거 답변 실행에서 qa_v2 57문항과 함께 돌려 **5/5 거절**을 확인한다(이슈 #19 DoD ②).
+문항은 소유자가 확정했다(2026-10-14).
+
+- qa_v2에 넣지 않고 따로 둔다 — qa_v2는 검색 평가 세트라 `evidence`·`doc_id`·`gold_chunk_ids`가 있고 검색 지표가 57문항 기준이다.
+  섞으면 검색 기록과 문항 수가 달라진다
+- 필드: `question_id`(`u001`~), `question`, `category`(질문 종류), `verified_by`, `verified_at`, `note`. 정답은 모두 "거절"이라 답 필드가 없다
+- 종류: 일반 상식·계산·생활(요리)·다른 분야 업무(노무)·사업과 무관한 기술 질문. `u005`(파이썬 정렬)는 RFP의 개발 언어 요구사항과 주제가 겹칠 수 있다
+
+```json
+{"question_id": "u001", "question": "대한민국의 수도는 어디인가요?", "category": "일반 상식",
+ "verified_by": "miin-jun", "verified_at": "2026-10-14", "note": ""}
+```
+
+### 근거 답변 실행 조건 — `run_grounded_answer --scope` (#19)
+
+| scope | qa_v2 57문항 | 무관 질문 5문항 |
+|---|---|---|
+| `all`(기본) | 전체 문서 검색(`doc_ids` 없음) | 전체 문서 검색 |
+| `doc` | `doc_ids=[그 문항의 doc_id]` | 전체 문서 검색 — 무관 질문에는 `doc_id`가 없다 |
+
+- **`doc` 조건은 `all` 결과를 본 뒤에 추가했다(2026-10-14).** 첫 실행(`all`, 프롬프트 v1)이 DoD ②를 통과하지 못했다 — 정답이 상위 10 안인
+  33문항 중 11개를 잘못 거절했고, 그중 8개가 질문에 사업명이 없는 문항("이 사업의 …")이었다. 같은 유형의 q010은 다른 사업의 금액을
+  출처까지 달아 답했다(정답 499,620,000원, 답 281,000,000원)
+- 추가한 근거: qa_v2 질문은 특정 문서를 보고 있다는 전제로 만들었고, 실제 사용도 RFP 하나를 열어 두고 묻는 방식이다
+- 통과 기준(이슈 #19 DoD ②)은 바꾸지 않는다. 두 조건의 결과를 모두 남기고, `all` 결과는 미통과로 기록한다
+- 프롬프트는 두 조건 모두 v1이다(한 번에 하나만 바꾼다)
+- A·B는 조건마다 그 실행의 검색 결과로 다시 판정한다. `doc` 조건에서는 정답 문서 안에서만 찾으므로 A 문항 수가 33과 다를 수 있다.
+  기준은 "잘못 거절 3개 이하"(개수) 그대로 적용한다
+- qa_v2 57문항의 `doc_id`는 10개 문서이고 모두 인덱스(`rfp_chunks_v2_kure`)에 있다(2026-10-14 확인)
+- 결과 파일: `data/eval/results/answer/grounded_answer_<YYYYMMDD>_<scope>.{jsonl,md}`·`_run.json`(`run.scope`). 같은 이름이 있으면 실행 전에 멈춘다.
+  첫 실행 `grounded_answer_20261014.*`은 scope가 생기기 전 이름이고 조건은 `all`이다
+
 ### `data/eval/agent_v1.jsonl` — 에이전트 평가 (#25)
 
 ```json
@@ -522,7 +680,8 @@ projects ─┬─< project_members >── users
 
 - **평가 실행 진입점**: `rfp_pm_agent.eval` 패키지 안의 모듈 — 청킹 비교는
   `uv run python -m rfp_pm_agent.eval.run_chunk_eval` (#13), 검색 평가는
-  `uv run python -m rfp_pm_agent.eval.run_retrieval` (#16·#18). 에이전트 평가(`run_agent`)는 #25에서 같은 자리에 추가한다
+  `uv run python -m rfp_pm_agent.eval.run_retrieval` (#16·#18), 근거 답변(qa_v2 + 무관 질문, LLM 비용 있음)은
+  `uv run python -m rfp_pm_agent.eval.run_grounded_answer --out-dir data/eval/results/answer [--scope doc]` (#19). 에이전트 평가(`run_agent`)는 #25에서 같은 자리에 추가한다
 - **기준선 비교**: 지금은 별도 기준선 파일을 두지 않는다. `run_retrieval --compare <run_id> <run_id> ... --out-dir data/eval/results/<실험>`이
   그 실험의 `runs.jsonl` 하나에서 실행 기록을 찾아, Recall@10(전부 적중)이 가장 많은 실행을 1위로 두고 나머지를 문항별 McNemar로
   비교한다 — 같은 기록 위치의 실행끼리만 비교되고, `--out-dir`를 빼면 `model_selection`을 읽는다.

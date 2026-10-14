@@ -22,6 +22,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from typing import Literal, cast
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
@@ -33,6 +34,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DOTENV_PATH = REPO_ROOT / ".env"
 
 load_dotenv(DOTENV_PATH, override=False)
+
+# OpenAI Chat Completions `reasoning_effort`가 받는 값. 모델마다 받는 값이 다르다
+# (gpt-6-luna: none·low·medium·high·xhigh·max, 2026-10-12 모델 페이지)
+ReasoningEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh", "max"]
 
 
 def _get_float(name: str, default: float) -> float:
@@ -70,6 +75,9 @@ class ClientsConfig(BaseModel):
     # 실제 단가는 착수 시 공식 가격표를 보고 채운다.
     llm_price_input_per_1m: float
     llm_price_output_per_1m: float
+    # 추론(reasoning) 토큰을 쓰는 모델의 추론 강도. 추론 토큰은 응답에 보이지 않지만 출력 토큰으로
+    # 과금되므로, 서버 기본값(gpt-6-luna는 medium)에 맡기지 않고 낮게 고정한다 (ADR-0006 결정 3)
+    llm_reasoning_effort: ReasoningEffort = "low"
 
     embed_base_url: str
     embed_api_key: str | None
@@ -111,6 +119,10 @@ class ClientsConfig(BaseModel):
             llm_timeout_s=_get_float("LLM_TIMEOUT_S", 60.0),
             llm_price_input_per_1m=_get_float("LLM_PRICE_INPUT_PER_1M", 0.0),
             llm_price_output_per_1m=_get_float("LLM_PRICE_OUTPUT_PER_1M", 0.0),
+            # 빈 값(.env.example을 복사하고 비워 둔 경우)도 기본값으로 본다. 모르는 값은 pydantic이 거부한다
+            llm_reasoning_effort=cast(
+                ReasoningEffort, os.environ.get("LLM_REASONING_EFFORT") or "low"
+            ),
             embed_base_url=os.environ.get("EMBED_BASE_URL", "http://localhost:8080"),
             embed_api_key=os.environ.get("TEI_API_KEY") or None,
             embed_model_id=os.environ.get("EMBED_MODEL_ID", ""),

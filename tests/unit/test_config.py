@@ -230,3 +230,31 @@ def test_dotenv_path_does_not_depend_on_cwd(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[2]
     expected = str(repo_root / ".env")
     assert expected in out, out
+
+
+def test_llm_reasoning_effort_defaults_to_low(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("LLM_REASONING_EFFORT", raising=False)
+
+    assert ClientsConfig.from_env().llm_reasoning_effort == "low"
+
+
+def test_llm_reasoning_effort_empty_value_falls_back_to_low(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # .env.example을 복사하고 값을 비워 둔 경우
+    monkeypatch.setenv("LLM_REASONING_EFFORT", "")
+
+    assert ClientsConfig.from_env().llm_reasoning_effort == "low"
+
+
+def test_llm_reasoning_effort_reads_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_REASONING_EFFORT", "none")
+
+    assert ClientsConfig.from_env().llm_reasoning_effort == "none"
+
+
+def test_llm_reasoning_effort_rejects_unknown_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_REASONING_EFFORT", "lowest")
+
+    with pytest.raises(ValidationError):
+        ClientsConfig.from_env()

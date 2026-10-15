@@ -8,6 +8,7 @@
  ],
  "draft_prompt_version": "wbs_draft_v2",
  "rules": "docs/data-design.md 6절 핵심 판단 규칙 (rfp_pm_agent.pms.rules)",
+ "scoring": "missing_requirements는 use_for_scoring=true(reason=injected)만 #39 누락 정답으로 쓴다. llm_omitted는 LLM이 연결을 빠뜨린 기록이고 정답이 아니다(ADR-0008)",
  "projects": [
   {
    "project_id": "PRJ-01",
@@ -109,15 +110,18 @@
    "missing_requirements": [
     {
      "requirement_id": "ECR-001",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "ECR-002",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "COR-001",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     }
    ],
    "out_of_scope_tasks": [],
@@ -460,19 +464,23 @@
    "missing_requirements": [
     {
      "requirement_id": "SFR-005",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "SER-001",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "SER-005",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "QUR-001",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     }
    ],
    "out_of_scope_tasks": [],
@@ -1085,19 +1093,23 @@
    "missing_requirements": [
     {
      "requirement_id": "SFR-002",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "SIR-002",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "DAR-001",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "SER-003",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     }
    ],
    "out_of_scope_tasks": [],
@@ -1657,23 +1669,28 @@
    "missing_requirements": [
     {
      "requirement_id": "DAR-004",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "DAR-008",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "SFR-009",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "PER-001",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "QUR-002",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     }
    ],
    "out_of_scope_tasks": [],
@@ -2546,23 +2563,28 @@
    "missing_requirements": [
     {
      "requirement_id": "SFR-002",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "SFR-009",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "SFR-010",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "SFR-012",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "SER-003",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     }
    ],
    "out_of_scope_tasks": [],
@@ -3156,43 +3178,53 @@
    "missing_requirements": [
     {
      "requirement_id": "ECR-003",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "PER-003",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "DAR-005",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "SER-007",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "SER-008",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "COR-001",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "COR-004",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "COR-008",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "TER-001",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "PSR-003",
-     "reason": "llm_omitted"
+     "reason": "llm_omitted",
+     "use_for_scoring": false
     }
    ],
    "out_of_scope_tasks": [],
@@ -4134,23 +4166,28 @@
    "missing_requirements": [
     {
      "requirement_id": "SFR-001",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "SFR-016",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "INR-002",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "SER-003",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "TER-001",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     }
    ],
    "out_of_scope_tasks": [],
@@ -4762,39 +4799,48 @@
    "missing_requirements": [
     {
      "requirement_id": "CUR-002",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "SFR-014",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "SFR-016",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "PER-001",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "PER-007",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "TER-001",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "TER-003",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "QUR-001",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "QUR-004",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     }
    ],
    "out_of_scope_tasks": [],
@@ -5571,31 +5617,38 @@
    "missing_requirements": [
     {
      "requirement_id": "SFR-001",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "SIR-001",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "TER-004",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "SER-004",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "QUR-001",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "QUR-005",
-     "reason": "injected"
+     "reason": "injected",
+     "use_for_scoring": true
     },
     {
      "requirement_id": "PSR-001",
-     "reason": "llm_omitted"
+     "reason": "llm_omitted",
+     "use_for_scoring": false
     }
    ],
    "out_of_scope_tasks": [],

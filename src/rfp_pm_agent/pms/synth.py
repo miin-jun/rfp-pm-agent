@@ -1017,6 +1017,8 @@ def build_truth(
                     {
                         "requirement_id": rid,
                         "reason": "injected" if rid in excluded.get(pid, []) else "llm_omitted",
+                        # #39 채점은 일부러 뺀 것(injected)만 쓴다. llm_omitted는 기록으로만 남긴다(ADR-0008, 소유자 결정)
+                        "use_for_scoring": rid in excluded.get(pid, []),
                     }
                     for rid in unmapped.get(pid, [])
                 ],
@@ -1035,6 +1037,10 @@ def build_truth(
         "this_week_range": [d.isoformat() for d in window] if window else None,
         "draft_prompt_version": DRAFT_PROMPT_VERSION,
         "rules": "docs/data-design.md 6절 핵심 판단 규칙 (rfp_pm_agent.pms.rules)",
+        "scoring": (
+            "missing_requirements는 use_for_scoring=true(reason=injected)만 #39 누락 정답으로 쓴다. "
+            "llm_omitted는 LLM이 연결을 빠뜨린 기록이고 정답이 아니다(ADR-0008)"
+        ),
         "projects": projects,
     }
 
@@ -1077,6 +1083,7 @@ def stats(ds: PmsDataset, truth: dict[str, Any]) -> dict[str, Any]:
         "not_submitted_deliverables": sum(d.status == "not_submitted" for d in ds.deliverables),
         "missing_requirements": len(missing),
         "missing_injected": injected_missing,
+        "missing_for_scoring": sum(m["use_for_scoring"] for m in missing),
         "missing_llm_omitted": len(missing) - injected_missing,
         "out_of_scope_tasks": sum(len(p["out_of_scope_tasks"]) for p in projects),
         "rtm_coverage": f"{mapped}/{total_reqs} ({mapped / total_reqs:.1%})"

@@ -497,3 +497,24 @@ def test_this_week_delay_is_made_even_when_current_phase_has_only_future_tasks()
     # 실적 날짜·종료일은 기준일 전(validate 규칙과 같은 조건)
     assert task.actual_start < AS_OF and task.planned_end <= AS_OF - timedelta(days=1)
     assert task.actual_end is None and 50 <= task.progress_pct <= 90
+
+
+def test_only_injected_missing_requirements_are_used_for_scoring() -> None:
+    """#39 채점은 injected만 쓴다. llm_omitted는 파일에 표시로만 남는다 (ADR-0008, 소유자 결정)."""
+    sources = [Source(document("docA"), None, "")]
+    reqs = build_requirements("PRJ-01", sources[0].document)
+    missing = pick_missing(SEED, "docA", [r.requirement_id for r in reqs])
+    given = [r.requirement_id for r in reqs if r.requirement_id not in missing]
+    ds, injected = generate(sources, {"docA": draft(given[:-1])}, as_of=AS_OF, seed=SEED)
+
+    truth = build_truth(
+        ds, excluded={"PRJ-01": missing}, injected=injected, doc_ids={"PRJ-01": "docA"}
+    )
+
+    entries = truth["projects"][0]["missing_requirements"]
+    assert {(e["reason"], e["use_for_scoring"]) for e in entries} == {
+        ("injected", True),
+        ("llm_omitted", False),
+    }
+    assert "injected" in truth["scoring"]
+    assert stats(ds, truth)["missing_for_scoring"] == len(missing)

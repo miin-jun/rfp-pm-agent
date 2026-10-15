@@ -534,22 +534,27 @@ projects ─┬─< project_members >── users
 
 | 테이블 | 주요 컬럼 | 비고 |
 |---|---|---|
-| `projects` | project_id, name, notice_no, agency(발주기관), contractor(수행사), start_date, end_date, status | RFP 1건 = 프로젝트 1개 |
-| `users` | user_id, name, org, org_type(발주/수행/협력) | 이름·이메일은 가짜 |
+| `projects` | project_id, name, notice_no, agency(발주기관), contractor(수행사), start_date, end_date, status | RFP 1건 = 프로젝트 1개. status: `planned`, `in_progress`, `done`. agency는 수집 기록에 없어 합성 데이터에서 null |
+| `users` | user_id, name, email, org, org_type(발주/수행/협력) | 이름·이메일·조직은 가짜(이메일 `@example.com`, 조직 이름에 `(가상)`) |
 | `project_members` | project_id, user_id, **role**, allocation_pct(투입률), start_date, end_date | role: `pm`, `developer`, `client`, `partner` |
 | `requirements` | project_id, requirement_id, category, title, description, source_doc_id, source_chunk_id | **실제 RFP에서 추출** |
 | `wbs_items` | wbs_id("2.3.1"), project_id, parent_wbs_id, name, phase, assignee_user_id, planned_start, planned_end, actual_start, actual_end, progress_pct, status | phase: 분석·설계·구현·시험·이행 / status: `not_started`, `in_progress`, `done`, `on_hold` |
 | `wbs_requirements` | wbs_id, requirement_id | **PMS ↔ FMS 연결 고리** |
-| `deliverables` | deliverable_id, project_id, name(예: 데이터이관계획서), phase, wbs_id, due_date, submitted_date, status, doc_id(null 가능) | 산출물 |
+| `deliverables` | deliverable_id, project_id, name(예: 데이터이관계획서), phase, wbs_id, due_date, submitted_date, status, doc_id(null 가능) | 산출물. status: `not_submitted`, `submitted`, `approved` (제출일이 있으면 제출·승인) |
 | `risks` | risk_id, project_id, title, description, probability(1~5), impact(1~5), status, owner_user_id, identified_date, due_date, mitigation, related_wbs_id | status: `open`, `mitigating`, `closed` |
-| `issues` | issue_id, project_id, title, description, severity, status, assignee_user_id, raised_date, resolved_date, related_wbs_id, related_risk_id | status: `open`, `in_progress`, `resolved` |
+| `issues` | issue_id, project_id, title, description, severity, status, assignee_user_id, raised_date, resolved_date, related_wbs_id, related_risk_id | status: `open`, `in_progress`, `resolved` / severity: `low`, `medium`, `high`, `critical` |
 | `documents` | doc_id, project_id, title, file_type, sha256, security_level, allowed_roles[], parsed_at | 청크 권한 필드의 원본 |
+
+- 정의: `src/rfp_pm_agent/pms/models.py`(SQLAlchemy), 마이그레이션 `migrations/versions/`(`uv run alembic upgrade head`), 행 스키마 `schemas/pms.py`
+- WBS 번호는 프로젝트 안에서만 유일하다 — 업무를 가리키는 키는 `(project_id, wbs_id)`이고 `wbs_requirements`·`deliverables`·`risks`·`issues`의 업무 참조도 이 두 열로 건다.
+  담당자도 `(project_id, user_id)`로 `project_members`를, Issue의 Risk 참조도 `(project_id, risk_id)`로 걸어 다른 프로젝트의 행을 가리키지 못한다. `requirements.source_doc_id`·`deliverables.doc_id`는 `documents`를 참조한다
+- 상태 값, 확률·영향(1~5), 진척률(0~100), `planned_start ≤ planned_end`, done ⇔ (진척 100 그리고 actual_end 있음), 제출일 ⇔ 제출 상태, 해결일 ⇔ resolved는 CHECK 제약으로도 막는다
 
 ### 핵심 판단 규칙 — 코드·툴 설명·평가 세트가 모두 이 정의를 따름
 
 | 개념 | 정의 |
 |---|---|
-| **기준일** | `AS_OF_DATE` 설정값 (예: 2026-09-21). 시스템 날짜 사용 금지 |
+| **기준일** | `AS_OF_DATE` 설정값 (합성 PMS v1은 2026-09-24 목요일). 시스템 날짜 사용 금지. 월요일이면 "이번 주 지연" 구간(월요일 ~ 기준일 전날)이 비므로 주중 날짜를 쓴다 |
 | **이번 주** | 기준일이 속한 주의 월요일~일요일 |
 | **지연 업무** | `status != 'done'` **AND** `planned_end < 기준일` |
 | **지연 일수** | `기준일 − planned_end` (일) |
@@ -558,7 +563,7 @@ projects ─┬─< project_members >── users
 | **미해결 Risk** | `status IN ('open', 'mitigating')`, 정렬 = `probability × impact` 내림차순 |
 | **관련 산출물** | 업무(wbs)에 연결된 deliverables + 같은 요구사항에 연결된 업무의 deliverables |
 
-→ 설계 원칙: **"지연"처럼 사람마다 다르게 해석하는 말을 코드 한 곳에 정의**하고, 툴 설명·평가 정답이 같은 정의를 쓰게 함
+→ 설계 원칙: **"지연"처럼 사람마다 다르게 해석하는 말을 코드 한 곳에 정의**하고, 툴 설명·평가 정답이 같은 정의를 쓰게 함. 코드: `src/rfp_pm_agent/pms/rules.py`(#20) — 기준일·이번 주·지연·지연 일수·미해결 Risk. 미해결 Risk 정렬은 정답 계산(`pms/synth.py` `build_truth`)에, "관련 산출물"은 아직 코드가 없다(#21)
 
 ---
 
@@ -576,12 +581,31 @@ projects ─┬─< project_members >── users
 | 6. 정답 기록 | 주입한 지연 업무·Risk 목록을 `data/eval/pms_truth_v1.json`에 저장 | ✅ |
 | 대량 생성 | 여러 RFP × Batch API | Phase 2 |
 
+#### 실제 생성 방식 (#20, 2026-10-15) — `uv run python -m rfp_pm_agent.pms.synth draft|generate|load|stats`
+
+- **원천 문서**: 색인 청크 파일(`data/chunks/block_requirement.jsonl`)에 요구사항 청크가 모두 있고 요구사항이 20건 이상인 문서 → 9건(요구사항 416건).
+  요구사항은 `source_chunk_id`로 검색 청크와 이어져야 하므로 청크가 없는 판본(WDC 최종본 `d8f1…`, 색인된 것은 "안" `c6d2…`)과 요구사항 6건뿐인 ISP 문서는 뺐다
+- **누락 후보(#39 정답)**: 프로젝트마다 요구사항의 12%(최소 1건)를 seed로 골라 LLM에 주지 않는다 → 대응 업무가 없는 요구사항. LLM이 받은 요구사항을 빠뜨린 경우는 정답 파일에 `llm_omitted`로 따로 표시한다
+- **범위 외 후보(#39)**: 요구사항이 연결되지 않은 말단 업무(사업관리 업무). v1은 16건(9개 중 7개 프로젝트)
+- **WBS 초안**: 프로젝트당 LLM 1회(형식 오류 시 1회 더), 프롬프트 `pms/prompts/wbs_draft_v1.md`. 업무 이름·단계·연결 요구사항·산출물 이름만 받는다. 목록에 없는 요구사항 ID는 버리고 기록한다.
+  결과는 `data/synth/wbs_drafts/<doc_id>.json`(**git 포함** — 정답을 LLM 없이 다시 만드는 입력)에 저장하고, 같은 제외 목록·프롬프트 버전이면 다시 부르지 않는다. 정답 파일에 프로젝트별 초안 sha256을 남긴다.
+  프롬프트 규칙 5(사업관리 업무 2~4개)는 검증하지 않는다 — v1에서 PRJ-07·PRJ-09는 요구사항 없는 업무가 0건이라 이 두 프로젝트에는 "범위 외 후보" 정답이 없다
+- **코드가 정하는 것**(seed = `SYNTH_SEED` + doc_id): 프로젝트 기간(기준일이 기간 안), 단계 기간(15·20·35·20·10%), 업무 날짜, 기준일 기준 상태, 담당자, 산출물 마감·제출,
+  Risk·Issue(5~10개, open 2개 이상). 1단계 업무(단계)의 상태·진척은 하위 업무에서 계산한다
+- **지연 주입**: 말단 업무의 15%(최소 2건). 이번 주 지연 1건을 먼저 만들고(기준일에 걸친 진행 중 업무의 종료일을 당기거나, 이번 주에 끝난 업무를 되돌리거나, 단계가 이번 주까지 이어지는
+  업무의 종료일을 늦춘다), 나머지는 지난주 이전에 끝났어야 할 업무를 미완료로 되돌린다. 정답의 지연 업무는 주입 목록이 아니라 6절 정의로 데이터에서 계산한다(하위 업무 지연으로 1단계 업무도 지연이 될 수 있다)
+- **산출물(생성 결과 파일)**: `data/synth/pms_v1.json`(테이블 10개 행 전부, git 제외 — 초안 + seed로 다시 만든다) → `load`가 한 트랜잭션에서 기존 행을 지우고 넣는다. 정답 `data/eval/pms_truth_v1.json`(git 포함)
+- **기준일 확인**: `generate`는 기존 정답 파일의, `load`·`stats`는 데이터 파일의 기준일이 `AS_OF_DATE`와 다르면 멈춘다 — `.env`의 기준일이 데이터와 다르면 조회 툴(#21)이 다른 날 기준으로 판단한다
+- **프로젝트·사용자 번호**는 원천 문서의 doc_id 순서로 매긴다. 조건을 만족하는 문서가 늘면 번호가 밀리므로, 정답 파일의 프로젝트별 `doc_id`로 대조한다
+
 ### 검증 규칙
 
 - `planned_start ≤ planned_end`, 모든 날짜가 프로젝트 기간 안
 - `status = 'done'` ⇔ `progress_pct = 100` 그리고 `actual_end` 존재
 - 담당자는 해당 프로젝트 멤버, 하위 업무 기간은 상위 업무 기간 안
-- 모든 요구사항이 1개 이상 업무와 연결 (연결 안 된 요구사항 수를 출력)
+- 모든 요구사항이 1개 이상 업무와 연결 (연결 안 된 요구사항 수를 출력) — 누락 후보는 일부러 연결하지 않으므로 오류가 아니라 수치로 출력한다
+- (#20 추가) 키 중복 없음, 참조 대상 존재(업무·요구사항·멤버·문서·같은 프로젝트의 Risk), 실적·제출·식별·등록일은 기준일 전,
+  not_started ⇔ 실적 시작일 없음, done인 상위 업무의 하위는 모두 done, 산출물 단계 = 연결 업무 단계, 멤버 기간은 프로젝트 기간 안
 - 이름·이메일 등은 전부 가짜 (실존 인물·기관 담당자명 사용 금지)
 
 ---
@@ -680,7 +704,7 @@ projects ─┬─< project_members >── users
 
 ```json
 {"qid": "a001", "question": "이번 주 지연된 업무랑 관련 요구사항 알려줘",
- "as_of_date": "2026-09-21", "role": "developer",
+ "as_of_date": "2026-09-24", "role": "developer",
  "expected_tools": ["get_delayed_tasks", "search_documents"],
  "expected_facts": {"wbs_ids": ["3.2.1", "3.4.2"], "requirement_ids": ["DAR-002"]},
  "must_cite": true, "should_refuse": false}
@@ -704,7 +728,7 @@ projects ─┬─< project_members >── users
 
 | 키 | 예시 | 설명 |
 |---|---|---|
-| `AS_OF_DATE` | `2026-09-21` | 합성 세계의 "오늘" |
+| `AS_OF_DATE` | `2026-09-24` | 합성 세계의 "오늘". 월요일은 쓰지 않는다(6절 기준일) |
 | `OPENSEARCH_URL` | `http://localhost:9200` | |
 | `OPENSEARCH_INDEX_ALIAS` | `rfp_chunks` | |
 | `OPENSEARCH_INDEX_NAME` | `rfp_chunks_v2_kure` | 색인 모듈이 쓰는 실제 인덱스(모델별). 검색 코드는 별칭만 쓴다 (#17) |

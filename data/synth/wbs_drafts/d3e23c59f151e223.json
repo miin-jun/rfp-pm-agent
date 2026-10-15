@@ -1,0 +1,607 @@
+{
+  "doc_id": "d3e23c59f151e223",
+  "prompt_version": "wbs_draft_v1",
+  "excluded_requirement_ids": [
+    "CUR-002",
+    "SFR-008",
+    "SFR-009",
+    "SFR-010",
+    "SFR-014",
+    "DAR-002",
+    "QUR-002",
+    "QUR-004",
+    "COR-003"
+  ],
+  "draft": {
+    "tasks": [
+      {
+        "phase": "분석",
+        "name": "사업 착수회의",
+        "requirement_ids": [],
+        "deliverables": [
+          "착수보고서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "사업추진전략 수립",
+        "requirement_ids": [
+          "CUR-001",
+          "CUR-003"
+        ],
+        "deliverables": [
+          "사업수행계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "현장 운용환경 분석",
+        "requirement_ids": [
+          "COR-001",
+          "PER-008"
+        ],
+        "deliverables": [
+          "현장조사서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "장비 구성요건 분석",
+        "requirement_ids": [
+          "ECR-001",
+          "ECR-002",
+          "ECR-003",
+          "ECR-004",
+          "ECR-005",
+          "ECR-006"
+        ],
+        "deliverables": [
+          "요구사항정의서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "부대장치 요건 분석",
+        "requirement_ids": [
+          "ECR-007",
+          "ECR-008",
+          "ECR-009",
+          "ECR-010",
+          "ECR-011"
+        ],
+        "deliverables": [
+          "요구사항정의서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "기능 및 연계 요건 분석",
+        "requirement_ids": [
+          "SFR-001",
+          "SFR-002",
+          "SFR-003",
+          "SFR-004",
+          "SFR-005",
+          "SFR-006",
+          "SFR-007",
+          "SFR-011",
+          "SFR-012",
+          "SFR-017",
+          "SIR-001",
+          "SIR-002",
+          "SIR-003",
+          "SIR-004"
+        ],
+        "deliverables": [
+          "요구사항정의서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "데이터 보안 품질 분석",
+        "requirement_ids": [
+          "SFR-013",
+          "SFR-015",
+          "SFR-016",
+          "DAR-001",
+          "DAR-003",
+          "DAR-004",
+          "SER-001",
+          "SER-002",
+          "QUR-001",
+          "QUR-003",
+          "QUR-005"
+        ],
+        "deliverables": [
+          "요구사항정의서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "성능 및 제작요건 분석",
+        "requirement_ids": [
+          "PER-001",
+          "PER-002",
+          "PER-003",
+          "PER-004",
+          "PER-005",
+          "PER-006",
+          "PER-007",
+          "COR-002",
+          "COR-004"
+        ],
+        "deliverables": [
+          "요구사항정의서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "사업수행계획 관리",
+        "requirement_ids": [
+          "PMR-001",
+          "PMR-002",
+          "PMR-003",
+          "PMR-004"
+        ],
+        "deliverables": [
+          "사업수행계획서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "기계 시스템 기본설계",
+        "requirement_ids": [
+          "ECR-001",
+          "ECR-006",
+          "ECR-011",
+          "COR-001",
+          "COR-002"
+        ],
+        "deliverables": [
+          "기본설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "공급 이송부 상세설계",
+        "requirement_ids": [
+          "ECR-002",
+          "ECR-003",
+          "SFR-001",
+          "SFR-002",
+          "PER-001",
+          "PER-002"
+        ],
+        "deliverables": [
+          "상세설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "분리 투하부 상세설계",
+        "requirement_ids": [
+          "ECR-004",
+          "ECR-005",
+          "SFR-003",
+          "SFR-004",
+          "PER-003",
+          "PER-004"
+        ],
+        "deliverables": [
+          "상세설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "장치 및 안전부 설계",
+        "requirement_ids": [
+          "ECR-007",
+          "ECR-009",
+          "ECR-010",
+          "PER-005",
+          "PER-007",
+          "SIR-001"
+        ],
+        "deliverables": [
+          "상세설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "운영자 인터페이스 설계",
+        "requirement_ids": [
+          "ECR-008",
+          "SFR-005",
+          "SFR-006",
+          "SFR-007",
+          "SFR-011",
+          "SFR-012",
+          "SFR-017",
+          "SIR-004"
+        ],
+        "deliverables": [
+          "화면설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "제어 및 연계 설계",
+        "requirement_ids": [
+          "SIR-002",
+          "SIR-003",
+          "COR-004"
+        ],
+        "deliverables": [
+          "연계설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "데이터 보안 설계",
+        "requirement_ids": [
+          "SFR-013",
+          "SFR-015",
+          "SFR-016",
+          "DAR-001",
+          "DAR-003",
+          "DAR-004",
+          "SER-001",
+          "SER-002"
+        ],
+        "deliverables": [
+          "데이터베이스설계서",
+          "보안설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "시험 및 품질계획 수립",
+        "requirement_ids": [
+          "TER-001",
+          "TER-002",
+          "TER-003",
+          "TER-004",
+          "TER-005",
+          "TER-006",
+          "TER-007",
+          "QUR-001",
+          "QUR-003",
+          "QUR-005"
+        ],
+        "deliverables": [
+          "시험계획서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "기계 프레임 제작",
+        "requirement_ids": [
+          "ECR-006",
+          "COR-002"
+        ],
+        "deliverables": [
+          "제작도면"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "종자 공급장치 제작",
+        "requirement_ids": [
+          "ECR-002",
+          "SFR-001",
+          "PER-001"
+        ],
+        "deliverables": [
+          "제작도면"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "종자 이송장치 제작",
+        "requirement_ids": [
+          "ECR-003",
+          "SFR-002",
+          "PER-002"
+        ],
+        "deliverables": [
+          "제작도면"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "종자 분리장치 제작",
+        "requirement_ids": [
+          "ECR-004",
+          "SFR-003",
+          "PER-003"
+        ],
+        "deliverables": [
+          "제작도면"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "종자 투하장치 제작",
+        "requirement_ids": [
+          "ECR-005",
+          "SFR-004",
+          "PER-004"
+        ],
+        "deliverables": [
+          "제작도면"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "위치정보 장치 설치",
+        "requirement_ids": [
+          "ECR-007",
+          "SIR-001",
+          "PER-005"
+        ],
+        "deliverables": [
+          "설치결과서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "전원 및 안전장치 설치",
+        "requirement_ids": [
+          "ECR-009",
+          "ECR-010",
+          "PER-007"
+        ],
+        "deliverables": [
+          "설치결과서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "운영 화면 및 제어 구현",
+        "requirement_ids": [
+          "ECR-008",
+          "SFR-005",
+          "SFR-006",
+          "SFR-007",
+          "SFR-011",
+          "SFR-012",
+          "SFR-017",
+          "SIR-002",
+          "SIR-004"
+        ],
+        "deliverables": [
+          "프로그램소스"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "이력 데이터 기능 구현",
+        "requirement_ids": [
+          "SFR-013",
+          "SFR-015",
+          "SFR-016",
+          "DAR-001",
+          "DAR-003",
+          "DAR-004",
+          "SIR-003"
+        ],
+        "deliverables": [
+          "데이터베이스구현서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "시제품 통합 조립",
+        "requirement_ids": [
+          "ECR-001",
+          "ECR-011",
+          "COR-002",
+          "COR-004"
+        ],
+        "deliverables": [
+          "시제품제작보고서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "현장 실증 기능 준비",
+        "requirement_ids": [
+          "SFR-018",
+          "PER-008"
+        ],
+        "deliverables": [
+          "현장실증계획서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "자동 공급 기능 시험",
+        "requirement_ids": [
+          "TER-001",
+          "SFR-001",
+          "PER-001"
+        ],
+        "deliverables": [
+          "단위시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "자동 이송 기능 시험",
+        "requirement_ids": [
+          "TER-002",
+          "SFR-002",
+          "PER-002"
+        ],
+        "deliverables": [
+          "단위시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "자동 분리 기능 시험",
+        "requirement_ids": [
+          "TER-003",
+          "SFR-003",
+          "PER-003"
+        ],
+        "deliverables": [
+          "단위시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "자동 투하 기능 시험",
+        "requirement_ids": [
+          "TER-004",
+          "SFR-004",
+          "PER-004"
+        ],
+        "deliverables": [
+          "단위시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "육상 시운전 시험",
+        "requirement_ids": [
+          "TER-005",
+          "PER-006",
+          "PER-007"
+        ],
+        "deliverables": [
+          "시운전결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "해상 현장 실증 시험",
+        "requirement_ids": [
+          "TER-006",
+          "SFR-018",
+          "PER-008",
+          "COR-001"
+        ],
+        "deliverables": [
+          "현장실증결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "종합 성능 검증",
+        "requirement_ids": [
+          "TER-007",
+          "PER-001",
+          "PER-002",
+          "PER-003",
+          "PER-004",
+          "PER-005",
+          "PER-006",
+          "PER-007"
+        ],
+        "deliverables": [
+          "성능시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "보안及 품질 검증",
+        "requirement_ids": [
+          "SER-001",
+          "SER-002",
+          "QUR-001",
+          "QUR-005"
+        ],
+        "deliverables": [
+          "품질검증결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "시험 결과 및 결함 조치",
+        "requirement_ids": [
+          "QUR-003",
+          "DAR-004"
+        ],
+        "deliverables": [
+          "시험결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "운용자 교육",
+        "requirement_ids": [
+          "SFR-017",
+          "QUR-003"
+        ],
+        "deliverables": [
+          "교육결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "장비 현장 설치 및 인계",
+        "requirement_ids": [
+          "COR-001",
+          "COR-004",
+          "SFR-018"
+        ],
+        "deliverables": [
+          "인수인계서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "운영 기술지원",
+        "requirement_ids": [
+          "PSR-001",
+          "PSR-004",
+          "QUR-003"
+        ],
+        "deliverables": [
+          "기술지원결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "시운전 현장 지원",
+        "requirement_ids": [
+          "PSR-002",
+          "TER-005"
+        ],
+        "deliverables": [
+          "시운전결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "현장 실증 지원",
+        "requirement_ids": [
+          "PSR-003",
+          "TER-006"
+        ],
+        "deliverables": [
+          "실증지원결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "완료보고 및 산출물 인계",
+        "requirement_ids": [],
+        "deliverables": [
+          "완료보고서",
+          "산출물목록"
+        ]
+      }
+    ]
+  },
+  "dropped_requirement_ids": [],
+  "usage": [
+    {
+      "model": "gpt-6-luna",
+      "input_tokens": 1552,
+      "output_tokens": 2543,
+      "reasoning_tokens": 368
+    }
+  ]
+}

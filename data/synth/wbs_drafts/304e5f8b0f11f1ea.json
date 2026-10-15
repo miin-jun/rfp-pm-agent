@@ -1,0 +1,331 @@
+{
+  "doc_id": "304e5f8b0f11f1ea",
+  "prompt_version": "wbs_draft_v1",
+  "excluded_requirement_ids": [
+    "ECR-004",
+    "SFR-001",
+    "INR-001"
+  ],
+  "draft": {
+    "tasks": [
+      {
+        "phase": "분석",
+        "name": "사업 착수 및 수행기준 확정",
+        "requirement_ids": [
+          "PMR-001",
+          "COR-001"
+        ],
+        "deliverables": [
+          "사업수행계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "일정 및 산출물 관리계획 수립",
+        "requirement_ids": [
+          "PMR-002",
+          "PMR-003"
+        ],
+        "deliverables": [
+          "사업수행계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "수행 장소 및 장비 확보방안 분석",
+        "requirement_ids": [
+          "PSR-003"
+        ],
+        "deliverables": [
+          "사업수행계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "현행 RPA 시스템 및 환경 분석",
+        "requirement_ids": [
+          "ECR-001",
+          "ECR-002",
+          "ECR-003"
+        ],
+        "deliverables": [
+          "현행시스템분석서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "데이터 표준 및 품질 현황 분석",
+        "requirement_ids": [
+          "DAR-001",
+          "QUR-001"
+        ],
+        "deliverables": [
+          "데이터표준정의서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "착수보고회 수행",
+        "requirement_ids": [],
+        "deliverables": [
+          "착수보고서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "RPA 솔루션 업그레이드 설계",
+        "requirement_ids": [
+          "ECR-001"
+        ],
+        "deliverables": [
+          "시스템설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "가상화 PC OS 업그레이드 설계",
+        "requirement_ids": [
+          "ECR-002"
+        ],
+        "deliverables": [
+          "시스템설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "오픈소스 업데이트 설계",
+        "requirement_ids": [
+          "ECR-003",
+          "COR-001"
+        ],
+        "deliverables": [
+          "시스템설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "규정 변경 대응 구조 설계",
+        "requirement_ids": [
+          "COR-002"
+        ],
+        "deliverables": [
+          "시스템설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "기술적용계획표 작성",
+        "requirement_ids": [
+          "COR-003"
+        ],
+        "deliverables": [
+          "기술적용계획표"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "안정성 및 품질 기준 설계",
+        "requirement_ids": [
+          "PER-001",
+          "QUR-001"
+        ],
+        "deliverables": [
+          "성능설계서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "RPA 솔루션 업그레이드 적용",
+        "requirement_ids": [
+          "ECR-001"
+        ],
+        "deliverables": [
+          "프로그램소스"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "가상화 PC OS 업그레이드 적용",
+        "requirement_ids": [
+          "ECR-002"
+        ],
+        "deliverables": [
+          "설치결과서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "오픈소스 제품 업데이트 적용",
+        "requirement_ids": [
+          "ECR-003"
+        ],
+        "deliverables": [
+          "설치결과서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "데이터 표준 적용 및 정비",
+        "requirement_ids": [
+          "DAR-001"
+        ],
+        "deliverables": [
+          "데이터표준정의서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "규정 변경 대응 기능 반영",
+        "requirement_ids": [
+          "COR-002"
+        ],
+        "deliverables": [
+          "프로그램소스"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "유지관리 및 하자보수 체계 마련",
+        "requirement_ids": [
+          "PSR-001"
+        ],
+        "deliverables": [
+          "유지관리계획서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "통합 테스트 계획 및 수행",
+        "requirement_ids": [
+          "TER-001"
+        ],
+        "deliverables": [
+          "통합시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "업그레이드 기능 검증",
+        "requirement_ids": [
+          "ECR-001",
+          "ECR-002",
+          "ECR-003"
+        ],
+        "deliverables": [
+          "통합시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "성능 및 안정성 시험",
+        "requirement_ids": [
+          "PER-001"
+        ],
+        "deliverables": [
+          "성능시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "데이터 표준 준수 검증",
+        "requirement_ids": [
+          "DAR-001"
+        ],
+        "deliverables": [
+          "시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "품질 기준 점검",
+        "requirement_ids": [
+          "QUR-001",
+          "COR-001"
+        ],
+        "deliverables": [
+          "품질검토서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "기술적용 결과표 작성",
+        "requirement_ids": [
+          "COR-003"
+        ],
+        "deliverables": [
+          "기술적용결과표"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "운영환경 반영 및 배포",
+        "requirement_ids": [
+          "ECR-001",
+          "ECR-002",
+          "ECR-003"
+        ],
+        "deliverables": [
+          "배포계획서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "안정화 지원 및 결과 확인",
+        "requirement_ids": [
+          "TER-002",
+          "PER-001"
+        ],
+        "deliverables": [
+          "안정화결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "기술지원 및 운영자 교육",
+        "requirement_ids": [
+          "PSR-002"
+        ],
+        "deliverables": [
+          "교육결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "소프트웨어사업정보 제출",
+        "requirement_ids": [
+          "PSR-004"
+        ],
+        "deliverables": [
+          "소프트웨어사업정보"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "하자보수 및 유지관리 인계",
+        "requirement_ids": [
+          "PSR-001"
+        ],
+        "deliverables": [
+          "유지관리계획서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "완료보고 및 사업 종료",
+        "requirement_ids": [],
+        "deliverables": [
+          "완료보고서"
+        ]
+      }
+    ]
+  },
+  "dropped_requirement_ids": [],
+  "usage": [
+    {
+      "model": "gpt-6-luna",
+      "input_tokens": 706,
+      "output_tokens": 1450,
+      "reasoning_tokens": 308
+    }
+  ]
+}

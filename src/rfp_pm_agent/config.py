@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import date
 from pathlib import Path
 from typing import Literal, cast
 
@@ -190,4 +191,40 @@ class NaraApiConfig(BaseModel):
                 "NARA_BASE_URL", "https://apis.data.go.kr/1230000/ad/BidPublicInfoService"
             ),
             timeout_s=_get_float("NARA_TIMEOUT_S", 30.0),
+        )
+
+
+class PostgresConfig(BaseModel):
+    """PMS DB 연결 (이슈 #20). `dsn`은 적재·마이그레이션용, `readonly_dsn`은 에이전트 툴용(SELECT만)."""
+
+    dsn: str
+    readonly_dsn: str
+
+    @classmethod
+    def from_env(cls) -> PostgresConfig:
+        return cls(
+            dsn=os.environ.get("POSTGRES_DSN", "postgresql+psycopg://app:app@localhost:5432/si"),
+            readonly_dsn=os.environ.get(
+                "POSTGRES_READONLY_DSN", "postgresql+psycopg://agent_ro:agent_ro@localhost:5432/si"
+            ),
+        )
+
+
+class SynthConfig(BaseModel):
+    """합성 세계의 기준일과 합성 seed (이슈 #20, docs/data-design.md 6·7·10절).
+
+    기준일(`AS_OF_DATE`)은 시스템 날짜 대신 쓰는 "오늘"이다. 기본값을 두지 않는다 — 비어 있으면 멈춘다.
+    """
+
+    as_of_date: date
+    synth_seed: int
+
+    @classmethod
+    def from_env(cls) -> SynthConfig:
+        raw_as_of = os.environ.get("AS_OF_DATE", "")
+        if not raw_as_of:
+            raise ValueError("AS_OF_DATE가 비어 있다 (.env.example 참고)")
+        return cls(
+            as_of_date=date.fromisoformat(raw_as_of),
+            synth_seed=_get_int("SYNTH_SEED", 42),
         )

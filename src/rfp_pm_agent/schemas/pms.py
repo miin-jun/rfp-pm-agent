@@ -1,6 +1,6 @@
 """합성 PMS 데이터의 행 스키마 (이슈 #20, docs/data-design.md 6절 테이블과 컬럼이 같다).
 
-`PmsDataset`이 생성 결과 파일(`data/synth/pms_v1.json`)의 형식이고, 적재(`pms.load`)는 이 파일을 그대로
+`PmsDataset`이 생성 결과 파일(`data/synth/pms_v2.json`)의 형식이고, 적재(`pms.load`)는 이 파일을 그대로
 테이블에 넣는다 — 다시 적재할 때 LLM을 부르지 않는다.
 """
 

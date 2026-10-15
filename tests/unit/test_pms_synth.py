@@ -494,3 +494,6 @@ def test_this_week_delay_is_made_even_when_current_phase_has_only_future_tasks()
     assert task.wbs_id in injected
     assert date(2026, 9, 12) <= task.planned_start <= task.planned_end  # 단계 안
     assert task.actual_start == task.planned_start and task.status == "in_progress"
+    # 실적 날짜·종료일은 기준일 전(validate 규칙과 같은 조건)
+    assert task.actual_start < AS_OF and task.planned_end <= AS_OF - timedelta(days=1)
+    assert task.actual_end is None and 50 <= task.progress_pct <= 90

@@ -54,7 +54,7 @@ class DraftUsage(BaseModel):
 
 
 class CachedDraft(BaseModel):
-    """`data/synth/wbs_drafts/<doc_id>.json` 형식."""
+    """`data/synth/wbs_drafts/<프롬프트 버전>/<doc_id>.json` 형식."""
 
     doc_id: str
     prompt_version: str

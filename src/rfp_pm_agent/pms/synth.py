@@ -10,12 +10,12 @@
    - 지연 주입: 말단 업무의 약 `DELAY_RATIO`. 이번 주 지연 1건(기준일이 월요일이 아니면) + 이전에 끝났어야 할 업무
    - Risk·Issue 각 `RISK_COUNT`·`ISSUE_COUNT` 범위, open이 반드시 섞인다
 6. 검증(`validate`): data-design.md 7절 "검증 규칙" + 참조 무결성. 오류가 하나라도 있으면 파일을 쓰지 않는다
-7. 정답(`build_truth`): 지연·미해결 Risk·미제출 산출물·누락 후보·범위 외 업무·RTM을 `pms.rules`로 계산해 `data/eval/pms_truth_v1.json`
+7. 정답(`build_truth`): 지연·미해결 Risk·미제출 산출물·누락 후보·범위 외 업무·RTM을 `pms.rules`로 계산해 `data/eval/pms_truth_v2.json`
 
 CLI (`uv run python -m rfp_pm_agent.pms.synth <명령>`)
 - `draft [--limit N]`: 저장된 초안이 없는 문서만 LLM을 부른다(**비용**). `--limit 1`로 1건만 먼저 확인한다
-- `generate`: 초안 + seed로 `data/synth/pms_v1.json`과 정답 파일을 쓰고 통계를 출력한다(LLM 없음)
-- `load`: `data/synth/pms_v1.json`을 DB에 적재한다(기존 행은 지운다). 먼저 `uv run alembic upgrade head`
+- `generate`: 초안 + seed로 `data/synth/pms_v2.json`과 정답 파일을 쓰고 통계를 출력한다(LLM 없음)
+- `load`: `data/synth/pms_v2.json`을 DB에 적재한다(기존 행은 지운다). 먼저 `uv run alembic upgrade head`
 - `stats`: 저장된 데이터의 통계만 출력한다
 """
 

@@ -1,0 +1,105 @@
+{
+  "run": {
+    "started_at": "2026-10-15T05:53:33+00:00",
+    "finished_at": "2026-10-15T05:55:03+00:00",
+    "model": "gpt-6-luna",
+    "reasoning_effort": "low",
+    "prompt_version": "grounded_answer_v2",
+    "index_alias": "rfp_chunks",
+    "index_names": [
+      "rfp_chunks_v2_kure"
+    ],
+    "top_k": 10,
+    "qa_file": "data/eval/qa_v2.jsonl",
+    "irrelevant_file": "data/eval/irrelevant_v1.jsonl",
+    "question_count": 62,
+    "scope": "doc",
+    "notes": [
+      "재생 실행(#86): 검색하지 않고 data/eval/results/answer/grounded_answer_20261014_doc.jsonl의 hit_chunk_ids를 그대로 LLM에 넣었다 (scripts/replay_grounded_answer.py). 이전 실행과 다른 변수는 프롬프트 하나다. index_alias·index_names는 이전 실행의 값이다",
+      "측정 전 예상(실행 전 고정, 2026-10-15): 통과 기준 그대로(답 없음 5/6 이상, 무관 5/5, A 잘못 거절 3개 이하). 사용자 기준선: A 잘못 거절 1/40, 답 없음 6/6, 무관 5/5. 호출 62회, 예상 비용 약 $0.04. OpenSearch·TEI를 띄울 수 없어(이 WSL에 docker CLI 없음) 재생으로 실행"
+    ]
+  },
+  "summary": {
+    "answered": 42,
+    "answered_with_citation": 42,
+    "answered_without_citation": [],
+    "format_error_qids": [],
+    "refused_with_citation": [],
+    "verdicts": [
+      {
+        "group": "A",
+        "total": 40,
+        "refused": 2,
+        "errors": 0,
+        "rule": "잘못 거절 ≤ 3",
+        "has_rule": true,
+        "passed": true
+      },
+      {
+        "group": "B",
+        "total": 11,
+        "refused": 7,
+        "errors": 0,
+        "rule": "기준 없음(검색에서 생긴 결과, DoD ③)",
+        "has_rule": false,
+        "passed": null
+      },
+      {
+        "group": "C",
+        "total": 6,
+        "refused": 6,
+        "errors": 0,
+        "rule": "거절 ≥ 5",
+        "has_rule": true,
+        "passed": true
+      },
+      {
+        "group": "U",
+        "total": 5,
+        "refused": 5,
+        "errors": 0,
+        "rule": "거절 ≥ 5",
+        "has_rule": true,
+        "passed": true
+      }
+    ],
+    "b_qids": [
+      "q020",
+      "q031",
+      "q039",
+      "q042",
+      "q043",
+      "q046",
+      "q048",
+      "q050",
+      "q051",
+      "q053",
+      "q054"
+    ],
+    "b_refused": [
+      "q031",
+      "q039",
+      "q042",
+      "q043",
+      "q046",
+      "q048",
+      "q051"
+    ],
+    "invalid_citation_qids": [],
+    "error_qids": [],
+    "group_changes": [
+      "q004 B→A",
+      "q007 B→A",
+      "q008 B→A",
+      "q023 B→A",
+      "q025 B→A",
+      "q028 B→A",
+      "q029 B→A"
+    ],
+    "llm_calls": 62,
+    "input_tokens": 359398,
+    "output_tokens": 1845,
+    "reasoning_tokens": 49,
+    "cost_usd": 0.0368623
+  }
+}

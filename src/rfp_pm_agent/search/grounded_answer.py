@@ -28,7 +28,7 @@ REFUSAL_TEXT = "문서에서 찾을 수 없음"
 _REFUSAL_END_MARKS = (".", "。")
 
 # 프롬프트 파일 이름(확장자 제외)이 곧 버전이다. 내용을 바꾸면 파일을 고치지 않고 _v2를 새로 만든다
-PROMPT_VERSION = "grounded_answer_v1"
+PROMPT_VERSION = "grounded_answer_v2"
 
 # 대괄호 안에 숫자만 있거나 숫자를 쉼표로 나열한 것: [1], [1, 3]. \d는 전각 숫자도 받아 [0-9]로 적는다
 _CITATION_RE = re.compile(r"\[\s*([0-9]+(?:\s*,\s*[0-9]+)*)\s*\]")
@@ -85,14 +85,36 @@ def format_citation(hit: DocumentHit) -> str:
     return f"[{head}]"
 
 
+# 청크 본문 안의 여는·닫는 구분자 태그. 대소문자·태그 앞 공백(`< /chunk`)도 잡는다
+_CHUNK_TAG_RE = re.compile(r"<(\s*/?\s*chunk)", re.IGNORECASE)
+
+
+def _escape_chunk_tags(text: str) -> str:
+    """청크 본문의 `<chunk`·`</chunk`를 `&lt;chunk`·`&lt;/chunk`로 바꾼다(그 밖의 글자는 그대로).
+
+    한계: ASCII `<`와 `\\s` 공백만 본다. 폭 없는 공백(`<\\u200b/chunk>`)·전각 `＜/chunk＞`는 바꾸지 않는다.
+    """
+    return _CHUNK_TAG_RE.sub(r"&lt;\1", text)
+
+
+def _escape_doc_attr(title: str) -> str:
+    """`doc="…"` 속성값: 구분자 태그를 바꾸고 `"`·`>`를 `&quot;`·`&gt;`로 바꾼다(문서명도 외부 데이터다)."""
+    return _escape_chunk_tags(title).replace('"', "&quot;").replace(">", "&gt;")
+
+
 def build_prompt(query: str, hits: list[DocumentHit]) -> list[ChatMessage]:
     """LLM에 보낼 메시지: system(`load_system_prompt()`) + user(청크 `[1]`~`[n]`과 질문).
 
     소유자 구현(학습 모드, #19). 번호 i는 `hits[i-1]`이다.
+    #86(사용자 지시로 Claude 구현): 청크마다 `<chunk id="i" doc="문서명">`…`</chunk>`로 감싸 자료 구역을 표시하고,
+    질문은 마지막 청크 뒤에 둔다. 본문의 `<chunk`·`</chunk`는 `&lt;`로 바꿔 구역을 끝내거나 새로 열지 못하게 하고,
+    문서명은 `_escape_doc_attr`로 속성값을 벗어나지 못하게 한다.
     """
     lines = []
     for number, hit in enumerate(hits, start=1):
-        lines.append(f"[{number}] (문서: {hit.bid_title})\n{hit.text}")
+        text = _escape_chunk_tags(hit.text)
+        doc = _escape_doc_attr(hit.bid_title)
+        lines.append(f'<chunk id="{number}" doc="{doc}">\n[{number}] {text}\n</chunk>')
     chunks = "\n\n".join(lines)
 
     user_content = f"{chunks}\n\n질문: {query}"

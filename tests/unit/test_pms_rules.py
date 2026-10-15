@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -11,6 +11,8 @@ from rfp_pm_agent.pms.rules import (
     is_delayed,
     is_delayed_this_week,
     is_open_risk,
+    is_overdue_deliverable,
+    risk_score,
     this_week_delay_range,
 )
 
@@ -71,3 +73,21 @@ def test_is_delayed_this_week_never_true_on_monday() -> None:
 )
 def test_is_open_risk(status: str, expected: bool) -> None:
     assert is_open_risk(status) is expected
+
+
+@pytest.mark.parametrize(
+    ("status", "due", "expected"),
+    [
+        ("not_submitted", THURSDAY - timedelta(days=1), True),
+        ("not_submitted", THURSDAY, False),  # 기준일 당일 마감은 아직 기한이 지나지 않았다
+        ("not_submitted", THURSDAY + timedelta(days=1), False),
+        ("submitted", THURSDAY - timedelta(days=30), False),
+        ("approved", THURSDAY - timedelta(days=30), False),
+    ],
+)
+def test_is_overdue_deliverable(status: str, due: date, expected: bool) -> None:
+    assert is_overdue_deliverable(status, due, THURSDAY) is expected
+
+
+def test_risk_score_is_probability_times_impact() -> None:
+    assert risk_score(3, 4) == 12

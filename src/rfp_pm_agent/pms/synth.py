@@ -3,7 +3,7 @@
 단계
 1. 원천 문서 선택(`select_sources`): 색인 청크 파일에 요구사항 청크가 있고 요구사항이 `MIN_REQUIREMENTS`건 이상인 문서. RFP 1건 = 프로젝트 1개
 2. 요구사항 추출(`build_requirements`): 파싱 결과의 요구사항 그대로(실제 데이터). `source_chunk_id`는 그 요구사항의 검색 청크
-3. 누락 후보(`pick_missing`): 요구사항의 약 `MISSING_RATIO`를 seed로 골라 LLM에 주지 않는다 → 대응 업무가 없는 요구사항(#39 정답)
+3. 누락 후보(`pick_missing`): 사업관리(PMR·PSR)를 뺀 요구사항에서 전체의 약 `MISSING_RATIO`를 seed로 골라 LLM에 주지 않는다 → 대응 업무가 없는 요구사항(#39 정답)
 4. WBS 초안(`pms.draft`): LLM이 업무 이름·단계·연결 요구사항·산출물 이름만 만든다
 5. 일정·상태·사람·Risk·Issue(`generate_project`): 코드가 seed(`SYNTH_SEED` + doc_id)로 정한다. LLM을 부르지 않는다
    - 기준일 이전에 끝나는 업무는 done, 걸친 업무는 in_progress, 이후는 not_started
@@ -67,12 +67,14 @@ DEFAULT_PARSED_DIR = Path("data/parsed")
 DEFAULT_MANIFEST = Path("data/raw/manifest.jsonl")
 DEFAULT_CHUNKS = Path("data/chunks/block_requirement.jsonl")
 DEFAULT_DRAFTS_DIR = Path("data/synth/wbs_drafts")
-DEFAULT_DATASET = Path("data/synth/pms_v1.json")
-DEFAULT_TRUTH = Path("data/eval/pms_truth_v1.json")
-TRUTH_VERSION = "pms_truth_v1"
+# v1(초안 프롬프트 wbs_draft_v1)의 정답 data/eval/pms_truth_v1.json은 보존한다(오류 기록, ADR-0008)
+DEFAULT_DATASET = Path("data/synth/pms_v2.json")
+DEFAULT_TRUTH = Path("data/eval/pms_truth_v2.json")
+TRUTH_VERSION = "pms_truth_v2"
 
 MIN_REQUIREMENTS = 20
 MISSING_RATIO = 0.12  # 누락 후보 비율(요청 10~15%의 가운데). 프로젝트마다 최소 1건
+MANAGEMENT_PREFIXES = ("PMR", "PSR")  # 누락 후보에서 빼는 사업관리 계열(v2)
 DELAY_RATIO = 0.15  # 지연 주입 비율(data-design.md 7절 4단계). 프로젝트마다 최소 2건
 RISK_COUNT = (5, 10)
 ISSUE_COUNT = (5, 10)
@@ -258,10 +260,20 @@ def project_rng(seed: int, doc_id: str, purpose: str) -> random.Random:
     return random.Random(f"{seed}:{doc_id}:{purpose}")
 
 
+def is_management_requirement(requirement_id: str) -> bool:
+    """사업관리 계열(프로젝트관리 PMR·지원 PSR) 요구사항인지. 접두어로 판정한다(data-design.md 3절 표)."""
+    return requirement_id.split("-")[0] in MANAGEMENT_PREFIXES
+
+
 def pick_missing(seed: int, doc_id: str, requirement_ids: Sequence[str]) -> list[str]:
-    """누락 후보로 남길 요구사항(원래 순서). 개수 = round(전체 × MISSING_RATIO), 최소 1."""
-    count = max(1, round(len(requirement_ids) * MISSING_RATIO))
-    chosen = set(project_rng(seed, doc_id, "missing").sample(list(requirement_ids), count))
+    """누락 후보로 남길 요구사항(원래 순서). 개수 = round(전체 × MISSING_RATIO), 최소 1.
+
+    사업관리 요구사항(`MANAGEMENT_PREFIXES`)은 고르지 않는다 — 착수·주간·완료보고 같은 관리 업무는 어느 사업에나 있어,
+    LLM에 주지 않아도 비슷한 업무가 생겨 "대응 업무가 없다"는 정답이 틀리게 된다(ADR-0008). 후보가 모자라면 있는 만큼만 고른다.
+    """
+    eligible = [rid for rid in requirement_ids if not is_management_requirement(rid)]
+    count = min(len(eligible), max(1, round(len(requirement_ids) * MISSING_RATIO)))
+    chosen = set(project_rng(seed, doc_id, "missing").sample(eligible, count))
     return [rid for rid in requirement_ids if rid in chosen]
 
 
@@ -457,8 +469,8 @@ def generate_project(
             ]
             leaf_deliverable_names[wbs_id] = task.deliverables
 
-    phase_ends = {str(n): pe for n, (_, pe) in enumerate(spans, start=1)}
-    injected = _inject_delays(project_rng(seed, doc.doc_id, "delay"), items, phase_ends, as_of)
+    phase_spans = {str(n): span for n, span in enumerate(spans, start=1)}
+    injected = _inject_delays(project_rng(seed, doc.doc_id, "delay"), items, phase_spans, as_of)
     items = _with_phase_items(items, spans, team.pm, project_id) + items
 
     deliverables = _build_deliverables(
@@ -494,7 +506,10 @@ def generate_project(
 
 
 def _inject_delays(
-    rng: random.Random, leaves: list[WbsItemRow], phase_ends: dict[str, date], as_of: date
+    rng: random.Random,
+    leaves: list[WbsItemRow],
+    phase_spans: dict[str, tuple[date, date]],
+    as_of: date,
 ) -> list[str]:
     """말단 업무를 지연시킨다(제자리 수정). 주입한 wbs_id 목록을 돌려준다.
 
@@ -502,8 +517,10 @@ def _inject_delays(
       ① 기준일에 걸친 진행 중 업무 → planned_end를 이번 주 월요일 ~ 기준일 전날로 당긴다
       ② planned_end가 그 범위에 있는 done 업무 → 미완료로 되돌린다
       ③ 상위 단계가 그 범위까지 이어지는 done 업무 → planned_end를 범위 안으로 늦추고 미완료로 되돌린다
+      ④ 범위가 들어 있는 단계의 시작 전 업무 → 단계 안에서 범위에 끝나도록 당겨 배치하고 진행 중으로 둔다
+         (기준일이 단계 초반이고 그 단계 업무가 모두 기준일 뒤에 시작할 때. v2 PRJ-08에서 발견)
     - 나머지: 이번 주 월요일 전에 끝났어야 할(done) 업무를 미완료로 되돌린다. 3건 이상이면 1건은 on_hold
-    phase_ends: 상위 업무(parent_wbs_id) → 단계 끝 날짜. ③에서 상위 기간을 넘지 않게 한다
+    phase_spans: 상위 업무(parent_wbs_id) → 단계 (시작, 끝). ③·④에서 상위 기간을 넘지 않게 한다
     """
     target = max(2, round(len(leaves) * DELAY_RATIO))
     injected: list[str] = []
@@ -520,7 +537,15 @@ def _inject_delays(
             if t.status == "done"
             and t.planned_end < monday
             and t.parent_wbs_id is not None
-            and phase_ends[t.parent_wbs_id] >= monday
+            and phase_spans[t.parent_wbs_id][1] >= monday
+        ]
+        pullable = [
+            t
+            for t in leaves
+            if t.status == "not_started"
+            and t.parent_wbs_id is not None
+            and phase_spans[t.parent_wbs_id][0] <= last
+            and phase_spans[t.parent_wbs_id][1] >= monday
         ]
         if spanning:
             task = rng.choice(spanning)
@@ -530,7 +555,18 @@ def _inject_delays(
         elif extendable:
             task = rng.choice(extendable)
             assert task.parent_wbs_id is not None
-            task.planned_end = _rand_date(rng, monday, min(last, phase_ends[task.parent_wbs_id]))
+            task.planned_end = _rand_date(
+                rng, monday, min(last, phase_spans[task.parent_wbs_id][1])
+            )
+        elif pullable:
+            task = rng.choice(pullable)
+            assert task.parent_wbs_id is not None
+            phase_start, phase_end = phase_spans[task.parent_wbs_id]
+            task.planned_end = _rand_date(rng, max(monday, phase_start), min(last, phase_end))
+            task.planned_start = _rand_date(
+                rng, max(phase_start, task.planned_end - timedelta(days=14)), task.planned_end
+            )
+            task.actual_start = task.planned_start
         else:
             task = None
         if task is not None:

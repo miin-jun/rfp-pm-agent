@@ -18,6 +18,7 @@ from rfp_pm_agent.pms.synth import (
     check_as_of,
     generate,
     pick_missing,
+    project_rng,
     select_sources,
     stats,
     unmapped_requirements,
@@ -434,3 +435,62 @@ def test_validate_catches_duplicate_links_and_members() -> None:
     errors = _broken(mutate)
     assert any("wbs_requirements 키 중복" in e for e in errors)
     assert any("project_members 키 중복" in e for e in errors)
+
+
+# --- v2: 누락 후보는 사업관리 요구사항을 고르지 않는다 (ADR-0008) ---
+
+
+def test_pick_missing_skips_management_requirements() -> None:
+    ids = (
+        [f"PMR-{i:03d}" for i in range(50)]
+        + [f"PSR-{i:03d}" for i in range(30)]
+        + [f"SFR-{i:03d}" for i in range(20)]
+    )
+    picked = pick_missing(SEED, "docA", ids)
+    assert len(picked) == 12  # 개수는 전체(100건) 기준
+    assert all(rid.startswith("SFR-") for rid in picked)
+
+
+def test_pick_missing_takes_what_is_left_when_few_non_management() -> None:
+    ids = [f"PMR-{i:03d}" for i in range(40)] + ["SFR-001", "DAR-001"]
+    assert pick_missing(SEED, "docA", ids) == ["SFR-001", "DAR-001"]
+    assert pick_missing(SEED, "docA", ["PMR-001", "PSR-001"]) == []
+
+
+def test_this_week_delay_is_made_even_when_current_phase_has_only_future_tasks() -> None:
+    """버그(v2 PRJ-08): 기준일이 단계 초반이고 그 단계 업무가 모두 기준일 뒤에 시작하면 이번 주 지연을 못 만들었다."""
+    from rfp_pm_agent.pms.synth import _inject_delays
+    from rfp_pm_agent.schemas.pms import WbsItemRow
+
+    def leaf(wbs_id: str, parent: str, start: date, end: date, status: str) -> WbsItemRow:
+        done = status == "done"
+        return WbsItemRow(
+            project_id="PRJ-01",
+            wbs_id=wbs_id,
+            parent_wbs_id=parent,
+            name=wbs_id,
+            phase="설계" if parent == "2" else "구현",
+            assignee_user_id="U001",
+            planned_start=start,
+            planned_end=end,
+            actual_start=start if done else None,
+            actual_end=end if done else None,
+            progress_pct=100 if done else 0,
+            status="done" if done else "not_started",
+        )
+
+    leaves = [
+        leaf("2.1", "2", date(2026, 8, 1), date(2026, 9, 6), "done"),
+        leaf("2.2", "2", date(2026, 8, 1), date(2026, 9, 10), "done"),
+        leaf("3.1", "3", date(2026, 10, 19), date(2026, 11, 4), "not_started"),
+    ]
+    spans = {"2": (date(2026, 7, 8), date(2026, 9, 11)), "3": (date(2026, 9, 12), date(2027, 1, 4))}
+
+    injected = _inject_delays(project_rng(SEED, "docA", "delay"), leaves, spans, AS_OF)
+
+    this_week = [w for w in leaves if is_delayed_this_week(w.status, w.planned_end, AS_OF)]
+    assert [w.wbs_id for w in this_week] == ["3.1"]
+    task = this_week[0]
+    assert task.wbs_id in injected
+    assert date(2026, 9, 12) <= task.planned_start <= task.planned_end  # 단계 안
+    assert task.actual_start == task.planned_start and task.status == "in_progress"

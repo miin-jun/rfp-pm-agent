@@ -145,3 +145,19 @@ def test_cache_is_reused_only_for_same_excluded_list(tmp_path: Path) -> None:
         load_cached_draft(tmp_path, "doc", ["DAR-002"]) is None
     )  # seed가 바뀌어 제외 목록이 다르면 다시 만든다
     assert load_cached_draft(tmp_path, "other", ["DAR-001"]) is None
+
+
+def test_draft_prompt_v2_links_management_requirements() -> None:
+    """v1 규칙 5는 관리 업무를 항상 빈 목록으로 두게 해 보고 요구사항이 연결될 업무가 사라졌다 (ADR-0008)."""
+    assert DRAFT_PROMPT_VERSION == "wbs_draft_v2"
+    prompt = build_draft_messages("A 사업", [_req("PMR-001")])[0].content
+    assert "사업관리 요구사항(PMR 등)이 목록에 있으면" in prompt
+
+
+def test_drafts_are_saved_per_prompt_version(tmp_path: Path) -> None:
+    llm = ScriptedLLMClient([_response(_tasks())])
+    cached = request_draft(llm, "doc", "A 사업", [_req(r) for r in IDS], [])
+
+    path = save_draft(tmp_path, cached)
+
+    assert path == tmp_path / DRAFT_PROMPT_VERSION / "doc.json"

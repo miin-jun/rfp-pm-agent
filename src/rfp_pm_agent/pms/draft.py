@@ -2,7 +2,7 @@
 
 - 프로젝트당 LLM 1회(형식이 틀리면 1회 더, 최대 `MAX_ATTEMPTS`). 응답은 JSON 객체 하나이고 `WbsDraft`로 검증한다
 - 목록에 없는 요구사항 ID는 버리고 버린 ID를 기록한다. 날짜·상태·담당자는 LLM에 맡기지 않는다(`pms.synth`가 코드로 정한다)
-- 결과는 `data/synth/wbs_drafts/<doc_id>.json`에 저장한다. 같은 문서·같은 제외 목록·같은 프롬프트 버전이면 다시 부르지 않는다
+- 결과는 `data/synth/wbs_drafts/<프롬프트 버전>/<doc_id>.json`에 저장한다(버전마다 폴더를 나눠 이전 정답의 입력을 보존한다). 같은 문서·같은 제외 목록·같은 프롬프트 버전이면 다시 부르지 않는다
 """
 
 from __future__ import annotations
@@ -18,7 +18,9 @@ from pydantic import BaseModel, Field, ValidationError
 from rfp_pm_agent.clients.llm import ChatMessage, LLMClient
 from rfp_pm_agent.schemas.pms import PHASE_ORDER, Phase, RequirementRow
 
-DRAFT_PROMPT_VERSION = "wbs_draft_v1"
+# v2(2026-10-15): 규칙 5 — 사업관리 요구사항(PMR 등)을 관리 업무에 연결한다. v1은 관리 업무를 항상 빈 목록으로 두게 해서
+# 보고 요구사항이 연결될 업무가 사라졌다(v1 정답의 llm_omitted 3건, ADR-0008)
+DRAFT_PROMPT_VERSION = "wbs_draft_v2"
 MIN_TASKS = 30
 MAX_TASKS = 60
 MIN_TASKS_PER_PHASE = 1  # 프롬프트는 3개 이상을 요청한다. 검증은 "빈 단계가 없다"까지만 본다
@@ -156,8 +158,8 @@ def request_draft(
     raise DraftError(f"{doc_id}: {MAX_ATTEMPTS}회 모두 실패 — 마지막 오류: {last_error}")
 
 
-def draft_path(drafts_dir: Path, doc_id: str) -> Path:
-    return drafts_dir / f"{doc_id}.json"
+def draft_path(drafts_dir: Path, doc_id: str, prompt_version: str = DRAFT_PROMPT_VERSION) -> Path:
+    return drafts_dir / prompt_version / f"{doc_id}.json"
 
 
 def load_cached_draft(
@@ -176,7 +178,7 @@ def load_cached_draft(
 
 
 def save_draft(drafts_dir: Path, cached: CachedDraft) -> Path:
-    drafts_dir.mkdir(parents=True, exist_ok=True)
-    path = draft_path(drafts_dir, cached.doc_id)
+    path = draft_path(drafts_dir, cached.doc_id, cached.prompt_version)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(cached.model_dump_json(indent=2) + "\n", "utf-8")
     return path

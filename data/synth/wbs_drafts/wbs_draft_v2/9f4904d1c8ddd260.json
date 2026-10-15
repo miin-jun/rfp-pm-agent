@@ -1,0 +1,565 @@
+{
+  "doc_id": "9f4904d1c8ddd260",
+  "prompt_version": "wbs_draft_v2",
+  "excluded_requirement_ids": [
+    "ECR-003",
+    "PER-003",
+    "DAR-005",
+    "SER-007",
+    "SER-008",
+    "COR-001",
+    "COR-004",
+    "COR-008",
+    "TER-001"
+  ],
+  "draft": {
+    "tasks": [
+      {
+        "phase": "분석",
+        "name": "착수 및 수행체계 수립",
+        "requirement_ids": [
+          "PMR-001",
+          "PMR-002",
+          "PMR-003",
+          "PMR-004",
+          "PMR-009"
+        ],
+        "deliverables": [
+          "사업수행계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "일정·요구사항 관리계획 수립",
+        "requirement_ids": [
+          "PMR-005",
+          "PMR-006",
+          "PMR-010"
+        ],
+        "deliverables": [
+          "요구사항추적표",
+          "사업관리계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "위험·의사소통 관리계획 수립",
+        "requirement_ids": [
+          "PMR-007",
+          "PMR-008"
+        ],
+        "deliverables": [
+          "위험관리계획서",
+          "의사소통관리계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "품질·검수 관리계획 수립",
+        "requirement_ids": [
+          "PMR-011",
+          "PMR-012"
+        ],
+        "deliverables": [
+          "품질관리계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "실증존 현황 및 요구사항 분석",
+        "requirement_ids": [
+          "SFR-001",
+          "SFR-002",
+          "SFR-003",
+          "SFR-004",
+          "SFR-005",
+          "SFR-006",
+          "SFR-007"
+        ],
+        "deliverables": [
+          "요구사항정의서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "장비·상용SW 도입 분석",
+        "requirement_ids": [
+          "ECR-001",
+          "ECR-002",
+          "ECR-004",
+          "ECR-005",
+          "ECR-006",
+          "ECR-007",
+          "ECR-008"
+        ],
+        "deliverables": [
+          "장비도입계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "성능·인터페이스 분석",
+        "requirement_ids": [
+          "PER-001",
+          "PER-002",
+          "SIR-001",
+          "SIR-002",
+          "SIR-003"
+        ],
+        "deliverables": [
+          "인터페이스정의서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "데이터·보안·제약 분석",
+        "requirement_ids": [
+          "DAR-001",
+          "DAR-002",
+          "DAR-003",
+          "DAR-004",
+          "DAR-006",
+          "SER-001",
+          "SER-002",
+          "SER-003",
+          "SER-004",
+          "SER-005",
+          "SER-006",
+          "COR-002",
+          "COR-003",
+          "COR-005",
+          "COR-006",
+          "COR-007"
+        ],
+        "deliverables": [
+          "데이터요구사항정의서",
+          "보안요구사항정의서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "서비스 및 시스템 구조 설계",
+        "requirement_ids": [
+          "SFR-001",
+          "SFR-002",
+          "SFR-003",
+          "SFR-004",
+          "SFR-005",
+          "SFR-006",
+          "SFR-007",
+          "ECR-001"
+        ],
+        "deliverables": [
+          "시스템구성도",
+          "시스템설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "실증장비 상세 설계",
+        "requirement_ids": [
+          "ECR-002",
+          "ECR-004",
+          "ECR-005",
+          "ECR-006",
+          "ECR-007",
+          "ECR-008"
+        ],
+        "deliverables": [
+          "장비구성설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "사용자 화면 및 오류 설계",
+        "requirement_ids": [
+          "SIR-001",
+          "SIR-002"
+        ],
+        "deliverables": [
+          "화면설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "대외 시스템 연계 설계",
+        "requirement_ids": [
+          "SIR-003"
+        ],
+        "deliverables": [
+          "인터페이스설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "데이터 표준 및 구조 설계",
+        "requirement_ids": [
+          "DAR-001",
+          "DAR-002",
+          "DAR-003",
+          "DAR-004",
+          "DAR-006"
+        ],
+        "deliverables": [
+          "데이터베이스설계서",
+          "데이터표준정의서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "보안 및 개인정보 설계",
+        "requirement_ids": [
+          "SER-001",
+          "SER-002",
+          "SER-003",
+          "SER-004",
+          "SER-005"
+        ],
+        "deliverables": [
+          "보안설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "개발보안 및 기술표준 설계",
+        "requirement_ids": [
+          "SER-006",
+          "COR-002",
+          "COR-003",
+          "COR-005",
+          "COR-006",
+          "COR-007"
+        ],
+        "deliverables": [
+          "개발표준정의서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "성능 및 시험 설계",
+        "requirement_ids": [
+          "PER-001",
+          "PER-002",
+          "TER-002",
+          "TER-003",
+          "TER-004"
+        ],
+        "deliverables": [
+          "시험계획서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "품질·형상관리 절차 설계",
+        "requirement_ids": [
+          "QUR-001",
+          "QUR-002",
+          "QUR-003",
+          "QUR-004"
+        ],
+        "deliverables": [
+          "품질관리계획서",
+          "형상관리계획서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "음향식 노면 검지기 구현",
+        "requirement_ids": [
+          "SFR-001",
+          "ECR-004"
+        ],
+        "deliverables": [
+          "프로그램소스"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "스마트 폴 기능 구현",
+        "requirement_ids": [
+          "SFR-002",
+          "ECR-005"
+        ],
+        "deliverables": [
+          "프로그램소스"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "스마트 버스쉘터 기능 구현",
+        "requirement_ids": [
+          "SFR-003",
+          "ECR-006"
+        ],
+        "deliverables": [
+          "프로그램소스"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "스마트 횡단보도 기능 구현",
+        "requirement_ids": [
+          "SFR-004",
+          "ECR-007"
+        ],
+        "deliverables": [
+          "프로그램소스"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "스마트 주차장 기능 구현",
+        "requirement_ids": [
+          "SFR-005",
+          "ECR-008"
+        ],
+        "deliverables": [
+          "프로그램소스"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "온디바이스 AI 실증 구현",
+        "requirement_ids": [
+          "SFR-006"
+        ],
+        "deliverables": [
+          "프로그램소스"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "검지기 통합 대시보드 구현",
+        "requirement_ids": [
+          "SFR-007"
+        ],
+        "deliverables": [
+          "프로그램소스"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "장비 및 상용SW 설치",
+        "requirement_ids": [
+          "ECR-001",
+          "ECR-002"
+        ],
+        "deliverables": [
+          "설치결과서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "데이터베이스 및 연계 구현",
+        "requirement_ids": [
+          "SIR-003",
+          "DAR-001",
+          "DAR-002",
+          "DAR-003",
+          "DAR-004",
+          "DAR-006"
+        ],
+        "deliverables": [
+          "데이터베이스",
+          "인터페이스명세서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "보안·표준 기능 적용",
+        "requirement_ids": [
+          "SER-001",
+          "SER-002",
+          "SER-003",
+          "SER-004",
+          "SER-005",
+          "SER-006",
+          "COR-002",
+          "COR-003",
+          "COR-006"
+        ],
+        "deliverables": [
+          "보안점검결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "기능 및 인터페이스 시험",
+        "requirement_ids": [
+          "SFR-001",
+          "SFR-002",
+          "SFR-003",
+          "SFR-004",
+          "SFR-005",
+          "SFR-006",
+          "SFR-007",
+          "SIR-001",
+          "SIR-002",
+          "SIR-003"
+        ],
+        "deliverables": [
+          "통합시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "성능 및 부하 시험",
+        "requirement_ids": [
+          "PER-001",
+          "PER-002",
+          "TER-002"
+        ],
+        "deliverables": [
+          "성능시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "장애복구 시험",
+        "requirement_ids": [
+          "TER-003"
+        ],
+        "deliverables": [
+          "장애복구시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "보안 및 호환성 점검",
+        "requirement_ids": [
+          "SER-001",
+          "SER-002",
+          "SER-003",
+          "SER-004",
+          "SER-005",
+          "SER-006",
+          "COR-006"
+        ],
+        "deliverables": [
+          "보안취약점점검결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "품질 및 결함 조치 확인",
+        "requirement_ids": [
+          "QUR-001",
+          "QUR-002",
+          "QUR-003",
+          "QUR-004"
+        ],
+        "deliverables": [
+          "품질점검결과서",
+          "결함조치결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "기술 적용 결과 검증",
+        "requirement_ids": [
+          "COR-002",
+          "COR-003",
+          "COR-005",
+          "COR-007"
+        ],
+        "deliverables": [
+          "기술적용결과표"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "사용자 인수시험",
+        "requirement_ids": [
+          "TER-004",
+          "PMR-012"
+        ],
+        "deliverables": [
+          "인수시험결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "현장 설치 및 서비스 전환",
+        "requirement_ids": [
+          "ECR-001",
+          "ECR-004",
+          "ECR-005",
+          "ECR-006",
+          "ECR-007",
+          "ECR-008"
+        ],
+        "deliverables": [
+          "현장설치결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "운영자 교육 및 기술지원",
+        "requirement_ids": [
+          "PSR-002",
+          "PSR-005"
+        ],
+        "deliverables": [
+          "교육결과서",
+          "기술지원계획서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "하자보수 및 추가 제안 이행",
+        "requirement_ids": [
+          "PSR-001",
+          "PSR-006"
+        ],
+        "deliverables": [
+          "하자보수계획서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "사업정보 작성 및 제출",
+        "requirement_ids": [
+          "PMR-014",
+          "PSR-004"
+        ],
+        "deliverables": [
+          "소프트웨어사업정보"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "보안서약 및 사업 종료 정리",
+        "requirement_ids": [
+          "PMR-013",
+          "COR-005",
+          "COR-007"
+        ],
+        "deliverables": [
+          "보안서약서",
+          "사업완료보고서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "준공 산출물 및 형상 이관",
+        "requirement_ids": [
+          "PMR-010",
+          "QUR-003"
+        ],
+        "deliverables": [
+          "산출물목록",
+          "형상관리결과서"
+        ]
+      }
+    ]
+  },
+  "dropped_requirement_ids": [],
+  "usage": [
+    {
+      "model": "gpt-6-luna",
+      "input_tokens": 1623,
+      "output_tokens": 2219,
+      "reasoning_tokens": 108
+    }
+  ]
+}

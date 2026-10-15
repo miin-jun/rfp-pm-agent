@@ -959,7 +959,8 @@ def build_truth(
     draft_sha256: 프로젝트별 LLM 초안 파일의 sha256 — 정답이 어느 초안에서 나왔는지 남긴다(재현 확인용).
 
     excluded: 프로젝트별 누락 후보로 LLM에 주지 않은 요구사항. 연결되지 않은 요구사항 중 이 목록에 없으면
-    `llm_omitted`(LLM이 빠뜨림)로 표시한다.
+    `llm_omitted`(LLM이 빠뜨림)로 표시한다. 누락 항목의 `use_for_scoring`은 injected만 true다 — #39 채점은 injected만 쓰고
+    `llm_omitted`는 기록으로만 남긴다(파일 머리의 `scoring`, ADR-0008 결정 2).
     """
     as_of = ds.as_of_date
     window = this_week_delay_range(as_of)

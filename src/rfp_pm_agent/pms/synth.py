@@ -45,6 +45,8 @@ from rfp_pm_agent.pms.rules import (
     is_delayed,
     is_delayed_this_week,
     is_open_risk,
+    is_overdue_deliverable,
+    risk_score,
     this_week_delay_range,
 )
 from rfp_pm_agent.schemas.document import Document
@@ -989,7 +991,7 @@ def build_truth(
         ]
         open_risks = sorted(
             (r for r in risks if is_open_risk(r.status)),
-            key=lambda r: (-(r.probability * r.impact), r.risk_id),
+            key=lambda r: (-risk_score(r.probability, r.impact), r.risk_id),
         )
         rtm: dict[str, dict[str, list[str]]] = {}
         for link in links:
@@ -1006,13 +1008,17 @@ def build_truth(
                 "name": p.name,
                 "delayed_tasks": delayed,
                 "open_risks": [
-                    {"risk_id": r.risk_id, "status": r.status, "score": r.probability * r.impact}
+                    {
+                        "risk_id": r.risk_id,
+                        "status": r.status,
+                        "score": risk_score(r.probability, r.impact),
+                    }
                     for r in open_risks
                 ],
                 "overdue_unsubmitted_deliverables": [
                     d.deliverable_id
                     for d in delivs
-                    if d.status == "not_submitted" and d.due_date < as_of
+                    if is_overdue_deliverable(d.status, d.due_date, as_of)
                 ],
                 "missing_requirements": [
                     {

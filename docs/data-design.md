@@ -561,9 +561,43 @@ projects ─┬─< project_members >── users
 | **이번 주 지연된 업무** | 지연 업무 중 `planned_end`가 **이번 주 월요일 ~ 기준일 전날** 사이인 것 (이번 주에 새로 지연된 것) |
 | **전체 지연 업무** | 지연 업무 전부 (누적). 툴 인자 `scope: "this_week" \| "all"`로 구분하고 툴 설명에 두 정의를 모두 명시 |
 | **미해결 Risk** | `status IN ('open', 'mitigating')`, 정렬 = `probability × impact` 내림차순 |
+| **Risk 등급** (#21, [ADR-0009](adr/0009-pms-query-tools.md)) | 점수 `probability × impact`가 15 이상 `high`, 8~14 `medium`, 7 이하 `low` |
+| **기한 지난 미제출 산출물** (#21) | `status = 'not_submitted'` **AND** `due_date < 기준일`. 지난 일수 = 기준일 − due_date |
 | **관련 산출물** | 업무(wbs)에 연결된 deliverables + 같은 요구사항에 연결된 업무의 deliverables |
 
-→ 설계 원칙: **"지연"처럼 사람마다 다르게 해석하는 말을 코드 한 곳에 정의**하고, 툴 설명·평가 정답이 같은 정의를 쓰게 함. 코드: `src/rfp_pm_agent/pms/rules.py`(#20) — 기준일·이번 주·지연·지연 일수·미해결 Risk. 미해결 Risk 정렬은 정답 계산(`pms/synth.py` `build_truth`)에, "관련 산출물"은 아직 코드가 없다(#21)
+→ 설계 원칙: **"지연"처럼 사람마다 다르게 해석하는 말을 코드 한 곳에 정의**하고, 툴 설명·평가 정답이 같은 정의를 쓰게 함. 코드: `src/rfp_pm_agent/pms/rules.py`(#20·#21) — 기준일·이번 주·지연·지연 일수·미해결 Risk·Risk 점수·Risk 등급·기한 지난 미제출. 합성 정답(`pms/synth.py`)과 조회 툴이 같은 함수를 쓴다. "관련 산출물"은 `get_deliverables(wbs_id=...)`(`tools/pms_tools.py`)
+
+### PMS 조회 툴 `get_delayed_tasks`·`get_open_risks`·`get_deliverables` (#21)
+
+설계 근거와 버린 대안: [ADR-0009](adr/0009-pms-query-tools.md).
+
+코드: `src/rfp_pm_agent/tools/pms_tools.py`(툴), `pms/reader.py`(DB 읽기), `schemas/pms_tools.py`(결과). Agent(#22)·MCP(#24)가 함께 쓴다. 읽기 전용.
+
+| 툴 | LLM에게 보이는 인자 | 반환 items (정렬) |
+|---|---|---|
+| `get_delayed_tasks` | `project_id`, `scope="all"\|"this_week"`, `as_of`, `limit` | 지연 업무 — wbs_id·이름·level(WBS 깊이, 1 단계/2 업무)·상태·진척·계획일·지연 일수·이번 주 여부·담당자·상위 업무·연결 요구사항 (지연 일수 내림차순) |
+| `get_open_risks` | `project_id`, `min_level="low"\|"medium"\|"high"`, `as_of`, `limit` | 미해결 Risk — 점수·등급·담당자·대응·연결 업무(지연 여부)·연결 Issue (점수 내림차순) |
+| `get_deliverables` | `project_id`, `status_filter="all"\|"not_submitted"\|"overdue"\|"submitted"\|"approved"`, `wbs_id`, `requirement_id`, `as_of`, `limit` | 산출물 — 상태·마감·제출·기한 지남·지난 일수·연결 업무·요구사항 (기한 지난 미제출 먼저) |
+
+- **결과 머리(세 툴 공통)**: `status`(`ok`/`project_required`/`project_not_found`)·`message`·`project_id`·`project_name`·`doc_ids`·`as_of_date`·`total`·`limit`·`truncated`·`available_projects`
+- **project_id**: 프로젝트 1개 = RFP 1건. 없거나 모르는 ID는 **예외가 아니라** `status`로 알리고 `available_projects`(project_id·사업명·doc_ids)를 채운다 — Agent가 사용자에게 어느 사업인지 되묻는다
+  (ADR-0006 결정 4 "문서 지정 전제"와 같은 방향). `doc_ids`는 그대로 `search_documents(doc_ids=...)`에 넣는다
+- **기준일**: 인자 `as_of`가 없으면 `AS_OF_DATE`. 시스템 날짜를 쓰지 않는다
+- **상한**: `limit` 1~50(기본 20). `total`은 조건에 맞는 전체 건수, `truncated`는 잘림 여부 — LLM 문맥에 수백 건을 넣지 않는다
+- **관련 산출물**(`wbs_id`): 그 업무의 산출물 + 같은 요구사항에 연결된 다른 업무의 산출물(위 판단 규칙). `requirement_id`에 연결된 업무가 **하나도** 없을 때만 message에 "누락 후보일 수 있다"를 적는다(`wbs_id`와 함께 줘서 교집합만 빈 경우는 적지 않는다)
+- **판단 위치**: SQL은 `project_id` 하나를 바인딩 파라미터로 조건 삼아 행을 가져오기만 하고, 지연·이번 주·미해결·기한 지남·Risk 점수와 등급 판단은 `pms/rules.py`가 한다(정답 파일을 만든 `pms/synth.py`도 같은 함수를 쓴다).
+  규칙이 SQL과 Python으로 갈라지지 않는다. 프로젝트당 업무 50개 안팎이라 성능 문제는 없다 — 프로젝트가 커지면 SQL로 옮기고 정답 대조 테스트로 같음을 확인한다
+- **DB 계정**: `POSTGRES_READONLY_DSN`(agent_ro, SELECT만) + 세션 `default_transaction_read_only=on`
+
+| 상황 | 동작 |
+|---|---|
+| `project_id` 없음·공백 | `status="project_required"`, items 0, `available_projects` |
+| 없는 `project_id` | `status="project_not_found"`, items 0, `available_projects` |
+| `scope`·`min_level`·`status_filter`가 목록 밖, `limit` 범위 밖, `as_of`가 날짜(`date` 또는 "YYYY-MM-DD")가 아님 | `ValueError`(project_id 확인보다 먼저) |
+| 프로젝트에 없는 `wbs_id`·`requirement_id` (`get_deliverables`) | `ValueError`(project_id 확인 **뒤** — 프로젝트가 있어야 검사할 수 있다. 프로젝트가 없으면 위 `status`가 먼저 나온다) |
+| DB 연결 불가 | `PmsUnavailableError`(`pms/errors.py`) — 인자를 바꿔도 해결되지 않는다 |
+
+검증(2026-10-15): 실제 DB(v2 적재, agent_ro)로 9개 프로젝트 모두 지연·이번 주 지연·미해결 Risk(순서)·기한 지난 미제출이 `data/eval/pms_truth_v2.json`과 일치(`tests/integration/test_pms_tools_db.py`).
 
 ---
 

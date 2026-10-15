@@ -1,0 +1,569 @@
+{
+  "doc_id": "73c61cba5e928858",
+  "prompt_version": "wbs_draft_v1",
+  "excluded_requirement_ids": [
+    "DAR-004",
+    "DAR-008",
+    "SFR-009",
+    "PER-001",
+    "QUR-002"
+  ],
+  "draft": {
+    "tasks": [
+      {
+        "phase": "분석",
+        "name": "착수 및 수행계획 수립",
+        "requirement_ids": [],
+        "deliverables": [
+          "사업수행계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "요구사항 및 현행업무 분석",
+        "requirement_ids": [
+          "DAR-001",
+          "SFR-001",
+          "SFR-002",
+          "SFR-003",
+          "SFR-004",
+          "SFR-005",
+          "SFR-006",
+          "SFR-007",
+          "SFR-008",
+          "SFR-010",
+          "SFR-011",
+          "SFR-012",
+          "SFR-013"
+        ],
+        "deliverables": [
+          "요구사항정의서",
+          "현행업무분석서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "데이터 현황 및 표준 분석",
+        "requirement_ids": [
+          "DAR-005",
+          "DAR-006",
+          "DAR-007",
+          "DAR-009",
+          "DAR-010",
+          "DAR-011",
+          "DAR-012"
+        ],
+        "deliverables": [
+          "데이터 현황분석서",
+          "데이터 표준정의서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "GIS 자료 및 통학정보 분석",
+        "requirement_ids": [
+          "DAR-002",
+          "DAR-003"
+        ],
+        "deliverables": [
+          "GIS 자료분석서",
+          "데이터 현황분석서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "연계 및 보안 현황 분석",
+        "requirement_ids": [
+          "ECR-001",
+          "SIR-001",
+          "SER-001",
+          "SER-004",
+          "SER-006",
+          "SER-007"
+        ],
+        "deliverables": [
+          "연계현황분석서",
+          "보안현황분석서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "사용자 및 운영환경 분석",
+        "requirement_ids": [
+          "SIR-002",
+          "PMR-003"
+        ],
+        "deliverables": [
+          "사용자 요구사항 분석서",
+          "운영환경 분석서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "정기보고 및 산출물 관리",
+        "requirement_ids": [],
+        "deliverables": [
+          "정기보고서",
+          "산출물관리대장"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "품질 및 제약사항 검토",
+        "requirement_ids": [
+          "QUR-001",
+          "COR-001",
+          "PMR-001",
+          "PMR-002"
+        ],
+        "deliverables": [
+          "품질관리계획서",
+          "제약사항 검토서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "시스템 구조 및 연계 설계",
+        "requirement_ids": [
+          "ECR-001",
+          "SIR-001",
+          "COR-001"
+        ],
+        "deliverables": [
+          "시스템구성도",
+          "인터페이스설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "입학전형 데이터 구조 설계",
+        "requirement_ids": [
+          "DAR-001",
+          "DAR-007"
+        ],
+        "deliverables": [
+          "데이터베이스설계서",
+          "데이터 흐름도"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "데이터 표준 및 관리 설계",
+        "requirement_ids": [
+          "DAR-005",
+          "DAR-006",
+          "DAR-009",
+          "DAR-010",
+          "DAR-011",
+          "DAR-012"
+        ],
+        "deliverables": [
+          "데이터 표준정의서",
+          "데이터관리계획서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "GIS 공간정보 구조 설계",
+        "requirement_ids": [
+          "DAR-002",
+          "DAR-003"
+        ],
+        "deliverables": [
+          "GIS 데이터 설계서",
+          "데이터베이스설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "입학전형 기능 상세 설계",
+        "requirement_ids": [
+          "SFR-001",
+          "SFR-002",
+          "SFR-003",
+          "SFR-004",
+          "SFR-005",
+          "SFR-006",
+          "SFR-013"
+        ],
+        "deliverables": [
+          "기능설계서",
+          "화면설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "배정 및 접속제어 설계",
+        "requirement_ids": [
+          "SFR-007",
+          "SFR-008",
+          "SFR-010",
+          "SFR-011",
+          "SFR-012"
+        ],
+        "deliverables": [
+          "기능설계서",
+          "화면설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "보안 및 개인정보 설계",
+        "requirement_ids": [
+          "SER-001",
+          "SER-002",
+          "SER-004",
+          "SER-005",
+          "SER-006",
+          "SER-007"
+        ],
+        "deliverables": [
+          "보안설계서",
+          "개인정보 보호 설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "시험 및 품질 설계",
+        "requirement_ids": [
+          "TER-001",
+          "QUR-001",
+          "SIR-002"
+        ],
+        "deliverables": [
+          "시험계획서",
+          "품질보증계획서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "입학전형 기능 개선 구현",
+        "requirement_ids": [
+          "SFR-001",
+          "SFR-002",
+          "SFR-003",
+          "SFR-004",
+          "SFR-005",
+          "SFR-006",
+          "SFR-013"
+        ],
+        "deliverables": [
+          "프로그램소스",
+          "단위시험결과서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "입학배정 기능 구현",
+        "requirement_ids": [
+          "SFR-007"
+        ],
+        "deliverables": [
+          "프로그램소스",
+          "단위시험결과서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "접속차단 기능 구현",
+        "requirement_ids": [
+          "SFR-008",
+          "SER-004",
+          "SER-005"
+        ],
+        "deliverables": [
+          "프로그램소스",
+          "보안기능 구현내역서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "GIS 공간정보 구축",
+        "requirement_ids": [
+          "DAR-002"
+        ],
+        "deliverables": [
+          "GIS 데이터베이스",
+          "공간정보 구축 결과서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "통학정보 데이터 구축",
+        "requirement_ids": [
+          "DAR-003",
+          "SFR-011"
+        ],
+        "deliverables": [
+          "통학정보 데이터베이스",
+          "데이터 구축 결과서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "대조정정 및 지리배정 구현",
+        "requirement_ids": [
+          "SFR-010",
+          "SFR-012"
+        ],
+        "deliverables": [
+          "프로그램소스",
+          "단위시험결과서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "데이터 관리체계 및 도구 구현",
+        "requirement_ids": [
+          "DAR-005",
+          "DAR-006",
+          "DAR-009",
+          "DAR-010",
+          "DAR-011",
+          "DAR-012"
+        ],
+        "deliverables": [
+          "데이터관리 기능",
+          "데이터 표준관리서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "보안 및 인터페이스 적용",
+        "requirement_ids": [
+          "SIR-001",
+          "SIR-002",
+          "SER-002",
+          "SER-006",
+          "SER-007",
+          "COR-001"
+        ],
+        "deliverables": [
+          "인터페이스 구현내역서",
+          "보안조치 결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "기능 단위시험 수행",
+        "requirement_ids": [
+          "SFR-001",
+          "SFR-002",
+          "SFR-003",
+          "SFR-004",
+          "SFR-005",
+          "SFR-006",
+          "SFR-007",
+          "SFR-008",
+          "SFR-010",
+          "SFR-011",
+          "SFR-012",
+          "SFR-013"
+        ],
+        "deliverables": [
+          "단위시험계획서",
+          "단위시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "데이터 및 GIS 검증",
+        "requirement_ids": [
+          "DAR-001",
+          "DAR-002",
+          "DAR-003",
+          "DAR-005",
+          "DAR-006",
+          "DAR-007",
+          "DAR-009",
+          "DAR-010",
+          "DAR-011",
+          "DAR-012"
+        ],
+        "deliverables": [
+          "데이터 검증결과서",
+          "GIS 검증결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "시스템 연계시험 수행",
+        "requirement_ids": [
+          "ECR-001",
+          "SIR-001"
+        ],
+        "deliverables": [
+          "연계시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "사용자 인터페이스 시험",
+        "requirement_ids": [
+          "SIR-002"
+        ],
+        "deliverables": [
+          "화면시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "보안취약점 점검 및 조치",
+        "requirement_ids": [
+          "SER-002",
+          "SER-003",
+          "SER-004",
+          "SER-005",
+          "SER-006",
+          "SER-007"
+        ],
+        "deliverables": [
+          "보안취약점 점검결과서",
+          "조치결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "통합시험 및 성능 검증",
+        "requirement_ids": [
+          "TER-001",
+          "QUR-001"
+        ],
+        "deliverables": [
+          "통합시험결과서",
+          "성능시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "사용자 인수시험 지원",
+        "requirement_ids": [
+          "SFR-007",
+          "SFR-011",
+          "SFR-012",
+          "SIR-002"
+        ],
+        "deliverables": [
+          "인수시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "시험결함 조치 및 재시험",
+        "requirement_ids": [
+          "COR-001",
+          "SER-003"
+        ],
+        "deliverables": [
+          "결함조치결과서",
+          "재시험결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "운영환경 반영 및 배포",
+        "requirement_ids": [
+          "ECR-001",
+          "COR-001"
+        ],
+        "deliverables": [
+          "배포계획서",
+          "배포결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "데이터 이관 및 정합성 확인",
+        "requirement_ids": [
+          "DAR-001",
+          "DAR-002",
+          "DAR-003",
+          "DAR-011"
+        ],
+        "deliverables": [
+          "데이터 이관계획서",
+          "이관 검증결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "운영자 및 사용자 교육",
+        "requirement_ids": [
+          "PSR-001"
+        ],
+        "deliverables": [
+          "교육계획서",
+          "교육결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "운영 안정화 기술지원",
+        "requirement_ids": [
+          "PSR-002",
+          "QUR-001"
+        ],
+        "deliverables": [
+          "안정화 지원결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "운영 및 보안 관리체계 인계",
+        "requirement_ids": [
+          "DAR-010",
+          "DAR-012",
+          "SER-001",
+          "SER-004",
+          "SER-006",
+          "SER-007",
+          "PMR-001"
+        ],
+        "deliverables": [
+          "운영관리자 매뉴얼",
+          "보안관리 인수인계서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "시스템 및 산출물 인계",
+        "requirement_ids": [
+          "PMR-002",
+          "PMR-003"
+        ],
+        "deliverables": [
+          "최종산출물 목록",
+          "인수인계서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "완료보고 및 사업 종료",
+        "requirement_ids": [],
+        "deliverables": [
+          "완료보고서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "최종 품질 및 제약사항 확인",
+        "requirement_ids": [
+          "QUR-001",
+          "COR-001"
+        ],
+        "deliverables": [
+          "최종 품질점검결과서"
+        ]
+      }
+    ]
+  },
+  "dropped_requirement_ids": [],
+  "usage": [
+    {
+      "model": "gpt-6-luna",
+      "input_tokens": 1182,
+      "output_tokens": 2352,
+      "reasoning_tokens": 174
+    }
+  ]
+}

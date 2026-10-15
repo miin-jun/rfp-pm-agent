@@ -1,0 +1,459 @@
+{
+  "doc_id": "5c393c1c11137fdc",
+  "prompt_version": "wbs_draft_v2",
+  "excluded_requirement_ids": [
+    "SFR-005",
+    "SER-001",
+    "SER-005",
+    "QUR-001"
+  ],
+  "draft": {
+    "tasks": [
+      {
+        "phase": "분석",
+        "name": "사업 착수 및 수행계획 수립",
+        "requirement_ids": [
+          "PMR-001",
+          "PMR-002",
+          "PMR-003",
+          "PMR-007"
+        ],
+        "deliverables": [
+          "착수보고서",
+          "사업수행계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "요구사항 상세화 및 추적",
+        "requirement_ids": [
+          "SFR-001",
+          "SFR-002",
+          "SFR-003",
+          "SFR-004",
+          "PER-001",
+          "PER-002",
+          "PER-003"
+        ],
+        "deliverables": [
+          "요구사항정의서",
+          "요구사항추적표"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "현행 인프라 및 운영환경 분석",
+        "requirement_ids": [
+          "ECR-001",
+          "PMR-004"
+        ],
+        "deliverables": [
+          "현행시스템분석서",
+          "인프라분석서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "데이터 현황 및 품질 분석",
+        "requirement_ids": [
+          "DAR-001",
+          "DAR-002",
+          "DAR-003"
+        ],
+        "deliverables": [
+          "데이터분석서",
+          "데이터품질진단서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "보안 및 개인정보 영향 분석",
+        "requirement_ids": [
+          "SER-002",
+          "SER-003",
+          "SER-004",
+          "COR-003"
+        ],
+        "deliverables": [
+          "보안요구사항정의서",
+          "개인정보보호계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "표준 및 접근성 제약 분석",
+        "requirement_ids": [
+          "COR-001",
+          "COR-002",
+          "COR-004"
+        ],
+        "deliverables": [
+          "개발표준정의서",
+          "웹접근성 점검계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "사업관리 및 보고체계 운영",
+        "requirement_ids": [
+          "PMR-005",
+          "PMR-008"
+        ],
+        "deliverables": [
+          "산출물관리계획서",
+          "보고계획서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "AI 플랫폼 아키텍처 설계",
+        "requirement_ids": [
+          "SFR-001",
+          "ECR-001"
+        ],
+        "deliverables": [
+          "시스템아키텍처설계서",
+          "인프라구성도"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "데이터 표준 및 관리 설계",
+        "requirement_ids": [
+          "DAR-001",
+          "DAR-002"
+        ],
+        "deliverables": [
+          "데이터표준정의서",
+          "데이터관리방안서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "데이터 파이프라인 설계",
+        "requirement_ids": [
+          "SFR-002"
+        ],
+        "deliverables": [
+          "데이터흐름설계서",
+          "인터페이스설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "지식베이스 및 청킹 설계",
+        "requirement_ids": [
+          "DAR-003",
+          "SFR-002"
+        ],
+        "deliverables": [
+          "지식베이스설계서",
+          "청킹설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "법령 규정 RAG 서비스 설계",
+        "requirement_ids": [
+          "SFR-003",
+          "PER-003"
+        ],
+        "deliverables": [
+          "응용시스템설계서",
+          "화면설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "이상거래 탐지 서비스 설계",
+        "requirement_ids": [
+          "SFR-004",
+          "PER-003"
+        ],
+        "deliverables": [
+          "응용시스템설계서",
+          "화면설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "성능 및 용량 설계",
+        "requirement_ids": [
+          "PER-001",
+          "PER-002"
+        ],
+        "deliverables": [
+          "성능설계서",
+          "용량산정서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "보안 및 개인정보 보호 설계",
+        "requirement_ids": [
+          "SER-002",
+          "SER-003",
+          "SER-004",
+          "COR-003"
+        ],
+        "deliverables": [
+          "보안설계서",
+          "개인정보보호설계서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "AI 인프라 및 운영환경 구축",
+        "requirement_ids": [
+          "SFR-001",
+          "ECR-001"
+        ],
+        "deliverables": [
+          "인프라구축결과서",
+          "운영환경구성서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "데이터 표준 및 관리 기능 구현",
+        "requirement_ids": [
+          "DAR-001",
+          "DAR-002"
+        ],
+        "deliverables": [
+          "데이터표준적용서",
+          "데이터관리기능서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "데이터 수집 파이프라인 구현",
+        "requirement_ids": [
+          "SFR-002"
+        ],
+        "deliverables": [
+          "프로그램소스",
+          "데이터연계명세서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "지식베이스 구축 및 청킹 적용",
+        "requirement_ids": [
+          "SFR-002",
+          "DAR-003"
+        ],
+        "deliverables": [
+          "지식베이스구축결과서",
+          "청킹적용결과서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "RAG 질의응답 서비스 개발",
+        "requirement_ids": [
+          "SFR-003"
+        ],
+        "deliverables": [
+          "프로그램소스",
+          "사용자매뉴얼"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "구매 이상거래 탐지 개발",
+        "requirement_ids": [
+          "SFR-004"
+        ],
+        "deliverables": [
+          "프로그램소스",
+          "모델설명서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "접근통제 및 정보유출 방지 적용",
+        "requirement_ids": [
+          "SER-002",
+          "SER-003",
+          "COR-003"
+        ],
+        "deliverables": [
+          "보안적용결과서",
+          "개인정보보호조치결과서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "장비 및 매체 보안 적용",
+        "requirement_ids": [
+          "SER-004"
+        ],
+        "deliverables": [
+          "장비보안점검서",
+          "매체관리대장"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "개발표준 및 형상관리 적용",
+        "requirement_ids": [
+          "COR-004",
+          "QUR-002"
+        ],
+        "deliverables": [
+          "개발표준준수점검서",
+          "형상관리대장"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "단위 및 통합시험 수행",
+        "requirement_ids": [
+          "TER-001",
+          "SFR-001",
+          "SFR-002",
+          "SFR-003",
+          "SFR-004"
+        ],
+        "deliverables": [
+          "단위시험결과서",
+          "통합시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "응답속도 및 동시접속 시험",
+        "requirement_ids": [
+          "PER-001",
+          "PER-002"
+        ],
+        "deliverables": [
+          "성능시험계획서",
+          "성능시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "생성 답변 정확도 검증",
+        "requirement_ids": [
+          "PER-003",
+          "SFR-003",
+          "SFR-004"
+        ],
+        "deliverables": [
+          "정확도검증결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "보안 및 개인정보 시험",
+        "requirement_ids": [
+          "SER-002",
+          "SER-003",
+          "SER-004",
+          "COR-003"
+        ],
+        "deliverables": [
+          "보안시험결과서",
+          "개인정보보호점검서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "접근성 및 저작권 검증",
+        "requirement_ids": [
+          "COR-001",
+          "COR-002"
+        ],
+        "deliverables": [
+          "웹접근성검증결과서",
+          "저작권점검서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "검수 및 위험관리 수행",
+        "requirement_ids": [
+          "PMR-006",
+          "PMR-009",
+          "PMR-010",
+          "TER-001"
+        ],
+        "deliverables": [
+          "검수계획서",
+          "위험관리대장"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "시험결함 조치 및 재시험",
+        "requirement_ids": [
+          "TER-001",
+          "QUR-002"
+        ],
+        "deliverables": [
+          "결함조치결과서",
+          "재시험결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "운영환경 배포 및 전환",
+        "requirement_ids": [
+          "ECR-001",
+          "SFR-001",
+          "PMR-004"
+        ],
+        "deliverables": [
+          "배포계획서",
+          "전환결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "사용자 교육 및 기술지원",
+        "requirement_ids": [
+          "PSR-001"
+        ],
+        "deliverables": [
+          "교육계획서",
+          "교육결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "안정화 및 하자보수 체계 운영",
+        "requirement_ids": [
+          "PSR-002",
+          "PSR-003"
+        ],
+        "deliverables": [
+          "안정화계획서",
+          "장애복구계획서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "사업 완료 및 산출물 인계",
+        "requirement_ids": [
+          "PMR-005",
+          "PMR-006"
+        ],
+        "deliverables": [
+          "완료보고서",
+          "산출물인계서"
+        ]
+      }
+    ]
+  },
+  "dropped_requirement_ids": [],
+  "usage": [
+    {
+      "model": "gpt-6-luna",
+      "input_tokens": 1013,
+      "output_tokens": 1902,
+      "reasoning_tokens": 126
+    }
+  ]
+}

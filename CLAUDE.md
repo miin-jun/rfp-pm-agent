@@ -15,7 +15,7 @@
 - 테스트(통합, Docker 필요): `uv run pytest tests/integration -q -m integration`
 - 테스트(TEI 실호출, `docker compose up -d tei-embed tei-rerank` 필요): `uv run pytest tests/integration -m tei -q` — TEI가 꺼져 있으면 실패한다(skip 아님). 인자 없는 `uv run pytest`도 이 테스트를 포함한다
 - 린트·포맷: `uv run ruff check --fix . && uv run ruff format .`
-- 타입 검사: `uv run mypy src tests`
+- 타입 검사: `uv run mypy src tests migrations`
 - 인프라: `docker compose up -d` / `docker compose ps` / `docker compose logs <서비스>`
 - DB 마이그레이션: `uv run alembic upgrade head`
 
@@ -105,7 +105,7 @@ Claude는 구현하지 말고, 설계 논의·테스트 작성·리뷰·리팩�
 - 개발 중 기본 모델은 저가 모델(`LLM_MODEL_DEV`). 최종 평가에서만 상위 모델
 
 ## 끝내기 전 체크
-- `uv run ruff check . && uv run mypy src tests && uv run pytest tests/unit -q` 통과
+- `uv run ruff check . && uv run mypy src tests migrations && uv run pytest tests/unit -q` 통과
 - 이슈의 완료 기준 항목을 하나씩 확인하고 결과를 PR 본문 "검증 방법"에 적는다
 - PR 전 reviewer 서브에이전트로 검토한다
 

@@ -10,6 +10,11 @@ data/raw/*
 !data/raw/manifest.jsonl
 # eval/은 예외: 평가 질문 세트는 사람이 검수한 데이터라 레포에 남긴다
 !data/eval/
+# synth/wbs_drafts/는 예외: 합성 PMS의 LLM 초안(#20). 정답(data/eval/pms_truth_v1·v2.json)을 프롬프트 버전 폴더별로 LLM 없이 다시 만드는 입력이다.
+# 생성 결과(pms_v*.json)는 초안 + seed로 다시 만들 수 있어 올리지 않는다
+!data/synth/
+data/synth/*
+!data/synth/wbs_drafts/
 
 # claude code local state
 .claude/logs/

@@ -1,0 +1,416 @@
+{
+  "doc_id": "d3e23c59f151e223",
+  "prompt_version": "wbs_draft_v2",
+  "excluded_requirement_ids": [
+    "CUR-002",
+    "SFR-014",
+    "SFR-016",
+    "PER-001",
+    "PER-007",
+    "TER-001",
+    "TER-003",
+    "QUR-001",
+    "QUR-004"
+  ],
+  "draft": {
+    "tasks": [
+      {
+        "phase": "분석",
+        "name": "사업 착수 및 수행계획 수립",
+        "requirement_ids": [
+          "PMR-001",
+          "CUR-001"
+        ],
+        "deliverables": [
+          "사업수행계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "사업추진전략 수립",
+        "requirement_ids": [
+          "CUR-003"
+        ],
+        "deliverables": [
+          "사업추진전략서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "요구사항 분석 및 추적",
+        "requirement_ids": [
+          "ECR-011",
+          "SFR-018",
+          "QUR-005"
+        ],
+        "deliverables": [
+          "요구사항정의서",
+          "요구사항추적표"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "해상 운용환경 분석",
+        "requirement_ids": [
+          "COR-001"
+        ],
+        "deliverables": [
+          "현황분석서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "시제품 제작조건 분석",
+        "requirement_ids": [
+          "COR-002"
+        ],
+        "deliverables": [
+          "제작조건분석서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "장비 연계 및 실증 조건 분석",
+        "requirement_ids": [
+          "COR-003",
+          "COR-004"
+        ],
+        "deliverables": [
+          "연계분석서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "보안 법규 및 지침 분석",
+        "requirement_ids": [
+          "SER-001"
+        ],
+        "deliverables": [
+          "보안대책서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "시스템 기본 구성 설계",
+        "requirement_ids": [
+          "ECR-001"
+        ],
+        "deliverables": [
+          "시스템구성도"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "종자 공급장치 설계",
+        "requirement_ids": [
+          "ECR-002"
+        ],
+        "deliverables": [
+          "기계설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "종자 이송장치 설계",
+        "requirement_ids": [
+          "ECR-003",
+          "PER-002"
+        ],
+        "deliverables": [
+          "기계설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "종자 분리장치 설계",
+        "requirement_ids": [
+          "ECR-004",
+          "PER-003"
+        ],
+        "deliverables": [
+          "기계설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "종자 투하장치 설계",
+        "requirement_ids": [
+          "ECR-005",
+          "PER-004"
+        ],
+        "deliverables": [
+          "기계설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "프레임 및 안전장치 설계",
+        "requirement_ids": [
+          "ECR-006",
+          "ECR-010"
+        ],
+        "deliverables": [
+          "기계설계서",
+          "안전설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "제어 및 인터페이스 설계",
+        "requirement_ids": [
+          "ECR-007",
+          "ECR-008",
+          "ECR-009",
+          "SIR-001",
+          "SIR-002",
+          "SIR-003",
+          "SIR-004",
+          "SER-002"
+        ],
+        "deliverables": [
+          "상세설계서",
+          "인터페이스설계서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "자동 공급 기능 구현",
+        "requirement_ids": [
+          "SFR-001"
+        ],
+        "deliverables": [
+          "소스코드"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "자동 이송 기능 구현",
+        "requirement_ids": [
+          "SFR-002"
+        ],
+        "deliverables": [
+          "소스코드"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "자동 분리 기능 구현",
+        "requirement_ids": [
+          "SFR-003"
+        ],
+        "deliverables": [
+          "소스코드"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "자동 투하 기능 구현",
+        "requirement_ids": [
+          "SFR-004"
+        ],
+        "deliverables": [
+          "소스코드"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "운전 및 작업 제어 기능 구현",
+        "requirement_ids": [
+          "SFR-006",
+          "SFR-007",
+          "SFR-008",
+          "SFR-009"
+        ],
+        "deliverables": [
+          "소스코드"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "상태 및 위치정보 기능 구현",
+        "requirement_ids": [
+          "SFR-005",
+          "SFR-010",
+          "SFR-012"
+        ],
+        "deliverables": [
+          "소스코드"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "작업정보 및 이력 관리 구현",
+        "requirement_ids": [
+          "SFR-011",
+          "SFR-013",
+          "SFR-015",
+          "DAR-001",
+          "DAR-002",
+          "DAR-003"
+        ],
+        "deliverables": [
+          "데이터베이스설계서",
+          "소스코드"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "사용자 운용 및 데이터 보호 구현",
+        "requirement_ids": [
+          "SFR-017",
+          "DAR-004",
+          "QUR-002",
+          "QUR-003"
+        ],
+        "deliverables": [
+          "소스코드",
+          "운영자매뉴얼"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "진도 및 산출물 관리",
+        "requirement_ids": [
+          "PMR-002",
+          "PMR-003"
+        ],
+        "deliverables": [
+          "진도관리보고서",
+          "산출물목록"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "자동 이송 기능 시험",
+        "requirement_ids": [
+          "TER-002"
+        ],
+        "deliverables": [
+          "단위시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "자동 투하 기능 시험",
+        "requirement_ids": [
+          "TER-004"
+        ],
+        "deliverables": [
+          "단위시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "육상 시운전 시험",
+        "requirement_ids": [
+          "TER-005",
+          "PSR-002"
+        ],
+        "deliverables": [
+          "시운전결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "해상 현장 실증 시험",
+        "requirement_ids": [
+          "TER-006",
+          "PSR-003",
+          "PER-008"
+        ],
+        "deliverables": [
+          "현장실증결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "성능 및 연속운전 검증",
+        "requirement_ids": [
+          "TER-007",
+          "PER-005",
+          "PER-006"
+        ],
+        "deliverables": [
+          "성능시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "품질 및 운용 안정성 검증",
+        "requirement_ids": [
+          "QUR-002",
+          "QUR-005"
+        ],
+        "deliverables": [
+          "품질검증결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "시험 및 실증 관리",
+        "requirement_ids": [
+          "PMR-004"
+        ],
+        "deliverables": [
+          "시험계획서",
+          "실증관리보고서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "시스템 설치 및 현장 적용",
+        "requirement_ids": [
+          "COR-001",
+          "COR-003"
+        ],
+        "deliverables": [
+          "설치완료보고서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "운영자 교육 및 기술협의",
+        "requirement_ids": [
+          "PSR-001",
+          "PSR-004"
+        ],
+        "deliverables": [
+          "교육결과서",
+          "기술지원계획서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "운영자료 및 매뉴얼 인계",
+        "requirement_ids": [
+          "SFR-017",
+          "QUR-003"
+        ],
+        "deliverables": [
+          "운영자매뉴얼",
+          "유지관리매뉴얼"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "최종 인수 및 사업 완료",
+        "requirement_ids": [
+          "PMR-003"
+        ],
+        "deliverables": [
+          "완료보고서",
+          "최종산출물목록"
+        ]
+      }
+    ]
+  },
+  "dropped_requirement_ids": [],
+  "usage": [
+    {
+      "model": "gpt-6-luna",
+      "input_tokens": 1602,
+      "output_tokens": 1713,
+      "reasoning_tokens": 278
+    }
+  ]
+}

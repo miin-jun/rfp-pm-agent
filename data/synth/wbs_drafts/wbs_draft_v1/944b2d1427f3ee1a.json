@@ -1,0 +1,448 @@
+{
+  "doc_id": "944b2d1427f3ee1a",
+  "prompt_version": "wbs_draft_v1",
+  "excluded_requirement_ids": [
+    "SFR-007",
+    "SFR-013",
+    "PMR-005",
+    "PMR-008",
+    "PSR-002"
+  ],
+  "draft": {
+    "tasks": [
+      {
+        "phase": "분석",
+        "name": "사업 착수보고",
+        "requirement_ids": [],
+        "deliverables": [
+          "착수보고서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "사업추진 조직 및 역할 분석",
+        "requirement_ids": [
+          "PMR-001",
+          "PMR-002"
+        ],
+        "deliverables": [
+          "사업수행계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "사업추진전략 수립",
+        "requirement_ids": [
+          "CSR-002"
+        ],
+        "deliverables": [
+          "사업수행계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "목표시스템 구축 계획 수립",
+        "requirement_ids": [
+          "CSR-001"
+        ],
+        "deliverables": [
+          "목표시스템 구축계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "스마트폴 현장 및 구축환경 조사",
+        "requirement_ids": [
+          "SCR-001",
+          "COR-001"
+        ],
+        "deliverables": [
+          "현장조사서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "요구사항 및 제약사항 분석",
+        "requirement_ids": [
+          "COR-002",
+          "COR-003",
+          "PMR-004"
+        ],
+        "deliverables": [
+          "요구사항정의서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "보안 및 품질 요구사항 분석",
+        "requirement_ids": [
+          "SER-001",
+          "SER-002",
+          "SER-003",
+          "QUR-001",
+          "QUR-002"
+        ],
+        "deliverables": [
+          "보안관리계획서",
+          "품질관리계획서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "스마트폴 시스템 구성 설계",
+        "requirement_ids": [
+          "SCR-001"
+        ],
+        "deliverables": [
+          "시스템구성도"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "폴 및 부대장비 상세 설계",
+        "requirement_ids": [
+          "SFR-001",
+          "SFR-002",
+          "SFR-003",
+          "SFR-004",
+          "SFR-005"
+        ],
+        "deliverables": [
+          "상세설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "사이니지 및 음향 설계",
+        "requirement_ids": [
+          "SFR-006",
+          "SFR-010"
+        ],
+        "deliverables": [
+          "상세설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "비상벨 및 환경센서 설계",
+        "requirement_ids": [
+          "SFR-008",
+          "SFR-009",
+          "SFR-011"
+        ],
+        "deliverables": [
+          "상세설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "네트워크 및 서버 설계",
+        "requirement_ids": [
+          "SFR-012",
+          "SFR-014",
+          "SFR-015"
+        ],
+        "deliverables": [
+          "네트워크설계서",
+          "상세설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "연계 및 사용자 화면 설계",
+        "requirement_ids": [
+          "SIR-001",
+          "SIR-002"
+        ],
+        "deliverables": [
+          "인터페이스설계서",
+          "화면설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "성능 및 시험 기준 설계",
+        "requirement_ids": [
+          "PER-001",
+          "TER-001",
+          "TER-002"
+        ],
+        "deliverables": [
+          "시험계획서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "일정 및 산출물 관리 계획",
+        "requirement_ids": [
+          "PMR-006",
+          "PMR-010"
+        ],
+        "deliverables": [
+          "사업수행계획서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "스마트폴 기초 및 구조물 설치",
+        "requirement_ids": [
+          "SFR-001",
+          "SFR-002"
+        ],
+        "deliverables": [
+          "설치확인서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "CCTV 장비 설치 및 설정",
+        "requirement_ids": [
+          "SFR-003",
+          "SFR-004"
+        ],
+        "deliverables": [
+          "설치확인서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "스마트 조명 설치 및 연동",
+        "requirement_ids": [
+          "SFR-005"
+        ],
+        "deliverables": [
+          "설치확인서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "디지털 사이니지 구축",
+        "requirement_ids": [
+          "SFR-006"
+        ],
+        "deliverables": [
+          "설치확인서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "비상벨 장치 설치 및 연동",
+        "requirement_ids": [
+          "SFR-008",
+          "SFR-009"
+        ],
+        "deliverables": [
+          "설치확인서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "스피커 및 환경센서 설치",
+        "requirement_ids": [
+          "SFR-010",
+          "SFR-011"
+        ],
+        "deliverables": [
+          "설치확인서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "PoE 네트워크 구성",
+        "requirement_ids": [
+          "SFR-012"
+        ],
+        "deliverables": [
+          "네트워크구성도"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "관리 서버 및 연계 시스템 구축",
+        "requirement_ids": [
+          "SFR-014",
+          "SFR-015",
+          "SIR-001",
+          "SIR-002"
+        ],
+        "deliverables": [
+          "프로그램설계서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "구축 진행 및 산출물 관리",
+        "requirement_ids": [
+          "PMR-004",
+          "PMR-010"
+        ],
+        "deliverables": [
+          "산출물관리대장"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "장비별 단위시험 수행",
+        "requirement_ids": [
+          "SFR-001",
+          "SFR-002",
+          "SFR-003",
+          "SFR-004",
+          "SFR-005",
+          "SFR-006",
+          "SFR-008",
+          "SFR-009",
+          "SFR-010",
+          "SFR-011",
+          "SFR-012"
+        ],
+        "deliverables": [
+          "단위시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "관리 서버 기능시험 수행",
+        "requirement_ids": [
+          "SFR-014",
+          "SFR-015"
+        ],
+        "deliverables": [
+          "단위시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "시스템 연계 및 통합시험",
+        "requirement_ids": [
+          "SIR-001",
+          "TER-002"
+        ],
+        "deliverables": [
+          "통합시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "스마트폴 수용 성능시험",
+        "requirement_ids": [
+          "PER-001",
+          "TER-001"
+        ],
+        "deliverables": [
+          "성능시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "품질 및 납품기기 검사",
+        "requirement_ids": [
+          "QUR-001",
+          "QUR-002",
+          "PMR-007"
+        ],
+        "deliverables": [
+          "품질검사결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "보안 취약점 및 준수 점검",
+        "requirement_ids": [
+          "SER-001",
+          "SER-002",
+          "SER-003",
+          "COR-002",
+          "COR-003"
+        ],
+        "deliverables": [
+          "보안점검결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "시험 운영 및 결함 조치",
+        "requirement_ids": [
+          "TER-002",
+          "QUR-001"
+        ],
+        "deliverables": [
+          "시험운영결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "사업 주간 진행현황 보고",
+        "requirement_ids": [],
+        "deliverables": [
+          "주간보고서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "시스템 현장 적용 및 개통",
+        "requirement_ids": [
+          "CSR-001",
+          "COR-001"
+        ],
+        "deliverables": [
+          "시스템 개통확인서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "사용자 교육 및 운영 인계",
+        "requirement_ids": [
+          "SFR-014",
+          "SFR-015"
+        ],
+        "deliverables": [
+          "교육결과서",
+          "운영자매뉴얼"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "운영 및 하자보수 체계 인계",
+        "requirement_ids": [
+          "PSR-001"
+        ],
+        "deliverables": [
+          "하자보수계획서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "인력변경 및 보안책임 이행",
+        "requirement_ids": [
+          "PMR-003",
+          "PMR-011"
+        ],
+        "deliverables": [
+          "보안서약서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "최종 검수 및 완료보고",
+        "requirement_ids": [
+          "PMR-007",
+          "PMR-010"
+        ],
+        "deliverables": [
+          "완료보고서",
+          "검수조서"
+        ]
+      }
+    ]
+  },
+  "dropped_requirement_ids": [],
+  "usage": [
+    {
+      "model": "gpt-6-luna",
+      "input_tokens": 1095,
+      "output_tokens": 1736,
+      "reasoning_tokens": 124
+    }
+  ]
+}

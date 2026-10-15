@@ -142,7 +142,7 @@ Closes #
 | 24 | [agent] MCP 서버 — stdio, 읽기 전용 툴, Claude Desktop 연동 | feature, agent, mvp | Claude Desktop에서 툴 호출 화면 캡처 | #21 |
 | 25 | [eval] 평가 게이트 — 에이전트 골든셋(툴 순서) + 답변 근거성 채점 + CI 연결 | feature, eval, mvp | 기준선보다 떨어지는 PR이 CI에서 실패 | #8, #20, #22 |
 | 26 | [docs] MVP 마감 — 데모 녹화, README 정리 | docs, mvp | 데모 영상·README 정리 완료 | #22, #23, #24, #25 |
-| 39 | [agent] RTM 생성 — 요구사항↔작업↔산출물 추적 매트릭스 | feature, agent, mvp | `data/out/rtm_*.md`·`rtm_*.csv` 생성, `data/eval/pms_truth_v1.json` 대조 정확도 기록, 미매핑 요구사항 최소 1건 검출, 단위 테스트 네트워크 없이 통과 | #18, #20, #21 |
+| 39 | [agent] RTM 생성 — 요구사항↔작업↔산출물 추적 매트릭스 | feature, agent, mvp | `data/out/rtm_*.md`·`rtm_*.csv` 생성, `data/eval/pms_truth_v2.json` 대조 정확도 기록(누락은 `injected`만 채점, v1은 오류 기록, ADR-0008), 미매핑 요구사항 최소 1건 검출, 단위 테스트 네트워크 없이 통과 | #18, #20, #21 |
 | 40 | [agent] Streamlit 데모 화면 — 질의응답·RTM·검색 비교 | feature, agent | `streamlit run`으로 세 탭 동작, 가짜 클라이언트로 API 키 없이 화면 확인, 데모 녹화 가능 | #39, #22 |
 
 ### 밀릴 때 자르는 순서 (컷 라인)

@@ -1,0 +1,387 @@
+{
+  "doc_id": "304e5f8b0f11f1ea",
+  "prompt_version": "wbs_draft_v2",
+  "excluded_requirement_ids": [
+    "ECR-001",
+    "ECR-002",
+    "COR-001"
+  ],
+  "draft": {
+    "tasks": [
+      {
+        "phase": "분석",
+        "name": "착수 및 수행계획 수립",
+        "requirement_ids": [
+          "PMR-001",
+          "PMR-002",
+          "PSR-003"
+        ],
+        "deliverables": [
+          "착수보고서",
+          "사업수행계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "현행 시스템 및 과제 현황 분석",
+        "requirement_ids": [
+          "SFR-001"
+        ],
+        "deliverables": [
+          "현행시스템분석서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "오픈소스 현황 및 업데이트 분석",
+        "requirement_ids": [
+          "ECR-003"
+        ],
+        "deliverables": [
+          "기술현황분석서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "라이선스 현황 및 연장 분석",
+        "requirement_ids": [
+          "ECR-004"
+        ],
+        "deliverables": [
+          "라이선스현황분석서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "데이터 표준 및 이행 현황 분석",
+        "requirement_ids": [
+          "DAR-001"
+        ],
+        "deliverables": [
+          "데이터현황분석서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "연계 시스템 및 인터페이스 분석",
+        "requirement_ids": [
+          "INR-001"
+        ],
+        "deliverables": [
+          "인터페이스현황분석서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "성능·품질 및 규정 요구 분석",
+        "requirement_ids": [
+          "PER-001",
+          "QUR-001",
+          "COR-002"
+        ],
+        "deliverables": [
+          "요구사항정의서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "요구사항 및 산출물 관리체계 설계",
+        "requirement_ids": [
+          "PMR-003"
+        ],
+        "deliverables": [
+          "산출물관리계획서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "과제 마이그레이션 방안 설계",
+        "requirement_ids": [
+          "SFR-001"
+        ],
+        "deliverables": [
+          "이행설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "데이터 표준 및 변환 설계",
+        "requirement_ids": [
+          "DAR-001"
+        ],
+        "deliverables": [
+          "데이터베이스설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "인터페이스 연계 설계",
+        "requirement_ids": [
+          "INR-001"
+        ],
+        "deliverables": [
+          "인터페이스설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "성능 및 안정성 설계",
+        "requirement_ids": [
+          "PER-001"
+        ],
+        "deliverables": [
+          "성능설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "규정 변경 대응 설계",
+        "requirement_ids": [
+          "COR-002"
+        ],
+        "deliverables": [
+          "시스템설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "시험 및 품질 계획 수립",
+        "requirement_ids": [
+          "TER-001",
+          "QUR-001"
+        ],
+        "deliverables": [
+          "시험계획서",
+          "품질관리계획서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "오픈소스 제품 업데이트",
+        "requirement_ids": [
+          "ECR-003"
+        ],
+        "deliverables": [
+          "소프트웨어설치결과서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "RPA 솔루션 라이선스 연장",
+        "requirement_ids": [
+          "ECR-004"
+        ],
+        "deliverables": [
+          "라이선스확인서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "수행 과제 마이그레이션 구현",
+        "requirement_ids": [
+          "SFR-001"
+        ],
+        "deliverables": [
+          "프로그램소스코드"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "마이그레이션 데이터 정비",
+        "requirement_ids": [
+          "SFR-001",
+          "DAR-001"
+        ],
+        "deliverables": [
+          "데이터이행결과서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "시스템 인터페이스 개선",
+        "requirement_ids": [
+          "INR-001"
+        ],
+        "deliverables": [
+          "인터페이스명세서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "규정 변경 대응 기능 구현",
+        "requirement_ids": [
+          "COR-002"
+        ],
+        "deliverables": [
+          "프로그램소스코드"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "성능 및 안정성 개선",
+        "requirement_ids": [
+          "PER-001"
+        ],
+        "deliverables": [
+          "성능개선결과서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "기술적용계획 결과 정리",
+        "requirement_ids": [
+          "COR-003"
+        ],
+        "deliverables": [
+          "기술적용결과표"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "기술지원 및 운영자료 정리",
+        "requirement_ids": [
+          "PSR-002"
+        ],
+        "deliverables": [
+          "운영자매뉴얼"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "단위시험 수행",
+        "requirement_ids": [
+          "TER-001"
+        ],
+        "deliverables": [
+          "단위시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "통합시험 수행",
+        "requirement_ids": [
+          "TER-001",
+          "INR-001"
+        ],
+        "deliverables": [
+          "통합시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "마이그레이션 검증시험",
+        "requirement_ids": [
+          "TER-001",
+          "SFR-001",
+          "DAR-001"
+        ],
+        "deliverables": [
+          "이행검증결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "성능 및 안정성 시험",
+        "requirement_ids": [
+          "TER-001",
+          "PER-001"
+        ],
+        "deliverables": [
+          "성능시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "품질 점검 및 결함 조치",
+        "requirement_ids": [
+          "QUR-001"
+        ],
+        "deliverables": [
+          "품질점검결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "사용자 인수시험 지원",
+        "requirement_ids": [
+          "TER-001"
+        ],
+        "deliverables": [
+          "인수시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "시험결과 및 기술적용 검증",
+        "requirement_ids": [
+          "COR-003"
+        ],
+        "deliverables": [
+          "기술적용결과표"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "운영환경 배포 및 전환",
+        "requirement_ids": [
+          "SFR-001"
+        ],
+        "deliverables": [
+          "시스템전환계획서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "서비스 안정화 지원",
+        "requirement_ids": [
+          "TER-002",
+          "PER-001"
+        ],
+        "deliverables": [
+          "안정화결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "유지관리 및 하자보수 체계 인계",
+        "requirement_ids": [
+          "PSR-001"
+        ],
+        "deliverables": [
+          "하자보수계획서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "기술지원 및 운영자 교육",
+        "requirement_ids": [
+          "PSR-002"
+        ],
+        "deliverables": [
+          "교육결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "사업정보 제출 및 완료보고",
+        "requirement_ids": [
+          "PSR-004",
+          "PMR-001"
+        ],
+        "deliverables": [
+          "소프트웨어사업정보제출서",
+          "완료보고서"
+        ]
+      }
+    ]
+  },
+  "dropped_requirement_ids": [],
+  "usage": [
+    {
+      "model": "gpt-6-luna",
+      "input_tokens": 740,
+      "output_tokens": 1506,
+      "reasoning_tokens": 140
+    }
+  ]
+}

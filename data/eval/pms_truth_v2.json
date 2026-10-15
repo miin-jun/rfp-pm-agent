@@ -1,0 +1,6190 @@
+{
+ "version": "pms_truth_v2",
+ "as_of_date": "2026-09-24",
+ "seed": 42,
+ "this_week_range": [
+  "2026-09-21",
+  "2026-09-23"
+ ],
+ "draft_prompt_version": "wbs_draft_v2",
+ "rules": "docs/data-design.md 6절 핵심 판단 규칙 (rfp_pm_agent.pms.rules)",
+ "scoring": "missing_requirements는 use_for_scoring=true(reason=injected)만 #39 누락 정답으로 쓴다. llm_omitted는 LLM이 연결을 빠뜨린 기록이고 정답이 아니다(ADR-0008)",
+ "projects": [
+  {
+   "project_id": "PRJ-01",
+   "doc_id": "304e5f8b0f11f1ea",
+   "draft_sha256": "4a92be33f6ee32defa4573dc5c97a15c550785ea8551f405fa3a2355c3617c3f",
+   "name": "업무자동화(RPA) 시스템 고도화",
+   "delayed_tasks": [
+    {
+     "wbs_id": "2",
+     "name": "설계 단계",
+     "status": "in_progress",
+     "planned_end": "2026-07-21",
+     "delay_days": 65,
+     "this_week": false,
+     "level": 1,
+     "injected": false
+    },
+    {
+     "wbs_id": "2.4",
+     "name": "인터페이스 연계 설계",
+     "status": "in_progress",
+     "planned_end": "2026-06-18",
+     "delay_days": 98,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.5",
+     "name": "성능 및 안정성 설계",
+     "status": "in_progress",
+     "planned_end": "2026-07-20",
+     "delay_days": 66,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.7",
+     "name": "시험 및 품질 계획 수립",
+     "status": "in_progress",
+     "planned_end": "2026-07-13",
+     "delay_days": 73,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "3.3",
+     "name": "수행 과제 마이그레이션 구현",
+     "status": "on_hold",
+     "planned_end": "2026-08-20",
+     "delay_days": 35,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "3.9",
+     "name": "기술지원 및 운영자료 정리",
+     "status": "in_progress",
+     "planned_end": "2026-09-23",
+     "delay_days": 1,
+     "this_week": true,
+     "level": 2,
+     "injected": true
+    }
+   ],
+   "open_risks": [
+    {
+     "risk_id": "PRJ-01-R01",
+     "status": "mitigating",
+     "score": 10
+    },
+    {
+     "risk_id": "PRJ-01-R02",
+     "status": "open",
+     "score": 3
+    },
+    {
+     "risk_id": "PRJ-01-R06",
+     "status": "open",
+     "score": 3
+    },
+    {
+     "risk_id": "PRJ-01-R03",
+     "status": "mitigating",
+     "score": 2
+    }
+   ],
+   "overdue_unsubmitted_deliverables": [
+    "PRJ-01-D012",
+    "PRJ-01-D013",
+    "PRJ-01-D015",
+    "PRJ-01-D016",
+    "PRJ-01-D019",
+    "PRJ-01-D025"
+   ],
+   "missing_requirements": [
+    {
+     "requirement_id": "ECR-001",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "ECR-002",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "COR-001",
+     "reason": "injected",
+     "use_for_scoring": true
+    }
+   ],
+   "out_of_scope_tasks": [],
+   "rtm": [
+    {
+     "requirement_id": "COR-002",
+     "wbs_ids": [
+      "1.7",
+      "2.6",
+      "3.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-01-D008",
+      "PRJ-01-D014",
+      "PRJ-01-D022"
+     ]
+    },
+    {
+     "requirement_id": "COR-003",
+     "wbs_ids": [
+      "3.8",
+      "4.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-01-D024",
+      "PRJ-01-D032"
+     ]
+    },
+    {
+     "requirement_id": "DAR-001",
+     "wbs_ids": [
+      "1.5",
+      "2.3",
+      "3.4",
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-01-D006",
+      "PRJ-01-D011",
+      "PRJ-01-D020",
+      "PRJ-01-D028"
+     ]
+    },
+    {
+     "requirement_id": "ECR-003",
+     "wbs_ids": [
+      "1.3",
+      "3.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-01-D004",
+      "PRJ-01-D017"
+     ]
+    },
+    {
+     "requirement_id": "ECR-004",
+     "wbs_ids": [
+      "1.4",
+      "3.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-01-D005",
+      "PRJ-01-D018"
+     ]
+    },
+    {
+     "requirement_id": "INR-001",
+     "wbs_ids": [
+      "1.6",
+      "2.4",
+      "3.5",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-01-D007",
+      "PRJ-01-D012",
+      "PRJ-01-D021",
+      "PRJ-01-D027"
+     ]
+    },
+    {
+     "requirement_id": "PER-001",
+     "wbs_ids": [
+      "1.7",
+      "2.5",
+      "3.7",
+      "4.4",
+      "5.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-01-D008",
+      "PRJ-01-D013",
+      "PRJ-01-D023",
+      "PRJ-01-D029",
+      "PRJ-01-D034"
+     ]
+    },
+    {
+     "requirement_id": "PMR-001",
+     "wbs_ids": [
+      "1.1",
+      "5.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-01-D001",
+      "PRJ-01-D002",
+      "PRJ-01-D037",
+      "PRJ-01-D038"
+     ]
+    },
+    {
+     "requirement_id": "PMR-002",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-01-D001",
+      "PRJ-01-D002"
+     ]
+    },
+    {
+     "requirement_id": "PMR-003",
+     "wbs_ids": [
+      "2.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-01-D009"
+     ]
+    },
+    {
+     "requirement_id": "PSR-001",
+     "wbs_ids": [
+      "5.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-01-D035"
+     ]
+    },
+    {
+     "requirement_id": "PSR-002",
+     "wbs_ids": [
+      "3.9",
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-01-D025",
+      "PRJ-01-D036"
+     ]
+    },
+    {
+     "requirement_id": "PSR-003",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-01-D001",
+      "PRJ-01-D002"
+     ]
+    },
+    {
+     "requirement_id": "PSR-004",
+     "wbs_ids": [
+      "5.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-01-D037",
+      "PRJ-01-D038"
+     ]
+    },
+    {
+     "requirement_id": "QUR-001",
+     "wbs_ids": [
+      "1.7",
+      "2.7",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-01-D008",
+      "PRJ-01-D015",
+      "PRJ-01-D016",
+      "PRJ-01-D030"
+     ]
+    },
+    {
+     "requirement_id": "SFR-001",
+     "wbs_ids": [
+      "1.2",
+      "2.2",
+      "3.3",
+      "3.4",
+      "4.3",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-01-D003",
+      "PRJ-01-D010",
+      "PRJ-01-D019",
+      "PRJ-01-D020",
+      "PRJ-01-D028",
+      "PRJ-01-D033"
+     ]
+    },
+    {
+     "requirement_id": "TER-001",
+     "wbs_ids": [
+      "2.7",
+      "4.1",
+      "4.2",
+      "4.3",
+      "4.4",
+      "4.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-01-D015",
+      "PRJ-01-D016",
+      "PRJ-01-D026",
+      "PRJ-01-D027",
+      "PRJ-01-D028",
+      "PRJ-01-D029",
+      "PRJ-01-D031"
+     ]
+    },
+    {
+     "requirement_id": "TER-002",
+     "wbs_ids": [
+      "5.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-01-D034"
+     ]
+    }
+   ]
+  },
+  {
+   "project_id": "PRJ-02",
+   "doc_id": "5c393c1c11137fdc",
+   "draft_sha256": "11b125138be5bb8e8f78a05e20916d8327a6d6e3511268accfdb3d211ca81241",
+   "name": "연구행정 데이터 기반 AI 플랫폼 구축",
+   "delayed_tasks": [
+    {
+     "wbs_id": "1",
+     "name": "분석 단계",
+     "status": "in_progress",
+     "planned_end": "2026-05-06",
+     "delay_days": 141,
+     "this_week": false,
+     "level": 1,
+     "injected": false
+    },
+    {
+     "wbs_id": "2",
+     "name": "설계 단계",
+     "status": "in_progress",
+     "planned_end": "2026-06-28",
+     "delay_days": 88,
+     "this_week": false,
+     "level": 1,
+     "injected": false
+    },
+    {
+     "wbs_id": "1.4",
+     "name": "데이터 현황 및 품질 분석",
+     "status": "in_progress",
+     "planned_end": "2026-04-11",
+     "delay_days": 166,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.5",
+     "name": "법령 규정 RAG 서비스 설계",
+     "status": "on_hold",
+     "planned_end": "2026-06-27",
+     "delay_days": 89,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.6",
+     "name": "이상거래 탐지 서비스 설계",
+     "status": "in_progress",
+     "planned_end": "2026-06-18",
+     "delay_days": 98,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "3.5",
+     "name": "RAG 질의응답 서비스 개발",
+     "status": "in_progress",
+     "planned_end": "2026-08-13",
+     "delay_days": 42,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "3.9",
+     "name": "개발표준 및 형상관리 적용",
+     "status": "in_progress",
+     "planned_end": "2026-09-22",
+     "delay_days": 2,
+     "this_week": true,
+     "level": 2,
+     "injected": true
+    }
+   ],
+   "open_risks": [
+    {
+     "risk_id": "PRJ-02-R05",
+     "status": "open",
+     "score": 20
+    },
+    {
+     "risk_id": "PRJ-02-R04",
+     "status": "open",
+     "score": 10
+    },
+    {
+     "risk_id": "PRJ-02-R03",
+     "status": "mitigating",
+     "score": 2
+    }
+   ],
+   "overdue_unsubmitted_deliverables": [
+    "PRJ-02-D007",
+    "PRJ-02-D008",
+    "PRJ-02-D023",
+    "PRJ-02-D024",
+    "PRJ-02-D025",
+    "PRJ-02-D026",
+    "PRJ-02-D039",
+    "PRJ-02-D040",
+    "PRJ-02-D047",
+    "PRJ-02-D048"
+   ],
+   "missing_requirements": [
+    {
+     "requirement_id": "SFR-005",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "SER-001",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "SER-005",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "QUR-001",
+     "reason": "injected",
+     "use_for_scoring": true
+    }
+   ],
+   "out_of_scope_tasks": [],
+   "rtm": [
+    {
+     "requirement_id": "COR-001",
+     "wbs_ids": [
+      "1.6",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D011",
+      "PRJ-02-D012",
+      "PRJ-02-D056",
+      "PRJ-02-D057"
+     ]
+    },
+    {
+     "requirement_id": "COR-002",
+     "wbs_ids": [
+      "1.6",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D011",
+      "PRJ-02-D012",
+      "PRJ-02-D056",
+      "PRJ-02-D057"
+     ]
+    },
+    {
+     "requirement_id": "COR-003",
+     "wbs_ids": [
+      "1.5",
+      "2.8",
+      "3.7",
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D009",
+      "PRJ-02-D010",
+      "PRJ-02-D029",
+      "PRJ-02-D030",
+      "PRJ-02-D043",
+      "PRJ-02-D044",
+      "PRJ-02-D054",
+      "PRJ-02-D055"
+     ]
+    },
+    {
+     "requirement_id": "COR-004",
+     "wbs_ids": [
+      "1.6",
+      "3.9"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D011",
+      "PRJ-02-D012",
+      "PRJ-02-D047",
+      "PRJ-02-D048"
+     ]
+    },
+    {
+     "requirement_id": "DAR-001",
+     "wbs_ids": [
+      "1.4",
+      "2.2",
+      "3.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D007",
+      "PRJ-02-D008",
+      "PRJ-02-D017",
+      "PRJ-02-D018",
+      "PRJ-02-D033",
+      "PRJ-02-D034"
+     ]
+    },
+    {
+     "requirement_id": "DAR-002",
+     "wbs_ids": [
+      "1.4",
+      "2.2",
+      "3.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D007",
+      "PRJ-02-D008",
+      "PRJ-02-D017",
+      "PRJ-02-D018",
+      "PRJ-02-D033",
+      "PRJ-02-D034"
+     ]
+    },
+    {
+     "requirement_id": "DAR-003",
+     "wbs_ids": [
+      "1.4",
+      "2.4",
+      "3.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D007",
+      "PRJ-02-D008",
+      "PRJ-02-D021",
+      "PRJ-02-D022",
+      "PRJ-02-D037",
+      "PRJ-02-D038"
+     ]
+    },
+    {
+     "requirement_id": "ECR-001",
+     "wbs_ids": [
+      "1.3",
+      "2.1",
+      "3.1",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D005",
+      "PRJ-02-D006",
+      "PRJ-02-D015",
+      "PRJ-02-D016",
+      "PRJ-02-D031",
+      "PRJ-02-D032",
+      "PRJ-02-D062",
+      "PRJ-02-D063"
+     ]
+    },
+    {
+     "requirement_id": "PER-001",
+     "wbs_ids": [
+      "1.2",
+      "2.7",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D003",
+      "PRJ-02-D004",
+      "PRJ-02-D027",
+      "PRJ-02-D028",
+      "PRJ-02-D051",
+      "PRJ-02-D052"
+     ]
+    },
+    {
+     "requirement_id": "PER-002",
+     "wbs_ids": [
+      "1.2",
+      "2.7",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D003",
+      "PRJ-02-D004",
+      "PRJ-02-D027",
+      "PRJ-02-D028",
+      "PRJ-02-D051",
+      "PRJ-02-D052"
+     ]
+    },
+    {
+     "requirement_id": "PER-003",
+     "wbs_ids": [
+      "1.2",
+      "2.5",
+      "2.6",
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D003",
+      "PRJ-02-D004",
+      "PRJ-02-D023",
+      "PRJ-02-D024",
+      "PRJ-02-D025",
+      "PRJ-02-D026",
+      "PRJ-02-D053"
+     ]
+    },
+    {
+     "requirement_id": "PMR-001",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D001",
+      "PRJ-02-D002"
+     ]
+    },
+    {
+     "requirement_id": "PMR-002",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D001",
+      "PRJ-02-D002"
+     ]
+    },
+    {
+     "requirement_id": "PMR-003",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D001",
+      "PRJ-02-D002"
+     ]
+    },
+    {
+     "requirement_id": "PMR-004",
+     "wbs_ids": [
+      "1.3",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D005",
+      "PRJ-02-D006",
+      "PRJ-02-D062",
+      "PRJ-02-D063"
+     ]
+    },
+    {
+     "requirement_id": "PMR-005",
+     "wbs_ids": [
+      "1.7",
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D013",
+      "PRJ-02-D014",
+      "PRJ-02-D068",
+      "PRJ-02-D069"
+     ]
+    },
+    {
+     "requirement_id": "PMR-006",
+     "wbs_ids": [
+      "4.6",
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D058",
+      "PRJ-02-D059",
+      "PRJ-02-D068",
+      "PRJ-02-D069"
+     ]
+    },
+    {
+     "requirement_id": "PMR-007",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D001",
+      "PRJ-02-D002"
+     ]
+    },
+    {
+     "requirement_id": "PMR-008",
+     "wbs_ids": [
+      "1.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D013",
+      "PRJ-02-D014"
+     ]
+    },
+    {
+     "requirement_id": "PMR-009",
+     "wbs_ids": [
+      "4.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D058",
+      "PRJ-02-D059"
+     ]
+    },
+    {
+     "requirement_id": "PMR-010",
+     "wbs_ids": [
+      "4.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D058",
+      "PRJ-02-D059"
+     ]
+    },
+    {
+     "requirement_id": "PSR-001",
+     "wbs_ids": [
+      "5.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D064",
+      "PRJ-02-D065"
+     ]
+    },
+    {
+     "requirement_id": "PSR-002",
+     "wbs_ids": [
+      "5.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D066",
+      "PRJ-02-D067"
+     ]
+    },
+    {
+     "requirement_id": "PSR-003",
+     "wbs_ids": [
+      "5.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D066",
+      "PRJ-02-D067"
+     ]
+    },
+    {
+     "requirement_id": "QUR-002",
+     "wbs_ids": [
+      "3.9",
+      "4.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D047",
+      "PRJ-02-D048",
+      "PRJ-02-D060",
+      "PRJ-02-D061"
+     ]
+    },
+    {
+     "requirement_id": "SER-002",
+     "wbs_ids": [
+      "1.5",
+      "2.8",
+      "3.7",
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D009",
+      "PRJ-02-D010",
+      "PRJ-02-D029",
+      "PRJ-02-D030",
+      "PRJ-02-D043",
+      "PRJ-02-D044",
+      "PRJ-02-D054",
+      "PRJ-02-D055"
+     ]
+    },
+    {
+     "requirement_id": "SER-003",
+     "wbs_ids": [
+      "1.5",
+      "2.8",
+      "3.7",
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D009",
+      "PRJ-02-D010",
+      "PRJ-02-D029",
+      "PRJ-02-D030",
+      "PRJ-02-D043",
+      "PRJ-02-D044",
+      "PRJ-02-D054",
+      "PRJ-02-D055"
+     ]
+    },
+    {
+     "requirement_id": "SER-004",
+     "wbs_ids": [
+      "1.5",
+      "2.8",
+      "3.8",
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D009",
+      "PRJ-02-D010",
+      "PRJ-02-D029",
+      "PRJ-02-D030",
+      "PRJ-02-D045",
+      "PRJ-02-D046",
+      "PRJ-02-D054",
+      "PRJ-02-D055"
+     ]
+    },
+    {
+     "requirement_id": "SFR-001",
+     "wbs_ids": [
+      "1.2",
+      "2.1",
+      "3.1",
+      "4.1",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D003",
+      "PRJ-02-D004",
+      "PRJ-02-D015",
+      "PRJ-02-D016",
+      "PRJ-02-D031",
+      "PRJ-02-D032",
+      "PRJ-02-D049",
+      "PRJ-02-D050",
+      "PRJ-02-D062",
+      "PRJ-02-D063"
+     ]
+    },
+    {
+     "requirement_id": "SFR-002",
+     "wbs_ids": [
+      "1.2",
+      "2.3",
+      "2.4",
+      "3.3",
+      "3.4",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D003",
+      "PRJ-02-D004",
+      "PRJ-02-D019",
+      "PRJ-02-D020",
+      "PRJ-02-D021",
+      "PRJ-02-D022",
+      "PRJ-02-D035",
+      "PRJ-02-D036",
+      "PRJ-02-D037",
+      "PRJ-02-D038",
+      "PRJ-02-D049",
+      "PRJ-02-D050"
+     ]
+    },
+    {
+     "requirement_id": "SFR-003",
+     "wbs_ids": [
+      "1.2",
+      "2.5",
+      "3.5",
+      "4.1",
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D003",
+      "PRJ-02-D004",
+      "PRJ-02-D023",
+      "PRJ-02-D024",
+      "PRJ-02-D039",
+      "PRJ-02-D040",
+      "PRJ-02-D049",
+      "PRJ-02-D050",
+      "PRJ-02-D053"
+     ]
+    },
+    {
+     "requirement_id": "SFR-004",
+     "wbs_ids": [
+      "1.2",
+      "2.6",
+      "3.6",
+      "4.1",
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D003",
+      "PRJ-02-D004",
+      "PRJ-02-D025",
+      "PRJ-02-D026",
+      "PRJ-02-D041",
+      "PRJ-02-D042",
+      "PRJ-02-D049",
+      "PRJ-02-D050",
+      "PRJ-02-D053"
+     ]
+    },
+    {
+     "requirement_id": "TER-001",
+     "wbs_ids": [
+      "4.1",
+      "4.6",
+      "4.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-02-D049",
+      "PRJ-02-D050",
+      "PRJ-02-D058",
+      "PRJ-02-D059",
+      "PRJ-02-D060",
+      "PRJ-02-D061"
+     ]
+    }
+   ]
+  },
+  {
+   "project_id": "PRJ-03",
+   "doc_id": "722630192c1100a1",
+   "draft_sha256": "cbd4a2da80ad2514e80ed193cc43efa3a0360e786e42ce5e168319f6a0586dad",
+   "name": "AX를 통한 불균형 투자계약 점검 시스템 구축",
+   "delayed_tasks": [
+    {
+     "wbs_id": "1",
+     "name": "분석 단계",
+     "status": "in_progress",
+     "planned_end": "2026-07-23",
+     "delay_days": 63,
+     "this_week": false,
+     "level": 1,
+     "injected": false
+    },
+    {
+     "wbs_id": "1.1",
+     "name": "착수 및 프로젝트 관리계획 수립",
+     "status": "in_progress",
+     "planned_end": "2026-06-25",
+     "delay_days": 91,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "1.3",
+     "name": "AI 서비스 전략 및 데이터 분석",
+     "status": "on_hold",
+     "planned_end": "2026-06-27",
+     "delay_days": 89,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.4",
+     "name": "Graph RAG 엔진 설계",
+     "status": "in_progress",
+     "planned_end": "2026-08-18",
+     "delay_days": 37,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.5",
+     "name": "비식별화 및 데이터 보안 설계",
+     "status": "in_progress",
+     "planned_end": "2026-09-22",
+     "delay_days": 2,
+     "this_week": true,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.7",
+     "name": "인증 권한 및 인터페이스 설계",
+     "status": "in_progress",
+     "planned_end": "2026-08-13",
+     "delay_days": 42,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    }
+   ],
+   "open_risks": [
+    {
+     "risk_id": "PRJ-03-R05",
+     "status": "open",
+     "score": 16
+    },
+    {
+     "risk_id": "PRJ-03-R08",
+     "status": "mitigating",
+     "score": 10
+    },
+    {
+     "risk_id": "PRJ-03-R07",
+     "status": "open",
+     "score": 8
+    },
+    {
+     "risk_id": "PRJ-03-R01",
+     "status": "open",
+     "score": 6
+    },
+    {
+     "risk_id": "PRJ-03-R03",
+     "status": "mitigating",
+     "score": 6
+    },
+    {
+     "risk_id": "PRJ-03-R06",
+     "status": "open",
+     "score": 6
+    },
+    {
+     "risk_id": "PRJ-03-R02",
+     "status": "mitigating",
+     "score": 4
+    }
+   ],
+   "overdue_unsubmitted_deliverables": [
+    "PRJ-03-D001",
+    "PRJ-03-D002",
+    "PRJ-03-D005",
+    "PRJ-03-D006",
+    "PRJ-03-D019",
+    "PRJ-03-D020",
+    "PRJ-03-D023",
+    "PRJ-03-D024"
+   ],
+   "missing_requirements": [
+    {
+     "requirement_id": "SFR-002",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "SIR-002",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "DAR-001",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "SER-003",
+     "reason": "injected",
+     "use_for_scoring": true
+    }
+   ],
+   "out_of_scope_tasks": [],
+   "rtm": [
+    {
+     "requirement_id": "COR-001",
+     "wbs_ids": [
+      "1.6",
+      "2.2",
+      "3.1",
+      "4.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D010",
+      "PRJ-03-D011",
+      "PRJ-03-D016",
+      "PRJ-03-D025",
+      "PRJ-03-D041"
+     ]
+    },
+    {
+     "requirement_id": "CSR-001",
+     "wbs_ids": [
+      "1.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D005",
+      "PRJ-03-D006"
+     ]
+    },
+    {
+     "requirement_id": "CSR-002",
+     "wbs_ids": [
+      "2.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D014",
+      "PRJ-03-D015"
+     ]
+    },
+    {
+     "requirement_id": "DAR-002",
+     "wbs_ids": [
+      "1.5",
+      "2.5",
+      "3.4",
+      "4.5",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D008",
+      "PRJ-03-D009",
+      "PRJ-03-D020",
+      "PRJ-03-D028",
+      "PRJ-03-D039",
+      "PRJ-03-D040",
+      "PRJ-03-D044",
+      "PRJ-03-D045"
+     ]
+    },
+    {
+     "requirement_id": "PER-001",
+     "wbs_ids": [
+      "2.6",
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D021",
+      "PRJ-03-D022",
+      "PRJ-03-D036"
+     ]
+    },
+    {
+     "requirement_id": "PER-002",
+     "wbs_ids": [
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D036"
+     ]
+    },
+    {
+     "requirement_id": "PMR-001",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D001",
+      "PRJ-03-D002"
+     ]
+    },
+    {
+     "requirement_id": "PMR-002",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D001",
+      "PRJ-03-D002"
+     ]
+    },
+    {
+     "requirement_id": "PMR-003",
+     "wbs_ids": [
+      "1.2",
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D003",
+      "PRJ-03-D004",
+      "PRJ-03-D050",
+      "PRJ-03-D051"
+     ]
+    },
+    {
+     "requirement_id": "PMR-004",
+     "wbs_ids": [
+      "1.1",
+      "5.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D001",
+      "PRJ-03-D002",
+      "PRJ-03-D052"
+     ]
+    },
+    {
+     "requirement_id": "PMR-005",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D001",
+      "PRJ-03-D002"
+     ]
+    },
+    {
+     "requirement_id": "PMR-006",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D001",
+      "PRJ-03-D002"
+     ]
+    },
+    {
+     "requirement_id": "PMR-007",
+     "wbs_ids": [
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D050",
+      "PRJ-03-D051"
+     ]
+    },
+    {
+     "requirement_id": "PSR-001",
+     "wbs_ids": [
+      "4.7",
+      "5.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D042",
+      "PRJ-03-D043",
+      "PRJ-03-D046",
+      "PRJ-03-D047"
+     ]
+    },
+    {
+     "requirement_id": "PSR-002",
+     "wbs_ids": [
+      "4.7",
+      "5.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D042",
+      "PRJ-03-D043",
+      "PRJ-03-D046",
+      "PRJ-03-D047"
+     ]
+    },
+    {
+     "requirement_id": "QUR-001",
+     "wbs_ids": [
+      "1.2",
+      "4.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D003",
+      "PRJ-03-D004",
+      "PRJ-03-D041"
+     ]
+    },
+    {
+     "requirement_id": "QUR-002",
+     "wbs_ids": [
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D034"
+     ]
+    },
+    {
+     "requirement_id": "QUR-003",
+     "wbs_ids": [
+      "1.7",
+      "4.4",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D012",
+      "PRJ-03-D013",
+      "PRJ-03-D037",
+      "PRJ-03-D038",
+      "PRJ-03-D044",
+      "PRJ-03-D045"
+     ]
+    },
+    {
+     "requirement_id": "QUR-004",
+     "wbs_ids": [
+      "1.7",
+      "5.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D012",
+      "PRJ-03-D013",
+      "PRJ-03-D048",
+      "PRJ-03-D049"
+     ]
+    },
+    {
+     "requirement_id": "QUR-005",
+     "wbs_ids": [
+      "1.7",
+      "3.8",
+      "4.4",
+      "5.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D012",
+      "PRJ-03-D013",
+      "PRJ-03-D032",
+      "PRJ-03-D033",
+      "PRJ-03-D037",
+      "PRJ-03-D038",
+      "PRJ-03-D048",
+      "PRJ-03-D049"
+     ]
+    },
+    {
+     "requirement_id": "SER-001",
+     "wbs_ids": [
+      "1.5",
+      "3.8",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D008",
+      "PRJ-03-D009",
+      "PRJ-03-D032",
+      "PRJ-03-D033",
+      "PRJ-03-D039",
+      "PRJ-03-D040"
+     ]
+    },
+    {
+     "requirement_id": "SER-002",
+     "wbs_ids": [
+      "1.5",
+      "3.8",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D008",
+      "PRJ-03-D009",
+      "PRJ-03-D032",
+      "PRJ-03-D033",
+      "PRJ-03-D039",
+      "PRJ-03-D040"
+     ]
+    },
+    {
+     "requirement_id": "SER-004",
+     "wbs_ids": [
+      "2.7",
+      "3.7",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D023",
+      "PRJ-03-D024",
+      "PRJ-03-D031",
+      "PRJ-03-D039",
+      "PRJ-03-D040"
+     ]
+    },
+    {
+     "requirement_id": "SFR-001",
+     "wbs_ids": [
+      "1.2",
+      "2.2",
+      "3.1",
+      "4.1",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D003",
+      "PRJ-03-D004",
+      "PRJ-03-D016",
+      "PRJ-03-D025",
+      "PRJ-03-D034",
+      "PRJ-03-D044",
+      "PRJ-03-D045"
+     ]
+    },
+    {
+     "requirement_id": "SFR-003",
+     "wbs_ids": [
+      "2.3",
+      "3.2",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D017",
+      "PRJ-03-D018",
+      "PRJ-03-D026",
+      "PRJ-03-D034"
+     ]
+    },
+    {
+     "requirement_id": "SFR-004",
+     "wbs_ids": [
+      "2.4",
+      "3.3",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D019",
+      "PRJ-03-D027",
+      "PRJ-03-D034"
+     ]
+    },
+    {
+     "requirement_id": "SFR-005",
+     "wbs_ids": [
+      "2.5",
+      "3.4",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D020",
+      "PRJ-03-D028",
+      "PRJ-03-D034"
+     ]
+    },
+    {
+     "requirement_id": "SFR-006",
+     "wbs_ids": [
+      "1.4",
+      "2.6",
+      "3.5",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D007",
+      "PRJ-03-D021",
+      "PRJ-03-D022",
+      "PRJ-03-D029",
+      "PRJ-03-D035"
+     ]
+    },
+    {
+     "requirement_id": "SFR-007",
+     "wbs_ids": [
+      "1.4",
+      "3.6",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D007",
+      "PRJ-03-D030",
+      "PRJ-03-D035"
+     ]
+    },
+    {
+     "requirement_id": "SIR-001",
+     "wbs_ids": [
+      "1.6",
+      "2.7",
+      "3.7",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D010",
+      "PRJ-03-D011",
+      "PRJ-03-D023",
+      "PRJ-03-D024",
+      "PRJ-03-D031",
+      "PRJ-03-D039",
+      "PRJ-03-D040"
+     ]
+    },
+    {
+     "requirement_id": "TER-001",
+     "wbs_ids": [
+      "1.7",
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D012",
+      "PRJ-03-D013",
+      "PRJ-03-D037",
+      "PRJ-03-D038"
+     ]
+    },
+    {
+     "requirement_id": "TER-002",
+     "wbs_ids": [
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-03-D036"
+     ]
+    }
+   ]
+  },
+  {
+   "project_id": "PRJ-04",
+   "doc_id": "73c61cba5e928858",
+   "draft_sha256": "fb62d0c2de4cd5294fe0997fe6b3258b3bcd97a25dd9b0e6218a84e11c4e5301",
+   "name": "2027학년도 고등학교 입학전형 시스템 기능개선 및 GIS 현행화 용역",
+   "delayed_tasks": [
+    {
+     "wbs_id": "1",
+     "name": "분석 단계",
+     "status": "in_progress",
+     "planned_end": "2026-04-21",
+     "delay_days": 156,
+     "this_week": false,
+     "level": 1,
+     "injected": false
+    },
+    {
+     "wbs_id": "2",
+     "name": "설계 단계",
+     "status": "in_progress",
+     "planned_end": "2026-06-21",
+     "delay_days": 95,
+     "this_week": false,
+     "level": 1,
+     "injected": false
+    },
+    {
+     "wbs_id": "1.6",
+     "name": "연계 및 사용자환경 분석",
+     "status": "on_hold",
+     "planned_end": "2026-04-15",
+     "delay_days": 162,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "1.8",
+     "name": "정기보고 및 산출물 관리",
+     "status": "in_progress",
+     "planned_end": "2026-04-20",
+     "delay_days": 157,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.5",
+     "name": "시스템 연계 설계",
+     "status": "in_progress",
+     "planned_end": "2026-05-16",
+     "delay_days": 131,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.6",
+     "name": "사용자 인터페이스 설계",
+     "status": "in_progress",
+     "planned_end": "2026-06-02",
+     "delay_days": 114,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "3.4",
+     "name": "데이터 표준 및 구조 적용",
+     "status": "in_progress",
+     "planned_end": "2026-09-06",
+     "delay_days": 18,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "3.5",
+     "name": "데이터 관리도구 적용",
+     "status": "in_progress",
+     "planned_end": "2026-09-22",
+     "delay_days": 2,
+     "this_week": true,
+     "level": 2,
+     "injected": true
+    }
+   ],
+   "open_risks": [
+    {
+     "risk_id": "PRJ-04-R01",
+     "status": "mitigating",
+     "score": 12
+    },
+    {
+     "risk_id": "PRJ-04-R02",
+     "status": "open",
+     "score": 9
+    },
+    {
+     "risk_id": "PRJ-04-R06",
+     "status": "open",
+     "score": 8
+    },
+    {
+     "risk_id": "PRJ-04-R07",
+     "status": "open",
+     "score": 6
+    },
+    {
+     "risk_id": "PRJ-04-R04",
+     "status": "mitigating",
+     "score": 2
+    }
+   ],
+   "overdue_unsubmitted_deliverables": [
+    "PRJ-04-D011",
+    "PRJ-04-D012",
+    "PRJ-04-D015",
+    "PRJ-04-D016",
+    "PRJ-04-D025",
+    "PRJ-04-D026",
+    "PRJ-04-D027",
+    "PRJ-04-D028",
+    "PRJ-04-D039",
+    "PRJ-04-D040",
+    "PRJ-04-D041",
+    "PRJ-04-D042"
+   ],
+   "missing_requirements": [
+    {
+     "requirement_id": "DAR-004",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "DAR-008",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "SFR-009",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "PER-001",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "QUR-002",
+     "reason": "injected",
+     "use_for_scoring": true
+    }
+   ],
+   "out_of_scope_tasks": [],
+   "rtm": [
+    {
+     "requirement_id": "COR-001",
+     "wbs_ids": [
+      "1.7",
+      "2.8",
+      "3.8",
+      "4.6",
+      "5.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D013",
+      "PRJ-04-D014",
+      "PRJ-04-D031",
+      "PRJ-04-D032",
+      "PRJ-04-D047",
+      "PRJ-04-D048",
+      "PRJ-04-D058",
+      "PRJ-04-D059",
+      "PRJ-04-D076",
+      "PRJ-04-D077"
+     ]
+    },
+    {
+     "requirement_id": "DAR-001",
+     "wbs_ids": [
+      "1.3",
+      "2.1",
+      "4.2",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D005",
+      "PRJ-04-D006",
+      "PRJ-04-D017",
+      "PRJ-04-D018",
+      "PRJ-04-D051",
+      "PRJ-04-D052",
+      "PRJ-04-D064",
+      "PRJ-04-D065"
+     ]
+    },
+    {
+     "requirement_id": "DAR-002",
+     "wbs_ids": [
+      "1.4",
+      "2.2",
+      "3.3",
+      "4.2",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D007",
+      "PRJ-04-D008",
+      "PRJ-04-D019",
+      "PRJ-04-D020",
+      "PRJ-04-D037",
+      "PRJ-04-D038",
+      "PRJ-04-D051",
+      "PRJ-04-D052",
+      "PRJ-04-D064",
+      "PRJ-04-D065"
+     ]
+    },
+    {
+     "requirement_id": "DAR-003",
+     "wbs_ids": [
+      "1.4",
+      "2.2",
+      "3.3",
+      "4.2",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D007",
+      "PRJ-04-D008",
+      "PRJ-04-D019",
+      "PRJ-04-D020",
+      "PRJ-04-D037",
+      "PRJ-04-D038",
+      "PRJ-04-D051",
+      "PRJ-04-D052",
+      "PRJ-04-D064",
+      "PRJ-04-D065"
+     ]
+    },
+    {
+     "requirement_id": "DAR-005",
+     "wbs_ids": [
+      "1.5",
+      "2.3",
+      "3.4",
+      "4.2",
+      "5.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D009",
+      "PRJ-04-D010",
+      "PRJ-04-D021",
+      "PRJ-04-D022",
+      "PRJ-04-D039",
+      "PRJ-04-D040",
+      "PRJ-04-D051",
+      "PRJ-04-D052",
+      "PRJ-04-D072",
+      "PRJ-04-D073"
+     ]
+    },
+    {
+     "requirement_id": "DAR-006",
+     "wbs_ids": [
+      "1.5",
+      "2.3",
+      "3.4",
+      "4.2",
+      "5.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D009",
+      "PRJ-04-D010",
+      "PRJ-04-D021",
+      "PRJ-04-D022",
+      "PRJ-04-D039",
+      "PRJ-04-D040",
+      "PRJ-04-D051",
+      "PRJ-04-D052",
+      "PRJ-04-D072",
+      "PRJ-04-D073"
+     ]
+    },
+    {
+     "requirement_id": "DAR-007",
+     "wbs_ids": [
+      "2.3",
+      "3.4",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D021",
+      "PRJ-04-D022",
+      "PRJ-04-D039",
+      "PRJ-04-D040",
+      "PRJ-04-D051",
+      "PRJ-04-D052"
+     ]
+    },
+    {
+     "requirement_id": "DAR-009",
+     "wbs_ids": [
+      "2.4",
+      "3.5",
+      "4.2",
+      "5.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D023",
+      "PRJ-04-D024",
+      "PRJ-04-D041",
+      "PRJ-04-D042",
+      "PRJ-04-D051",
+      "PRJ-04-D052",
+      "PRJ-04-D072",
+      "PRJ-04-D073"
+     ]
+    },
+    {
+     "requirement_id": "DAR-010",
+     "wbs_ids": [
+      "1.5",
+      "2.4",
+      "3.5",
+      "4.2",
+      "5.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D009",
+      "PRJ-04-D010",
+      "PRJ-04-D023",
+      "PRJ-04-D024",
+      "PRJ-04-D041",
+      "PRJ-04-D042",
+      "PRJ-04-D051",
+      "PRJ-04-D052",
+      "PRJ-04-D072",
+      "PRJ-04-D073"
+     ]
+    },
+    {
+     "requirement_id": "DAR-011",
+     "wbs_ids": [
+      "1.5",
+      "2.4",
+      "3.5",
+      "4.2",
+      "5.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D009",
+      "PRJ-04-D010",
+      "PRJ-04-D023",
+      "PRJ-04-D024",
+      "PRJ-04-D041",
+      "PRJ-04-D042",
+      "PRJ-04-D051",
+      "PRJ-04-D052",
+      "PRJ-04-D072",
+      "PRJ-04-D073"
+     ]
+    },
+    {
+     "requirement_id": "DAR-012",
+     "wbs_ids": [
+      "1.5",
+      "2.4",
+      "3.5",
+      "4.2",
+      "5.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D009",
+      "PRJ-04-D010",
+      "PRJ-04-D023",
+      "PRJ-04-D024",
+      "PRJ-04-D041",
+      "PRJ-04-D042",
+      "PRJ-04-D051",
+      "PRJ-04-D052",
+      "PRJ-04-D072",
+      "PRJ-04-D073"
+     ]
+    },
+    {
+     "requirement_id": "ECR-001",
+     "wbs_ids": [
+      "1.2",
+      "2.5",
+      "3.6",
+      "4.3",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D003",
+      "PRJ-04-D004",
+      "PRJ-04-D025",
+      "PRJ-04-D026",
+      "PRJ-04-D043",
+      "PRJ-04-D044",
+      "PRJ-04-D053",
+      "PRJ-04-D054",
+      "PRJ-04-D064",
+      "PRJ-04-D065"
+     ]
+    },
+    {
+     "requirement_id": "PMR-001",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D001",
+      "PRJ-04-D002"
+     ]
+    },
+    {
+     "requirement_id": "PMR-002",
+     "wbs_ids": [
+      "1.8",
+      "5.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D015",
+      "PRJ-04-D016",
+      "PRJ-04-D076",
+      "PRJ-04-D077"
+     ]
+    },
+    {
+     "requirement_id": "PMR-003",
+     "wbs_ids": [
+      "1.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D003",
+      "PRJ-04-D004"
+     ]
+    },
+    {
+     "requirement_id": "PSR-001",
+     "wbs_ids": [
+      "5.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D066",
+      "PRJ-04-D067"
+     ]
+    },
+    {
+     "requirement_id": "PSR-002",
+     "wbs_ids": [
+      "5.3",
+      "5.8"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D068",
+      "PRJ-04-D069",
+      "PRJ-04-D078",
+      "PRJ-04-D079"
+     ]
+    },
+    {
+     "requirement_id": "QUR-001",
+     "wbs_ids": [
+      "1.7",
+      "2.8",
+      "4.6",
+      "4.8",
+      "5.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D013",
+      "PRJ-04-D014",
+      "PRJ-04-D031",
+      "PRJ-04-D032",
+      "PRJ-04-D058",
+      "PRJ-04-D059",
+      "PRJ-04-D062",
+      "PRJ-04-D063",
+      "PRJ-04-D076",
+      "PRJ-04-D077"
+     ]
+    },
+    {
+     "requirement_id": "SER-001",
+     "wbs_ids": [
+      "1.7",
+      "2.7",
+      "3.8",
+      "4.5",
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D013",
+      "PRJ-04-D014",
+      "PRJ-04-D029",
+      "PRJ-04-D030",
+      "PRJ-04-D047",
+      "PRJ-04-D048",
+      "PRJ-04-D056",
+      "PRJ-04-D057",
+      "PRJ-04-D070",
+      "PRJ-04-D071"
+     ]
+    },
+    {
+     "requirement_id": "SER-002",
+     "wbs_ids": [
+      "1.7",
+      "2.8",
+      "3.8",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D013",
+      "PRJ-04-D014",
+      "PRJ-04-D031",
+      "PRJ-04-D032",
+      "PRJ-04-D047",
+      "PRJ-04-D048",
+      "PRJ-04-D056",
+      "PRJ-04-D057"
+     ]
+    },
+    {
+     "requirement_id": "SER-003",
+     "wbs_ids": [
+      "1.7",
+      "2.8",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D013",
+      "PRJ-04-D014",
+      "PRJ-04-D031",
+      "PRJ-04-D032",
+      "PRJ-04-D056",
+      "PRJ-04-D057"
+     ]
+    },
+    {
+     "requirement_id": "SER-004",
+     "wbs_ids": [
+      "1.7",
+      "2.7",
+      "3.7",
+      "4.5",
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D013",
+      "PRJ-04-D014",
+      "PRJ-04-D029",
+      "PRJ-04-D030",
+      "PRJ-04-D045",
+      "PRJ-04-D046",
+      "PRJ-04-D056",
+      "PRJ-04-D057",
+      "PRJ-04-D070",
+      "PRJ-04-D071"
+     ]
+    },
+    {
+     "requirement_id": "SER-005",
+     "wbs_ids": [
+      "1.7",
+      "2.7",
+      "3.7",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D013",
+      "PRJ-04-D014",
+      "PRJ-04-D029",
+      "PRJ-04-D030",
+      "PRJ-04-D045",
+      "PRJ-04-D046",
+      "PRJ-04-D056",
+      "PRJ-04-D057"
+     ]
+    },
+    {
+     "requirement_id": "SER-006",
+     "wbs_ids": [
+      "1.7",
+      "2.7",
+      "3.7",
+      "4.5",
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D013",
+      "PRJ-04-D014",
+      "PRJ-04-D029",
+      "PRJ-04-D030",
+      "PRJ-04-D045",
+      "PRJ-04-D046",
+      "PRJ-04-D056",
+      "PRJ-04-D057",
+      "PRJ-04-D070",
+      "PRJ-04-D071"
+     ]
+    },
+    {
+     "requirement_id": "SER-007",
+     "wbs_ids": [
+      "1.7",
+      "2.7",
+      "3.7",
+      "4.5",
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D013",
+      "PRJ-04-D014",
+      "PRJ-04-D029",
+      "PRJ-04-D030",
+      "PRJ-04-D045",
+      "PRJ-04-D046",
+      "PRJ-04-D056",
+      "PRJ-04-D057",
+      "PRJ-04-D070",
+      "PRJ-04-D071"
+     ]
+    },
+    {
+     "requirement_id": "SFR-001",
+     "wbs_ids": [
+      "1.3",
+      "2.1",
+      "3.1",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D005",
+      "PRJ-04-D006",
+      "PRJ-04-D017",
+      "PRJ-04-D018",
+      "PRJ-04-D033",
+      "PRJ-04-D034",
+      "PRJ-04-D049",
+      "PRJ-04-D050"
+     ]
+    },
+    {
+     "requirement_id": "SFR-002",
+     "wbs_ids": [
+      "1.3",
+      "2.1",
+      "3.1",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D005",
+      "PRJ-04-D006",
+      "PRJ-04-D017",
+      "PRJ-04-D018",
+      "PRJ-04-D033",
+      "PRJ-04-D034",
+      "PRJ-04-D049",
+      "PRJ-04-D050"
+     ]
+    },
+    {
+     "requirement_id": "SFR-003",
+     "wbs_ids": [
+      "1.3",
+      "2.1",
+      "3.1",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D005",
+      "PRJ-04-D006",
+      "PRJ-04-D017",
+      "PRJ-04-D018",
+      "PRJ-04-D033",
+      "PRJ-04-D034",
+      "PRJ-04-D049",
+      "PRJ-04-D050"
+     ]
+    },
+    {
+     "requirement_id": "SFR-004",
+     "wbs_ids": [
+      "1.3",
+      "2.1",
+      "3.1",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D005",
+      "PRJ-04-D006",
+      "PRJ-04-D017",
+      "PRJ-04-D018",
+      "PRJ-04-D033",
+      "PRJ-04-D034",
+      "PRJ-04-D049",
+      "PRJ-04-D050"
+     ]
+    },
+    {
+     "requirement_id": "SFR-005",
+     "wbs_ids": [
+      "1.3",
+      "2.1",
+      "3.1",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D005",
+      "PRJ-04-D006",
+      "PRJ-04-D017",
+      "PRJ-04-D018",
+      "PRJ-04-D033",
+      "PRJ-04-D034",
+      "PRJ-04-D049",
+      "PRJ-04-D050"
+     ]
+    },
+    {
+     "requirement_id": "SFR-006",
+     "wbs_ids": [
+      "1.3",
+      "2.1",
+      "3.1",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D005",
+      "PRJ-04-D006",
+      "PRJ-04-D017",
+      "PRJ-04-D018",
+      "PRJ-04-D033",
+      "PRJ-04-D034",
+      "PRJ-04-D049",
+      "PRJ-04-D050"
+     ]
+    },
+    {
+     "requirement_id": "SFR-007",
+     "wbs_ids": [
+      "1.3",
+      "2.1",
+      "3.1",
+      "4.1",
+      "5.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D005",
+      "PRJ-04-D006",
+      "PRJ-04-D017",
+      "PRJ-04-D018",
+      "PRJ-04-D033",
+      "PRJ-04-D034",
+      "PRJ-04-D049",
+      "PRJ-04-D050",
+      "PRJ-04-D074",
+      "PRJ-04-D075"
+     ]
+    },
+    {
+     "requirement_id": "SFR-008",
+     "wbs_ids": [
+      "1.3",
+      "2.1",
+      "3.1",
+      "4.1",
+      "5.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D005",
+      "PRJ-04-D006",
+      "PRJ-04-D017",
+      "PRJ-04-D018",
+      "PRJ-04-D033",
+      "PRJ-04-D034",
+      "PRJ-04-D049",
+      "PRJ-04-D050",
+      "PRJ-04-D074",
+      "PRJ-04-D075"
+     ]
+    },
+    {
+     "requirement_id": "SFR-010",
+     "wbs_ids": [
+      "1.3",
+      "2.2",
+      "3.2",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D005",
+      "PRJ-04-D006",
+      "PRJ-04-D019",
+      "PRJ-04-D020",
+      "PRJ-04-D035",
+      "PRJ-04-D036",
+      "PRJ-04-D049",
+      "PRJ-04-D050"
+     ]
+    },
+    {
+     "requirement_id": "SFR-011",
+     "wbs_ids": [
+      "1.3",
+      "2.2",
+      "3.2",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D005",
+      "PRJ-04-D006",
+      "PRJ-04-D019",
+      "PRJ-04-D020",
+      "PRJ-04-D035",
+      "PRJ-04-D036",
+      "PRJ-04-D049",
+      "PRJ-04-D050"
+     ]
+    },
+    {
+     "requirement_id": "SFR-012",
+     "wbs_ids": [
+      "1.3",
+      "2.2",
+      "3.2",
+      "4.1",
+      "5.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D005",
+      "PRJ-04-D006",
+      "PRJ-04-D019",
+      "PRJ-04-D020",
+      "PRJ-04-D035",
+      "PRJ-04-D036",
+      "PRJ-04-D049",
+      "PRJ-04-D050",
+      "PRJ-04-D074",
+      "PRJ-04-D075"
+     ]
+    },
+    {
+     "requirement_id": "SFR-013",
+     "wbs_ids": [
+      "1.3",
+      "2.1",
+      "3.1",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D005",
+      "PRJ-04-D006",
+      "PRJ-04-D017",
+      "PRJ-04-D018",
+      "PRJ-04-D033",
+      "PRJ-04-D034",
+      "PRJ-04-D049",
+      "PRJ-04-D050"
+     ]
+    },
+    {
+     "requirement_id": "SIR-001",
+     "wbs_ids": [
+      "1.6",
+      "2.5",
+      "3.6",
+      "4.3",
+      "5.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D011",
+      "PRJ-04-D012",
+      "PRJ-04-D025",
+      "PRJ-04-D026",
+      "PRJ-04-D043",
+      "PRJ-04-D044",
+      "PRJ-04-D053",
+      "PRJ-04-D054",
+      "PRJ-04-D074",
+      "PRJ-04-D075"
+     ]
+    },
+    {
+     "requirement_id": "SIR-002",
+     "wbs_ids": [
+      "1.6",
+      "2.6",
+      "4.4",
+      "5.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D011",
+      "PRJ-04-D012",
+      "PRJ-04-D027",
+      "PRJ-04-D028",
+      "PRJ-04-D055",
+      "PRJ-04-D074",
+      "PRJ-04-D075"
+     ]
+    },
+    {
+     "requirement_id": "TER-001",
+     "wbs_ids": [
+      "4.7",
+      "4.8",
+      "5.8"
+     ],
+     "deliverable_ids": [
+      "PRJ-04-D060",
+      "PRJ-04-D061",
+      "PRJ-04-D062",
+      "PRJ-04-D063",
+      "PRJ-04-D078",
+      "PRJ-04-D079"
+     ]
+    }
+   ]
+  },
+  {
+   "project_id": "PRJ-05",
+   "doc_id": "944b2d1427f3ee1a",
+   "draft_sha256": "5d8c90128369d81b95cf051c582bef4a77e8dab657aeadb902c6907e05ff34c8",
+   "name": "2023년 아산시 강소형 스마트시티 조성사업 스마트폴 구축 용역",
+   "delayed_tasks": [
+    {
+     "wbs_id": "1",
+     "name": "분석 단계",
+     "status": "in_progress",
+     "planned_end": "2026-07-30",
+     "delay_days": 56,
+     "this_week": false,
+     "level": 1,
+     "injected": false
+    },
+    {
+     "wbs_id": "1.1",
+     "name": "착수 및 수행체계 수립",
+     "status": "in_progress",
+     "planned_end": "2026-07-08",
+     "delay_days": 78,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "1.6",
+     "name": "조명·미디어 기능 요구사항 분석",
+     "status": "in_progress",
+     "planned_end": "2026-07-18",
+     "delay_days": 68,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.2",
+     "name": "영상장비 상세 설계",
+     "status": "on_hold",
+     "planned_end": "2026-09-06",
+     "delay_days": 18,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.3",
+     "name": "조명·미디어 장비 설계",
+     "status": "in_progress",
+     "planned_end": "2026-09-21",
+     "delay_days": 3,
+     "this_week": true,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.6",
+     "name": "연계 및 사용자 화면 설계",
+     "status": "in_progress",
+     "planned_end": "2026-08-20",
+     "delay_days": 35,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    }
+   ],
+   "open_risks": [
+    {
+     "risk_id": "PRJ-05-R05",
+     "status": "open",
+     "score": 20
+    },
+    {
+     "risk_id": "PRJ-05-R02",
+     "status": "mitigating",
+     "score": 12
+    },
+    {
+     "risk_id": "PRJ-05-R03",
+     "status": "open",
+     "score": 4
+    },
+    {
+     "risk_id": "PRJ-05-R04",
+     "status": "open",
+     "score": 1
+    }
+   ],
+   "overdue_unsubmitted_deliverables": [
+    "PRJ-05-D001",
+    "PRJ-05-D002",
+    "PRJ-05-D008",
+    "PRJ-05-D013",
+    "PRJ-05-D014",
+    "PRJ-05-D017",
+    "PRJ-05-D018"
+   ],
+   "missing_requirements": [
+    {
+     "requirement_id": "SFR-002",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "SFR-009",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "SFR-010",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "SFR-012",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "SER-003",
+     "reason": "injected",
+     "use_for_scoring": true
+    }
+   ],
+   "out_of_scope_tasks": [],
+   "rtm": [
+    {
+     "requirement_id": "COR-001",
+     "wbs_ids": [
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D043"
+     ]
+    },
+    {
+     "requirement_id": "COR-002",
+     "wbs_ids": [
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D043"
+     ]
+    },
+    {
+     "requirement_id": "COR-003",
+     "wbs_ids": [
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D043"
+     ]
+    },
+    {
+     "requirement_id": "CSR-001",
+     "wbs_ids": [
+      "1.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D003",
+      "PRJ-05-D004"
+     ]
+    },
+    {
+     "requirement_id": "CSR-002",
+     "wbs_ids": [
+      "1.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D003",
+      "PRJ-05-D004"
+     ]
+    },
+    {
+     "requirement_id": "PER-001",
+     "wbs_ids": [
+      "2.7",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D019",
+      "PRJ-05-D020",
+      "PRJ-05-D032"
+     ]
+    },
+    {
+     "requirement_id": "PMR-001",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D001",
+      "PRJ-05-D002"
+     ]
+    },
+    {
+     "requirement_id": "PMR-002",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D001",
+      "PRJ-05-D002"
+     ]
+    },
+    {
+     "requirement_id": "PMR-003",
+     "wbs_ids": [
+      "4.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D038"
+     ]
+    },
+    {
+     "requirement_id": "PMR-004",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D001",
+      "PRJ-05-D002"
+     ]
+    },
+    {
+     "requirement_id": "PMR-005",
+     "wbs_ids": [
+      "4.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D038"
+     ]
+    },
+    {
+     "requirement_id": "PMR-006",
+     "wbs_ids": [
+      "4.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D038"
+     ]
+    },
+    {
+     "requirement_id": "PMR-007",
+     "wbs_ids": [
+      "4.4",
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D034",
+      "PRJ-05-D035",
+      "PRJ-05-D043"
+     ]
+    },
+    {
+     "requirement_id": "PMR-008",
+     "wbs_ids": [
+      "4.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D038"
+     ]
+    },
+    {
+     "requirement_id": "PMR-010",
+     "wbs_ids": [
+      "4.7",
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D038",
+      "PRJ-05-D043"
+     ]
+    },
+    {
+     "requirement_id": "PMR-011",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D001",
+      "PRJ-05-D002"
+     ]
+    },
+    {
+     "requirement_id": "PSR-001",
+     "wbs_ids": [
+      "5.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D042"
+     ]
+    },
+    {
+     "requirement_id": "PSR-002",
+     "wbs_ids": [
+      "5.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D040",
+      "PRJ-05-D041"
+     ]
+    },
+    {
+     "requirement_id": "QUR-001",
+     "wbs_ids": [
+      "2.7",
+      "4.4",
+      "4.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D019",
+      "PRJ-05-D020",
+      "PRJ-05-D034",
+      "PRJ-05-D035",
+      "PRJ-05-D037"
+     ]
+    },
+    {
+     "requirement_id": "QUR-002",
+     "wbs_ids": [
+      "2.7",
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D019",
+      "PRJ-05-D020",
+      "PRJ-05-D034",
+      "PRJ-05-D035"
+     ]
+    },
+    {
+     "requirement_id": "SCR-001",
+     "wbs_ids": [
+      "1.3",
+      "2.1",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D005",
+      "PRJ-05-D011",
+      "PRJ-05-D012",
+      "PRJ-05-D039"
+     ]
+    },
+    {
+     "requirement_id": "SER-001",
+     "wbs_ids": [
+      "2.7",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D019",
+      "PRJ-05-D020",
+      "PRJ-05-D036"
+     ]
+    },
+    {
+     "requirement_id": "SER-002",
+     "wbs_ids": [
+      "2.7",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D019",
+      "PRJ-05-D020",
+      "PRJ-05-D036"
+     ]
+    },
+    {
+     "requirement_id": "SFR-001",
+     "wbs_ids": [
+      "1.4",
+      "2.1",
+      "3.1",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D006",
+      "PRJ-05-D011",
+      "PRJ-05-D012",
+      "PRJ-05-D021",
+      "PRJ-05-D031"
+     ]
+    },
+    {
+     "requirement_id": "SFR-003",
+     "wbs_ids": [
+      "1.5",
+      "2.2",
+      "3.2",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D007",
+      "PRJ-05-D013",
+      "PRJ-05-D022",
+      "PRJ-05-D031"
+     ]
+    },
+    {
+     "requirement_id": "SFR-004",
+     "wbs_ids": [
+      "1.5",
+      "2.2",
+      "3.2",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D007",
+      "PRJ-05-D013",
+      "PRJ-05-D022",
+      "PRJ-05-D031"
+     ]
+    },
+    {
+     "requirement_id": "SFR-005",
+     "wbs_ids": [
+      "1.6",
+      "2.3",
+      "3.3",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D008",
+      "PRJ-05-D014",
+      "PRJ-05-D023",
+      "PRJ-05-D031"
+     ]
+    },
+    {
+     "requirement_id": "SFR-006",
+     "wbs_ids": [
+      "1.6",
+      "2.3",
+      "3.4",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D008",
+      "PRJ-05-D014",
+      "PRJ-05-D024",
+      "PRJ-05-D031"
+     ]
+    },
+    {
+     "requirement_id": "SFR-007",
+     "wbs_ids": [
+      "1.6",
+      "2.3",
+      "3.5",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D008",
+      "PRJ-05-D014",
+      "PRJ-05-D025",
+      "PRJ-05-D031"
+     ]
+    },
+    {
+     "requirement_id": "SFR-008",
+     "wbs_ids": [
+      "1.7",
+      "2.4",
+      "3.6",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D009",
+      "PRJ-05-D015",
+      "PRJ-05-D026",
+      "PRJ-05-D031"
+     ]
+    },
+    {
+     "requirement_id": "SFR-011",
+     "wbs_ids": [
+      "1.7",
+      "2.4",
+      "3.7",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D009",
+      "PRJ-05-D015",
+      "PRJ-05-D027",
+      "PRJ-05-D031"
+     ]
+    },
+    {
+     "requirement_id": "SFR-013",
+     "wbs_ids": [
+      "1.4",
+      "2.5",
+      "3.1",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D006",
+      "PRJ-05-D016",
+      "PRJ-05-D021",
+      "PRJ-05-D031"
+     ]
+    },
+    {
+     "requirement_id": "SFR-014",
+     "wbs_ids": [
+      "1.8",
+      "2.5",
+      "3.8",
+      "4.1",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D010",
+      "PRJ-05-D016",
+      "PRJ-05-D028",
+      "PRJ-05-D031",
+      "PRJ-05-D039"
+     ]
+    },
+    {
+     "requirement_id": "SFR-015",
+     "wbs_ids": [
+      "1.8",
+      "2.5",
+      "3.9",
+      "4.1",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D010",
+      "PRJ-05-D016",
+      "PRJ-05-D029",
+      "PRJ-05-D031",
+      "PRJ-05-D039"
+     ]
+    },
+    {
+     "requirement_id": "SIR-001",
+     "wbs_ids": [
+      "1.8",
+      "2.6",
+      "3.10",
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D010",
+      "PRJ-05-D017",
+      "PRJ-05-D018",
+      "PRJ-05-D030",
+      "PRJ-05-D033"
+     ]
+    },
+    {
+     "requirement_id": "SIR-002",
+     "wbs_ids": [
+      "1.8",
+      "2.6",
+      "3.10",
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D010",
+      "PRJ-05-D017",
+      "PRJ-05-D018",
+      "PRJ-05-D030",
+      "PRJ-05-D033"
+     ]
+    },
+    {
+     "requirement_id": "TER-001",
+     "wbs_ids": [
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D032"
+     ]
+    },
+    {
+     "requirement_id": "TER-002",
+     "wbs_ids": [
+      "4.3",
+      "4.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-05-D033",
+      "PRJ-05-D037"
+     ]
+    }
+   ]
+  },
+  {
+   "project_id": "PRJ-06",
+   "doc_id": "9f4904d1c8ddd260",
+   "draft_sha256": "6de06c18cbcb2e304fb7de27e680cc964703bcca282b722b945dddbebf53cb90",
+   "name": "2024년 천안시 거점형 스마트도시 조성사업-어반테크 실증존 구축 용역",
+   "delayed_tasks": [
+    {
+     "wbs_id": "1",
+     "name": "분석 단계",
+     "status": "in_progress",
+     "planned_end": "2026-05-14",
+     "delay_days": 133,
+     "this_week": false,
+     "level": 1,
+     "injected": false
+    },
+    {
+     "wbs_id": "2",
+     "name": "설계 단계",
+     "status": "in_progress",
+     "planned_end": "2026-07-11",
+     "delay_days": 75,
+     "this_week": false,
+     "level": 1,
+     "injected": false
+    },
+    {
+     "wbs_id": "1.2",
+     "name": "일정·요구사항 관리계획 수립",
+     "status": "in_progress",
+     "planned_end": "2026-04-30",
+     "delay_days": 147,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "1.8",
+     "name": "데이터·보안·제약 분석",
+     "status": "in_progress",
+     "planned_end": "2026-04-18",
+     "delay_days": 159,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.2",
+     "name": "실증장비 상세 설계",
+     "status": "on_hold",
+     "planned_end": "2026-06-16",
+     "delay_days": 100,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.4",
+     "name": "대외 시스템 연계 설계",
+     "status": "in_progress",
+     "planned_end": "2026-06-02",
+     "delay_days": 114,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "3.4",
+     "name": "스마트 횡단보도 기능 구현",
+     "status": "in_progress",
+     "planned_end": "2026-09-16",
+     "delay_days": 8,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "3.5",
+     "name": "스마트 주차장 기능 구현",
+     "status": "in_progress",
+     "planned_end": "2026-09-22",
+     "delay_days": 2,
+     "this_week": true,
+     "level": 2,
+     "injected": true
+    }
+   ],
+   "open_risks": [
+    {
+     "risk_id": "PRJ-06-R05",
+     "status": "open",
+     "score": 20
+    },
+    {
+     "risk_id": "PRJ-06-R01",
+     "status": "open",
+     "score": 9
+    },
+    {
+     "risk_id": "PRJ-06-R03",
+     "status": "open",
+     "score": 4
+    },
+    {
+     "risk_id": "PRJ-06-R02",
+     "status": "mitigating",
+     "score": 2
+    }
+   ],
+   "overdue_unsubmitted_deliverables": [
+    "PRJ-06-D002",
+    "PRJ-06-D003",
+    "PRJ-06-D010",
+    "PRJ-06-D011",
+    "PRJ-06-D014",
+    "PRJ-06-D016",
+    "PRJ-06-D027",
+    "PRJ-06-D028"
+   ],
+   "missing_requirements": [
+    {
+     "requirement_id": "ECR-003",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "PER-003",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "DAR-005",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "SER-007",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "SER-008",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "COR-001",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "COR-004",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "COR-008",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "TER-001",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "PSR-003",
+     "reason": "llm_omitted",
+     "use_for_scoring": false
+    }
+   ],
+   "out_of_scope_tasks": [],
+   "rtm": [
+    {
+     "requirement_id": "COR-002",
+     "wbs_ids": [
+      "1.8",
+      "2.7",
+      "3.10",
+      "4.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D010",
+      "PRJ-06-D011",
+      "PRJ-06-D020",
+      "PRJ-06-D034",
+      "PRJ-06-D041"
+     ]
+    },
+    {
+     "requirement_id": "COR-003",
+     "wbs_ids": [
+      "1.8",
+      "2.7",
+      "3.10",
+      "4.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D010",
+      "PRJ-06-D011",
+      "PRJ-06-D020",
+      "PRJ-06-D034",
+      "PRJ-06-D041"
+     ]
+    },
+    {
+     "requirement_id": "COR-005",
+     "wbs_ids": [
+      "1.8",
+      "2.7",
+      "4.6",
+      "5.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D010",
+      "PRJ-06-D011",
+      "PRJ-06-D020",
+      "PRJ-06-D041",
+      "PRJ-06-D048",
+      "PRJ-06-D049"
+     ]
+    },
+    {
+     "requirement_id": "COR-006",
+     "wbs_ids": [
+      "1.8",
+      "2.7",
+      "3.10",
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D010",
+      "PRJ-06-D011",
+      "PRJ-06-D020",
+      "PRJ-06-D034",
+      "PRJ-06-D038"
+     ]
+    },
+    {
+     "requirement_id": "COR-007",
+     "wbs_ids": [
+      "1.8",
+      "2.7",
+      "4.6",
+      "5.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D010",
+      "PRJ-06-D011",
+      "PRJ-06-D020",
+      "PRJ-06-D041",
+      "PRJ-06-D048",
+      "PRJ-06-D049"
+     ]
+    },
+    {
+     "requirement_id": "DAR-001",
+     "wbs_ids": [
+      "1.8",
+      "2.5",
+      "3.9"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D010",
+      "PRJ-06-D011",
+      "PRJ-06-D017",
+      "PRJ-06-D018",
+      "PRJ-06-D032",
+      "PRJ-06-D033"
+     ]
+    },
+    {
+     "requirement_id": "DAR-002",
+     "wbs_ids": [
+      "1.8",
+      "2.5",
+      "3.9"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D010",
+      "PRJ-06-D011",
+      "PRJ-06-D017",
+      "PRJ-06-D018",
+      "PRJ-06-D032",
+      "PRJ-06-D033"
+     ]
+    },
+    {
+     "requirement_id": "DAR-003",
+     "wbs_ids": [
+      "1.8",
+      "2.5",
+      "3.9"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D010",
+      "PRJ-06-D011",
+      "PRJ-06-D017",
+      "PRJ-06-D018",
+      "PRJ-06-D032",
+      "PRJ-06-D033"
+     ]
+    },
+    {
+     "requirement_id": "DAR-004",
+     "wbs_ids": [
+      "1.8",
+      "2.5",
+      "3.9"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D010",
+      "PRJ-06-D011",
+      "PRJ-06-D017",
+      "PRJ-06-D018",
+      "PRJ-06-D032",
+      "PRJ-06-D033"
+     ]
+    },
+    {
+     "requirement_id": "DAR-006",
+     "wbs_ids": [
+      "1.8",
+      "2.5",
+      "3.9"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D010",
+      "PRJ-06-D011",
+      "PRJ-06-D017",
+      "PRJ-06-D018",
+      "PRJ-06-D032",
+      "PRJ-06-D033"
+     ]
+    },
+    {
+     "requirement_id": "ECR-001",
+     "wbs_ids": [
+      "1.6",
+      "2.1",
+      "3.8",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D008",
+      "PRJ-06-D012",
+      "PRJ-06-D013",
+      "PRJ-06-D031",
+      "PRJ-06-D043"
+     ]
+    },
+    {
+     "requirement_id": "ECR-002",
+     "wbs_ids": [
+      "1.6",
+      "2.2",
+      "3.8"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D008",
+      "PRJ-06-D014",
+      "PRJ-06-D031"
+     ]
+    },
+    {
+     "requirement_id": "ECR-004",
+     "wbs_ids": [
+      "1.6",
+      "2.2",
+      "3.1",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D008",
+      "PRJ-06-D014",
+      "PRJ-06-D024",
+      "PRJ-06-D043"
+     ]
+    },
+    {
+     "requirement_id": "ECR-005",
+     "wbs_ids": [
+      "1.6",
+      "2.2",
+      "3.2",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D008",
+      "PRJ-06-D014",
+      "PRJ-06-D025",
+      "PRJ-06-D043"
+     ]
+    },
+    {
+     "requirement_id": "ECR-006",
+     "wbs_ids": [
+      "1.6",
+      "2.2",
+      "3.3",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D008",
+      "PRJ-06-D014",
+      "PRJ-06-D026",
+      "PRJ-06-D043"
+     ]
+    },
+    {
+     "requirement_id": "ECR-007",
+     "wbs_ids": [
+      "1.6",
+      "2.2",
+      "3.4",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D008",
+      "PRJ-06-D014",
+      "PRJ-06-D027",
+      "PRJ-06-D043"
+     ]
+    },
+    {
+     "requirement_id": "ECR-008",
+     "wbs_ids": [
+      "1.6",
+      "2.2",
+      "3.5",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D008",
+      "PRJ-06-D014",
+      "PRJ-06-D028",
+      "PRJ-06-D043"
+     ]
+    },
+    {
+     "requirement_id": "PER-001",
+     "wbs_ids": [
+      "1.7",
+      "2.8",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D009",
+      "PRJ-06-D021",
+      "PRJ-06-D036"
+     ]
+    },
+    {
+     "requirement_id": "PER-002",
+     "wbs_ids": [
+      "1.7",
+      "2.8",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D009",
+      "PRJ-06-D021",
+      "PRJ-06-D036"
+     ]
+    },
+    {
+     "requirement_id": "PMR-001",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D001"
+     ]
+    },
+    {
+     "requirement_id": "PMR-002",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D001"
+     ]
+    },
+    {
+     "requirement_id": "PMR-003",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D001"
+     ]
+    },
+    {
+     "requirement_id": "PMR-004",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D001"
+     ]
+    },
+    {
+     "requirement_id": "PMR-005",
+     "wbs_ids": [
+      "1.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D002",
+      "PRJ-06-D003"
+     ]
+    },
+    {
+     "requirement_id": "PMR-006",
+     "wbs_ids": [
+      "1.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D002",
+      "PRJ-06-D003"
+     ]
+    },
+    {
+     "requirement_id": "PMR-007",
+     "wbs_ids": [
+      "1.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D004",
+      "PRJ-06-D005"
+     ]
+    },
+    {
+     "requirement_id": "PMR-008",
+     "wbs_ids": [
+      "1.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D004",
+      "PRJ-06-D005"
+     ]
+    },
+    {
+     "requirement_id": "PMR-009",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D001"
+     ]
+    },
+    {
+     "requirement_id": "PMR-010",
+     "wbs_ids": [
+      "1.2",
+      "5.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D002",
+      "PRJ-06-D003",
+      "PRJ-06-D050",
+      "PRJ-06-D051"
+     ]
+    },
+    {
+     "requirement_id": "PMR-011",
+     "wbs_ids": [
+      "1.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D006"
+     ]
+    },
+    {
+     "requirement_id": "PMR-012",
+     "wbs_ids": [
+      "1.4",
+      "4.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D006",
+      "PRJ-06-D042"
+     ]
+    },
+    {
+     "requirement_id": "PMR-013",
+     "wbs_ids": [
+      "5.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D048",
+      "PRJ-06-D049"
+     ]
+    },
+    {
+     "requirement_id": "PMR-014",
+     "wbs_ids": [
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D047"
+     ]
+    },
+    {
+     "requirement_id": "PSR-001",
+     "wbs_ids": [
+      "5.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D046"
+     ]
+    },
+    {
+     "requirement_id": "PSR-002",
+     "wbs_ids": [
+      "5.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D044",
+      "PRJ-06-D045"
+     ]
+    },
+    {
+     "requirement_id": "PSR-004",
+     "wbs_ids": [
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D047"
+     ]
+    },
+    {
+     "requirement_id": "PSR-005",
+     "wbs_ids": [
+      "5.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D044",
+      "PRJ-06-D045"
+     ]
+    },
+    {
+     "requirement_id": "PSR-006",
+     "wbs_ids": [
+      "5.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D046"
+     ]
+    },
+    {
+     "requirement_id": "QUR-001",
+     "wbs_ids": [
+      "2.9",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D022",
+      "PRJ-06-D023",
+      "PRJ-06-D039",
+      "PRJ-06-D040"
+     ]
+    },
+    {
+     "requirement_id": "QUR-002",
+     "wbs_ids": [
+      "2.9",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D022",
+      "PRJ-06-D023",
+      "PRJ-06-D039",
+      "PRJ-06-D040"
+     ]
+    },
+    {
+     "requirement_id": "QUR-003",
+     "wbs_ids": [
+      "2.9",
+      "4.5",
+      "5.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D022",
+      "PRJ-06-D023",
+      "PRJ-06-D039",
+      "PRJ-06-D040",
+      "PRJ-06-D050",
+      "PRJ-06-D051"
+     ]
+    },
+    {
+     "requirement_id": "QUR-004",
+     "wbs_ids": [
+      "2.9",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D022",
+      "PRJ-06-D023",
+      "PRJ-06-D039",
+      "PRJ-06-D040"
+     ]
+    },
+    {
+     "requirement_id": "SER-001",
+     "wbs_ids": [
+      "1.8",
+      "2.6",
+      "3.10",
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D010",
+      "PRJ-06-D011",
+      "PRJ-06-D019",
+      "PRJ-06-D034",
+      "PRJ-06-D038"
+     ]
+    },
+    {
+     "requirement_id": "SER-002",
+     "wbs_ids": [
+      "1.8",
+      "2.6",
+      "3.10",
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D010",
+      "PRJ-06-D011",
+      "PRJ-06-D019",
+      "PRJ-06-D034",
+      "PRJ-06-D038"
+     ]
+    },
+    {
+     "requirement_id": "SER-003",
+     "wbs_ids": [
+      "1.8",
+      "2.6",
+      "3.10",
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D010",
+      "PRJ-06-D011",
+      "PRJ-06-D019",
+      "PRJ-06-D034",
+      "PRJ-06-D038"
+     ]
+    },
+    {
+     "requirement_id": "SER-004",
+     "wbs_ids": [
+      "1.8",
+      "2.6",
+      "3.10",
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D010",
+      "PRJ-06-D011",
+      "PRJ-06-D019",
+      "PRJ-06-D034",
+      "PRJ-06-D038"
+     ]
+    },
+    {
+     "requirement_id": "SER-005",
+     "wbs_ids": [
+      "1.8",
+      "2.6",
+      "3.10",
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D010",
+      "PRJ-06-D011",
+      "PRJ-06-D019",
+      "PRJ-06-D034",
+      "PRJ-06-D038"
+     ]
+    },
+    {
+     "requirement_id": "SER-006",
+     "wbs_ids": [
+      "1.8",
+      "2.7",
+      "3.10",
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D010",
+      "PRJ-06-D011",
+      "PRJ-06-D020",
+      "PRJ-06-D034",
+      "PRJ-06-D038"
+     ]
+    },
+    {
+     "requirement_id": "SFR-001",
+     "wbs_ids": [
+      "1.5",
+      "2.1",
+      "3.1",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D007",
+      "PRJ-06-D012",
+      "PRJ-06-D013",
+      "PRJ-06-D024",
+      "PRJ-06-D035"
+     ]
+    },
+    {
+     "requirement_id": "SFR-002",
+     "wbs_ids": [
+      "1.5",
+      "2.1",
+      "3.2",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D007",
+      "PRJ-06-D012",
+      "PRJ-06-D013",
+      "PRJ-06-D025",
+      "PRJ-06-D035"
+     ]
+    },
+    {
+     "requirement_id": "SFR-003",
+     "wbs_ids": [
+      "1.5",
+      "2.1",
+      "3.3",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D007",
+      "PRJ-06-D012",
+      "PRJ-06-D013",
+      "PRJ-06-D026",
+      "PRJ-06-D035"
+     ]
+    },
+    {
+     "requirement_id": "SFR-004",
+     "wbs_ids": [
+      "1.5",
+      "2.1",
+      "3.4",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D007",
+      "PRJ-06-D012",
+      "PRJ-06-D013",
+      "PRJ-06-D027",
+      "PRJ-06-D035"
+     ]
+    },
+    {
+     "requirement_id": "SFR-005",
+     "wbs_ids": [
+      "1.5",
+      "2.1",
+      "3.5",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D007",
+      "PRJ-06-D012",
+      "PRJ-06-D013",
+      "PRJ-06-D028",
+      "PRJ-06-D035"
+     ]
+    },
+    {
+     "requirement_id": "SFR-006",
+     "wbs_ids": [
+      "1.5",
+      "2.1",
+      "3.6",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D007",
+      "PRJ-06-D012",
+      "PRJ-06-D013",
+      "PRJ-06-D029",
+      "PRJ-06-D035"
+     ]
+    },
+    {
+     "requirement_id": "SFR-007",
+     "wbs_ids": [
+      "1.5",
+      "2.1",
+      "3.7",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D007",
+      "PRJ-06-D012",
+      "PRJ-06-D013",
+      "PRJ-06-D030",
+      "PRJ-06-D035"
+     ]
+    },
+    {
+     "requirement_id": "SIR-001",
+     "wbs_ids": [
+      "1.7",
+      "2.3",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D009",
+      "PRJ-06-D015",
+      "PRJ-06-D035"
+     ]
+    },
+    {
+     "requirement_id": "SIR-002",
+     "wbs_ids": [
+      "1.7",
+      "2.3",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D009",
+      "PRJ-06-D015",
+      "PRJ-06-D035"
+     ]
+    },
+    {
+     "requirement_id": "SIR-003",
+     "wbs_ids": [
+      "1.7",
+      "2.4",
+      "3.9",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D009",
+      "PRJ-06-D016",
+      "PRJ-06-D032",
+      "PRJ-06-D033",
+      "PRJ-06-D035"
+     ]
+    },
+    {
+     "requirement_id": "TER-002",
+     "wbs_ids": [
+      "2.8",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D021",
+      "PRJ-06-D036"
+     ]
+    },
+    {
+     "requirement_id": "TER-003",
+     "wbs_ids": [
+      "2.8",
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D021",
+      "PRJ-06-D037"
+     ]
+    },
+    {
+     "requirement_id": "TER-004",
+     "wbs_ids": [
+      "2.8",
+      "4.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-06-D021",
+      "PRJ-06-D042"
+     ]
+    }
+   ]
+  },
+  {
+   "project_id": "PRJ-07",
+   "doc_id": "c6d225f1669cfadb",
+   "draft_sha256": "ba618805c3ae65889c6ca1ab76ad090d7761ebbb7ecca43066da37a0ab8624e9",
+   "name": "2028 세계디자인수도(WDC) 부산 디지털 플랫폼 구축 용역",
+   "delayed_tasks": [
+    {
+     "wbs_id": "1",
+     "name": "분석 단계",
+     "status": "in_progress",
+     "planned_end": "2026-05-26",
+     "delay_days": 121,
+     "this_week": false,
+     "level": 1,
+     "injected": false
+    },
+    {
+     "wbs_id": "2",
+     "name": "설계 단계",
+     "status": "in_progress",
+     "planned_end": "2026-07-16",
+     "delay_days": 70,
+     "this_week": false,
+     "level": 1,
+     "injected": false
+    },
+    {
+     "wbs_id": "1.5",
+     "name": "검색 및 아카이브 데이터 분석",
+     "status": "in_progress",
+     "planned_end": "2026-05-03",
+     "delay_days": 144,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.2",
+     "name": "화면 및 사용자 경험 설계",
+     "status": "on_hold",
+     "planned_end": "2026-06-28",
+     "delay_days": 88,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "3.3",
+     "name": "홈페이지 메뉴 및 콘텐츠 구현",
+     "status": "in_progress",
+     "planned_end": "2026-08-15",
+     "delay_days": 40,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "3.5",
+     "name": "프로그램 및 프로젝트 기능 구현",
+     "status": "in_progress",
+     "planned_end": "2026-08-27",
+     "delay_days": 28,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "3.6",
+     "name": "행사 캘린더 및 지도 구현",
+     "status": "in_progress",
+     "planned_end": "2026-08-24",
+     "delay_days": 31,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "3.11",
+     "name": "보안·통계 기능 및 시큐어코딩",
+     "status": "in_progress",
+     "planned_end": "2026-09-23",
+     "delay_days": 1,
+     "this_week": true,
+     "level": 2,
+     "injected": true
+    }
+   ],
+   "open_risks": [
+    {
+     "risk_id": "PRJ-07-R02",
+     "status": "mitigating",
+     "score": 20
+    },
+    {
+     "risk_id": "PRJ-07-R01",
+     "status": "open",
+     "score": 5
+    },
+    {
+     "risk_id": "PRJ-07-R04",
+     "status": "mitigating",
+     "score": 4
+    },
+    {
+     "risk_id": "PRJ-07-R05",
+     "status": "open",
+     "score": 3
+    }
+   ],
+   "overdue_unsubmitted_deliverables": [
+    "PRJ-07-D006",
+    "PRJ-07-D012",
+    "PRJ-07-D013",
+    "PRJ-07-D023",
+    "PRJ-07-D025",
+    "PRJ-07-D026",
+    "PRJ-07-D032"
+   ],
+   "missing_requirements": [
+    {
+     "requirement_id": "SFR-001",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "SFR-016",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "INR-002",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "SER-003",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "TER-001",
+     "reason": "injected",
+     "use_for_scoring": true
+    }
+   ],
+   "out_of_scope_tasks": [],
+   "rtm": [
+    {
+     "requirement_id": "COR-001",
+     "wbs_ids": [
+      "1.2",
+      "2.7",
+      "3.7",
+      "4.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D002",
+      "PRJ-07-D003",
+      "PRJ-07-D019",
+      "PRJ-07-D027",
+      "PRJ-07-D038"
+     ]
+    },
+    {
+     "requirement_id": "DAR-001",
+     "wbs_ids": [
+      "1.5",
+      "2.6",
+      "3.9",
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D006",
+      "PRJ-07-D017",
+      "PRJ-07-D018",
+      "PRJ-07-D029",
+      "PRJ-07-D030",
+      "PRJ-07-D035"
+     ]
+    },
+    {
+     "requirement_id": "DAR-002",
+     "wbs_ids": [
+      "1.5",
+      "2.6",
+      "3.9",
+      "4.3",
+      "5.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D006",
+      "PRJ-07-D017",
+      "PRJ-07-D018",
+      "PRJ-07-D029",
+      "PRJ-07-D030",
+      "PRJ-07-D035",
+      "PRJ-07-D043"
+     ]
+    },
+    {
+     "requirement_id": "ECR-001",
+     "wbs_ids": [
+      "1.2",
+      "2.1",
+      "3.1",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D002",
+      "PRJ-07-D003",
+      "PRJ-07-D010",
+      "PRJ-07-D011",
+      "PRJ-07-D021",
+      "PRJ-07-D041",
+      "PRJ-07-D042"
+     ]
+    },
+    {
+     "requirement_id": "INR-001",
+     "wbs_ids": [
+      "1.3",
+      "2.2",
+      "3.2",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D004",
+      "PRJ-07-D012",
+      "PRJ-07-D013",
+      "PRJ-07-D022",
+      "PRJ-07-D034"
+     ]
+    },
+    {
+     "requirement_id": "PER-001",
+     "wbs_ids": [
+      "1.7",
+      "2.1",
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D008",
+      "PRJ-07-D010",
+      "PRJ-07-D011",
+      "PRJ-07-D036"
+     ]
+    },
+    {
+     "requirement_id": "PER-002",
+     "wbs_ids": [
+      "1.7",
+      "2.1",
+      "3.1",
+      "4.5",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D008",
+      "PRJ-07-D010",
+      "PRJ-07-D011",
+      "PRJ-07-D021",
+      "PRJ-07-D037",
+      "PRJ-07-D041",
+      "PRJ-07-D042"
+     ]
+    },
+    {
+     "requirement_id": "PMR-001",
+     "wbs_ids": [
+      "1.1",
+      "5.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D001",
+      "PRJ-07-D050"
+     ]
+    },
+    {
+     "requirement_id": "PMR-002",
+     "wbs_ids": [
+      "1.8",
+      "5.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D009",
+      "PRJ-07-D050"
+     ]
+    },
+    {
+     "requirement_id": "PMR-003",
+     "wbs_ids": [
+      "2.8",
+      "5.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D020",
+      "PRJ-07-D048",
+      "PRJ-07-D049"
+     ]
+    },
+    {
+     "requirement_id": "PSR-001",
+     "wbs_ids": [
+      "5.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D047"
+     ]
+    },
+    {
+     "requirement_id": "PSR-002",
+     "wbs_ids": [
+      "5.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D044",
+      "PRJ-07-D045"
+     ]
+    },
+    {
+     "requirement_id": "PSR-003",
+     "wbs_ids": [
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D046"
+     ]
+    },
+    {
+     "requirement_id": "QUR-001",
+     "wbs_ids": [
+      "1.7",
+      "4.1",
+      "4.8",
+      "5.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D008",
+      "PRJ-07-D033",
+      "PRJ-07-D040",
+      "PRJ-07-D048",
+      "PRJ-07-D049"
+     ]
+    },
+    {
+     "requirement_id": "QUR-002",
+     "wbs_ids": [
+      "1.7",
+      "2.2",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D008",
+      "PRJ-07-D012",
+      "PRJ-07-D013",
+      "PRJ-07-D034"
+     ]
+    },
+    {
+     "requirement_id": "QUR-003",
+     "wbs_ids": [
+      "1.7",
+      "3.11",
+      "4.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D008",
+      "PRJ-07-D032",
+      "PRJ-07-D039"
+     ]
+    },
+    {
+     "requirement_id": "SER-001",
+     "wbs_ids": [
+      "1.6",
+      "2.7",
+      "3.11",
+      "4.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D007",
+      "PRJ-07-D019",
+      "PRJ-07-D032",
+      "PRJ-07-D038"
+     ]
+    },
+    {
+     "requirement_id": "SER-002",
+     "wbs_ids": [
+      "1.6",
+      "2.7",
+      "3.11",
+      "4.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D007",
+      "PRJ-07-D019",
+      "PRJ-07-D032",
+      "PRJ-07-D038"
+     ]
+    },
+    {
+     "requirement_id": "SFR-002",
+     "wbs_ids": [
+      "1.3",
+      "2.2",
+      "3.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D004",
+      "PRJ-07-D012",
+      "PRJ-07-D013",
+      "PRJ-07-D023"
+     ]
+    },
+    {
+     "requirement_id": "SFR-003",
+     "wbs_ids": [
+      "2.2",
+      "3.2",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D012",
+      "PRJ-07-D013",
+      "PRJ-07-D022",
+      "PRJ-07-D034"
+     ]
+    },
+    {
+     "requirement_id": "SFR-004",
+     "wbs_ids": [
+      "1.4",
+      "2.3",
+      "3.4",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D005",
+      "PRJ-07-D014",
+      "PRJ-07-D024",
+      "PRJ-07-D033"
+     ]
+    },
+    {
+     "requirement_id": "SFR-005",
+     "wbs_ids": [
+      "2.2",
+      "3.2",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D012",
+      "PRJ-07-D013",
+      "PRJ-07-D022",
+      "PRJ-07-D034"
+     ]
+    },
+    {
+     "requirement_id": "SFR-006",
+     "wbs_ids": [
+      "1.4",
+      "2.4",
+      "3.5",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D005",
+      "PRJ-07-D015",
+      "PRJ-07-D025",
+      "PRJ-07-D033"
+     ]
+    },
+    {
+     "requirement_id": "SFR-007",
+     "wbs_ids": [
+      "1.4",
+      "2.4",
+      "3.5",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D005",
+      "PRJ-07-D015",
+      "PRJ-07-D025",
+      "PRJ-07-D033"
+     ]
+    },
+    {
+     "requirement_id": "SFR-008",
+     "wbs_ids": [
+      "2.4",
+      "3.6",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D015",
+      "PRJ-07-D026",
+      "PRJ-07-D033"
+     ]
+    },
+    {
+     "requirement_id": "SFR-009",
+     "wbs_ids": [
+      "1.4",
+      "2.4",
+      "3.7",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D005",
+      "PRJ-07-D015",
+      "PRJ-07-D027",
+      "PRJ-07-D033"
+     ]
+    },
+    {
+     "requirement_id": "SFR-010",
+     "wbs_ids": [
+      "1.6",
+      "2.7",
+      "3.11",
+      "4.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D007",
+      "PRJ-07-D019",
+      "PRJ-07-D032",
+      "PRJ-07-D038"
+     ]
+    },
+    {
+     "requirement_id": "SFR-011",
+     "wbs_ids": [
+      "1.4",
+      "2.5",
+      "3.8",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D005",
+      "PRJ-07-D016",
+      "PRJ-07-D028",
+      "PRJ-07-D033"
+     ]
+    },
+    {
+     "requirement_id": "SFR-012",
+     "wbs_ids": [
+      "1.5",
+      "2.6",
+      "3.9",
+      "4.3",
+      "5.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D006",
+      "PRJ-07-D017",
+      "PRJ-07-D018",
+      "PRJ-07-D029",
+      "PRJ-07-D030",
+      "PRJ-07-D035",
+      "PRJ-07-D043"
+     ]
+    },
+    {
+     "requirement_id": "SFR-013",
+     "wbs_ids": [
+      "1.5",
+      "2.6",
+      "3.9",
+      "4.3",
+      "5.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D006",
+      "PRJ-07-D017",
+      "PRJ-07-D018",
+      "PRJ-07-D029",
+      "PRJ-07-D030",
+      "PRJ-07-D035",
+      "PRJ-07-D043"
+     ]
+    },
+    {
+     "requirement_id": "SFR-014",
+     "wbs_ids": [
+      "1.5",
+      "2.6",
+      "3.10",
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D006",
+      "PRJ-07-D017",
+      "PRJ-07-D018",
+      "PRJ-07-D031",
+      "PRJ-07-D035"
+     ]
+    },
+    {
+     "requirement_id": "SFR-015",
+     "wbs_ids": [
+      "3.9",
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D029",
+      "PRJ-07-D030",
+      "PRJ-07-D035"
+     ]
+    },
+    {
+     "requirement_id": "SFR-017",
+     "wbs_ids": [
+      "1.4",
+      "2.5",
+      "3.8",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D005",
+      "PRJ-07-D016",
+      "PRJ-07-D028",
+      "PRJ-07-D033"
+     ]
+    },
+    {
+     "requirement_id": "SFR-018",
+     "wbs_ids": [
+      "1.4",
+      "2.3",
+      "3.4",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-07-D005",
+      "PRJ-07-D014",
+      "PRJ-07-D024",
+      "PRJ-07-D033"
+     ]
+    }
+   ]
+  },
+  {
+   "project_id": "PRJ-08",
+   "doc_id": "d3e23c59f151e223",
+   "draft_sha256": "105d5a2e84113e012796451422d92d6a625d5228fba56b8a8e74ee139c2994c9",
+   "name": "잘피종자 신속조성용 기계식 자동파종 시스템 제작 용역",
+   "delayed_tasks": [
+    {
+     "wbs_id": "2",
+     "name": "설계 단계",
+     "status": "in_progress",
+     "planned_end": "2026-09-11",
+     "delay_days": 13,
+     "this_week": false,
+     "level": 1,
+     "injected": false
+    },
+    {
+     "wbs_id": "2.2",
+     "name": "종자 공급장치 설계",
+     "status": "on_hold",
+     "planned_end": "2026-08-01",
+     "delay_days": 54,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.3",
+     "name": "종자 이송장치 설계",
+     "status": "in_progress",
+     "planned_end": "2026-08-24",
+     "delay_days": 31,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.5",
+     "name": "종자 투하장치 설계",
+     "status": "in_progress",
+     "planned_end": "2026-08-28",
+     "delay_days": 27,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.7",
+     "name": "제어 및 인터페이스 설계",
+     "status": "in_progress",
+     "planned_end": "2026-08-28",
+     "delay_days": 27,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "3.2",
+     "name": "자동 이송 기능 구현",
+     "status": "in_progress",
+     "planned_end": "2026-09-21",
+     "delay_days": 3,
+     "this_week": true,
+     "level": 2,
+     "injected": true
+    }
+   ],
+   "open_risks": [
+    {
+     "risk_id": "PRJ-08-R03",
+     "status": "open",
+     "score": 25
+    },
+    {
+     "risk_id": "PRJ-08-R05",
+     "status": "open",
+     "score": 20
+    },
+    {
+     "risk_id": "PRJ-08-R08",
+     "status": "mitigating",
+     "score": 20
+    },
+    {
+     "risk_id": "PRJ-08-R07",
+     "status": "mitigating",
+     "score": 12
+    },
+    {
+     "risk_id": "PRJ-08-R02",
+     "status": "open",
+     "score": 8
+    },
+    {
+     "risk_id": "PRJ-08-R01",
+     "status": "open",
+     "score": 3
+    }
+   ],
+   "overdue_unsubmitted_deliverables": [
+    "PRJ-08-D010",
+    "PRJ-08-D011",
+    "PRJ-08-D013",
+    "PRJ-08-D016",
+    "PRJ-08-D017",
+    "PRJ-08-D019"
+   ],
+   "missing_requirements": [
+    {
+     "requirement_id": "CUR-002",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "SFR-014",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "SFR-016",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "PER-001",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "PER-007",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "TER-001",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "TER-003",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "QUR-001",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "QUR-004",
+     "reason": "injected",
+     "use_for_scoring": true
+    }
+   ],
+   "out_of_scope_tasks": [],
+   "rtm": [
+    {
+     "requirement_id": "COR-001",
+     "wbs_ids": [
+      "1.4",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D005",
+      "PRJ-08-D038"
+     ]
+    },
+    {
+     "requirement_id": "COR-002",
+     "wbs_ids": [
+      "1.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D006"
+     ]
+    },
+    {
+     "requirement_id": "COR-003",
+     "wbs_ids": [
+      "1.6",
+      "5.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D007",
+      "PRJ-08-D038"
+     ]
+    },
+    {
+     "requirement_id": "COR-004",
+     "wbs_ids": [
+      "1.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D007"
+     ]
+    },
+    {
+     "requirement_id": "CUR-001",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D001"
+     ]
+    },
+    {
+     "requirement_id": "CUR-003",
+     "wbs_ids": [
+      "1.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D002"
+     ]
+    },
+    {
+     "requirement_id": "DAR-001",
+     "wbs_ids": [
+      "3.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D024",
+      "PRJ-08-D025"
+     ]
+    },
+    {
+     "requirement_id": "DAR-002",
+     "wbs_ids": [
+      "3.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D024",
+      "PRJ-08-D025"
+     ]
+    },
+    {
+     "requirement_id": "DAR-003",
+     "wbs_ids": [
+      "3.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D024",
+      "PRJ-08-D025"
+     ]
+    },
+    {
+     "requirement_id": "DAR-004",
+     "wbs_ids": [
+      "3.8"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D026",
+      "PRJ-08-D027"
+     ]
+    },
+    {
+     "requirement_id": "ECR-001",
+     "wbs_ids": [
+      "2.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D009"
+     ]
+    },
+    {
+     "requirement_id": "ECR-002",
+     "wbs_ids": [
+      "2.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D010"
+     ]
+    },
+    {
+     "requirement_id": "ECR-003",
+     "wbs_ids": [
+      "2.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D011"
+     ]
+    },
+    {
+     "requirement_id": "ECR-004",
+     "wbs_ids": [
+      "2.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D012"
+     ]
+    },
+    {
+     "requirement_id": "ECR-005",
+     "wbs_ids": [
+      "2.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D013"
+     ]
+    },
+    {
+     "requirement_id": "ECR-006",
+     "wbs_ids": [
+      "2.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D014",
+      "PRJ-08-D015"
+     ]
+    },
+    {
+     "requirement_id": "ECR-007",
+     "wbs_ids": [
+      "2.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D016",
+      "PRJ-08-D017"
+     ]
+    },
+    {
+     "requirement_id": "ECR-008",
+     "wbs_ids": [
+      "2.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D016",
+      "PRJ-08-D017"
+     ]
+    },
+    {
+     "requirement_id": "ECR-009",
+     "wbs_ids": [
+      "2.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D016",
+      "PRJ-08-D017"
+     ]
+    },
+    {
+     "requirement_id": "ECR-010",
+     "wbs_ids": [
+      "2.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D014",
+      "PRJ-08-D015"
+     ]
+    },
+    {
+     "requirement_id": "ECR-011",
+     "wbs_ids": [
+      "1.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D003",
+      "PRJ-08-D004"
+     ]
+    },
+    {
+     "requirement_id": "PER-002",
+     "wbs_ids": [
+      "2.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D011"
+     ]
+    },
+    {
+     "requirement_id": "PER-003",
+     "wbs_ids": [
+      "2.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D012"
+     ]
+    },
+    {
+     "requirement_id": "PER-004",
+     "wbs_ids": [
+      "2.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D013"
+     ]
+    },
+    {
+     "requirement_id": "PER-005",
+     "wbs_ids": [
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D034"
+     ]
+    },
+    {
+     "requirement_id": "PER-006",
+     "wbs_ids": [
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D034"
+     ]
+    },
+    {
+     "requirement_id": "PER-008",
+     "wbs_ids": [
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D033"
+     ]
+    },
+    {
+     "requirement_id": "PMR-001",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D001"
+     ]
+    },
+    {
+     "requirement_id": "PMR-002",
+     "wbs_ids": [
+      "3.9"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D028",
+      "PRJ-08-D029"
+     ]
+    },
+    {
+     "requirement_id": "PMR-003",
+     "wbs_ids": [
+      "3.9",
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D028",
+      "PRJ-08-D029",
+      "PRJ-08-D043",
+      "PRJ-08-D044"
+     ]
+    },
+    {
+     "requirement_id": "PMR-004",
+     "wbs_ids": [
+      "4.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D036",
+      "PRJ-08-D037"
+     ]
+    },
+    {
+     "requirement_id": "PSR-001",
+     "wbs_ids": [
+      "5.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D039",
+      "PRJ-08-D040"
+     ]
+    },
+    {
+     "requirement_id": "PSR-002",
+     "wbs_ids": [
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D032"
+     ]
+    },
+    {
+     "requirement_id": "PSR-003",
+     "wbs_ids": [
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D033"
+     ]
+    },
+    {
+     "requirement_id": "PSR-004",
+     "wbs_ids": [
+      "5.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D039",
+      "PRJ-08-D040"
+     ]
+    },
+    {
+     "requirement_id": "QUR-002",
+     "wbs_ids": [
+      "3.8",
+      "4.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D026",
+      "PRJ-08-D027",
+      "PRJ-08-D035"
+     ]
+    },
+    {
+     "requirement_id": "QUR-003",
+     "wbs_ids": [
+      "3.8",
+      "5.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D026",
+      "PRJ-08-D027",
+      "PRJ-08-D041",
+      "PRJ-08-D042"
+     ]
+    },
+    {
+     "requirement_id": "QUR-005",
+     "wbs_ids": [
+      "1.3",
+      "4.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D003",
+      "PRJ-08-D004",
+      "PRJ-08-D035"
+     ]
+    },
+    {
+     "requirement_id": "SER-001",
+     "wbs_ids": [
+      "1.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D008"
+     ]
+    },
+    {
+     "requirement_id": "SER-002",
+     "wbs_ids": [
+      "2.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D016",
+      "PRJ-08-D017"
+     ]
+    },
+    {
+     "requirement_id": "SFR-001",
+     "wbs_ids": [
+      "3.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D018"
+     ]
+    },
+    {
+     "requirement_id": "SFR-002",
+     "wbs_ids": [
+      "3.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D019"
+     ]
+    },
+    {
+     "requirement_id": "SFR-003",
+     "wbs_ids": [
+      "3.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D020"
+     ]
+    },
+    {
+     "requirement_id": "SFR-004",
+     "wbs_ids": [
+      "3.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D021"
+     ]
+    },
+    {
+     "requirement_id": "SFR-005",
+     "wbs_ids": [
+      "3.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D023"
+     ]
+    },
+    {
+     "requirement_id": "SFR-006",
+     "wbs_ids": [
+      "3.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D022"
+     ]
+    },
+    {
+     "requirement_id": "SFR-007",
+     "wbs_ids": [
+      "3.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D022"
+     ]
+    },
+    {
+     "requirement_id": "SFR-008",
+     "wbs_ids": [
+      "3.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D022"
+     ]
+    },
+    {
+     "requirement_id": "SFR-009",
+     "wbs_ids": [
+      "3.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D022"
+     ]
+    },
+    {
+     "requirement_id": "SFR-010",
+     "wbs_ids": [
+      "3.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D023"
+     ]
+    },
+    {
+     "requirement_id": "SFR-011",
+     "wbs_ids": [
+      "3.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D024",
+      "PRJ-08-D025"
+     ]
+    },
+    {
+     "requirement_id": "SFR-012",
+     "wbs_ids": [
+      "3.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D023"
+     ]
+    },
+    {
+     "requirement_id": "SFR-013",
+     "wbs_ids": [
+      "3.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D024",
+      "PRJ-08-D025"
+     ]
+    },
+    {
+     "requirement_id": "SFR-015",
+     "wbs_ids": [
+      "3.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D024",
+      "PRJ-08-D025"
+     ]
+    },
+    {
+     "requirement_id": "SFR-017",
+     "wbs_ids": [
+      "3.8",
+      "5.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D026",
+      "PRJ-08-D027",
+      "PRJ-08-D041",
+      "PRJ-08-D042"
+     ]
+    },
+    {
+     "requirement_id": "SFR-018",
+     "wbs_ids": [
+      "1.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D003",
+      "PRJ-08-D004"
+     ]
+    },
+    {
+     "requirement_id": "SIR-001",
+     "wbs_ids": [
+      "2.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D016",
+      "PRJ-08-D017"
+     ]
+    },
+    {
+     "requirement_id": "SIR-002",
+     "wbs_ids": [
+      "2.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D016",
+      "PRJ-08-D017"
+     ]
+    },
+    {
+     "requirement_id": "SIR-003",
+     "wbs_ids": [
+      "2.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D016",
+      "PRJ-08-D017"
+     ]
+    },
+    {
+     "requirement_id": "SIR-004",
+     "wbs_ids": [
+      "2.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D016",
+      "PRJ-08-D017"
+     ]
+    },
+    {
+     "requirement_id": "TER-002",
+     "wbs_ids": [
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D030"
+     ]
+    },
+    {
+     "requirement_id": "TER-004",
+     "wbs_ids": [
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D031"
+     ]
+    },
+    {
+     "requirement_id": "TER-005",
+     "wbs_ids": [
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D032"
+     ]
+    },
+    {
+     "requirement_id": "TER-006",
+     "wbs_ids": [
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D033"
+     ]
+    },
+    {
+     "requirement_id": "TER-007",
+     "wbs_ids": [
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-08-D034"
+     ]
+    }
+   ]
+  },
+  {
+   "project_id": "PRJ-09",
+   "doc_id": "e13d2d0cd453eec2",
+   "draft_sha256": "e0ba33707b1c559536840be6c843b21023b5ac53cc46985fdc231d52b599c79d",
+   "name": "한국나노기술원 모아팹 연계기능 및 인터페이스 고도화 사업 용역(재공고)",
+   "delayed_tasks": [
+    {
+     "wbs_id": "1",
+     "name": "분석 단계",
+     "status": "in_progress",
+     "planned_end": "2026-07-20",
+     "delay_days": 66,
+     "this_week": false,
+     "level": 1,
+     "injected": false
+    },
+    {
+     "wbs_id": "2",
+     "name": "설계 단계",
+     "status": "in_progress",
+     "planned_end": "2026-09-22",
+     "delay_days": 2,
+     "this_week": true,
+     "level": 1,
+     "injected": false
+    },
+    {
+     "wbs_id": "1.1",
+     "name": "사업 착수 및 수행계획 수립",
+     "status": "in_progress",
+     "planned_end": "2026-06-23",
+     "delay_days": 93,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "1.3",
+     "name": "기존 시스템 및 연계 현황 분석",
+     "status": "in_progress",
+     "planned_end": "2026-07-10",
+     "delay_days": 76,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "1.4",
+     "name": "팹서비스 업무요건 분석",
+     "status": "in_progress",
+     "planned_end": "2026-07-09",
+     "delay_days": 77,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "1.6",
+     "name": "성능 및 보안 요구 분석",
+     "status": "in_progress",
+     "planned_end": "2026-07-18",
+     "delay_days": 68,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.3",
+     "name": "팹서비스 기능 설계",
+     "status": "in_progress",
+     "planned_end": "2026-09-21",
+     "delay_days": 3,
+     "this_week": true,
+     "level": 2,
+     "injected": true
+    },
+    {
+     "wbs_id": "2.4",
+     "name": "모아팹 연계 인터페이스 설계",
+     "status": "on_hold",
+     "planned_end": "2026-08-24",
+     "delay_days": 31,
+     "this_week": false,
+     "level": 2,
+     "injected": true
+    }
+   ],
+   "open_risks": [
+    {
+     "risk_id": "PRJ-09-R06",
+     "status": "mitigating",
+     "score": 20
+    },
+    {
+     "risk_id": "PRJ-09-R07",
+     "status": "open",
+     "score": 15
+    },
+    {
+     "risk_id": "PRJ-09-R09",
+     "status": "open",
+     "score": 15
+    },
+    {
+     "risk_id": "PRJ-09-R02",
+     "status": "mitigating",
+     "score": 12
+    },
+    {
+     "risk_id": "PRJ-09-R01",
+     "status": "mitigating",
+     "score": 4
+    },
+    {
+     "risk_id": "PRJ-09-R03",
+     "status": "open",
+     "score": 3
+    },
+    {
+     "risk_id": "PRJ-09-R04",
+     "status": "mitigating",
+     "score": 2
+    },
+    {
+     "risk_id": "PRJ-09-R05",
+     "status": "mitigating",
+     "score": 2
+    }
+   ],
+   "overdue_unsubmitted_deliverables": [
+    "PRJ-09-D001",
+    "PRJ-09-D003",
+    "PRJ-09-D004",
+    "PRJ-09-D006",
+    "PRJ-09-D010",
+    "PRJ-09-D011"
+   ],
+   "missing_requirements": [
+    {
+     "requirement_id": "SFR-001",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "SIR-001",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "TER-004",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "SER-004",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "QUR-001",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "QUR-005",
+     "reason": "injected",
+     "use_for_scoring": true
+    },
+    {
+     "requirement_id": "PSR-001",
+     "reason": "llm_omitted",
+     "use_for_scoring": false
+    }
+   ],
+   "out_of_scope_tasks": [],
+   "rtm": [
+    {
+     "requirement_id": "COR-001",
+     "wbs_ids": [
+      "1.3",
+      "2.1",
+      "3.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D003",
+      "PRJ-09-D008",
+      "PRJ-09-D015"
+     ]
+    },
+    {
+     "requirement_id": "COR-002",
+     "wbs_ids": [
+      "1.3",
+      "2.1",
+      "3.1",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D003",
+      "PRJ-09-D008",
+      "PRJ-09-D015",
+      "PRJ-09-D030"
+     ]
+    },
+    {
+     "requirement_id": "COR-003",
+     "wbs_ids": [
+      "2.1",
+      "2.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D008",
+      "PRJ-09-D014"
+     ]
+    },
+    {
+     "requirement_id": "COR-004",
+     "wbs_ids": [
+      "2.7",
+      "5.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D014",
+      "PRJ-09-D037"
+     ]
+    },
+    {
+     "requirement_id": "DAR-001",
+     "wbs_ids": [
+      "2.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D009"
+     ]
+    },
+    {
+     "requirement_id": "PER-001",
+     "wbs_ids": [
+      "1.6",
+      "2.6",
+      "3.8",
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D006",
+      "PRJ-09-D013",
+      "PRJ-09-D022",
+      "PRJ-09-D029"
+     ]
+    },
+    {
+     "requirement_id": "PER-002",
+     "wbs_ids": [
+      "1.6",
+      "2.6",
+      "3.8",
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D006",
+      "PRJ-09-D013",
+      "PRJ-09-D022",
+      "PRJ-09-D029"
+     ]
+    },
+    {
+     "requirement_id": "PER-003",
+     "wbs_ids": [
+      "1.6",
+      "2.6",
+      "3.8",
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D006",
+      "PRJ-09-D013",
+      "PRJ-09-D022",
+      "PRJ-09-D029"
+     ]
+    },
+    {
+     "requirement_id": "PER-004",
+     "wbs_ids": [
+      "1.6",
+      "2.6",
+      "3.8",
+      "4.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D006",
+      "PRJ-09-D013",
+      "PRJ-09-D022",
+      "PRJ-09-D029"
+     ]
+    },
+    {
+     "requirement_id": "PMR-001",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D001"
+     ]
+    },
+    {
+     "requirement_id": "PMR-002",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D001"
+     ]
+    },
+    {
+     "requirement_id": "PMR-003",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D001"
+     ]
+    },
+    {
+     "requirement_id": "PMR-004",
+     "wbs_ids": [
+      "1.7",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D007",
+      "PRJ-09-D026"
+     ]
+    },
+    {
+     "requirement_id": "PMR-005",
+     "wbs_ids": [
+      "1.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D001"
+     ]
+    },
+    {
+     "requirement_id": "PMR-006",
+     "wbs_ids": [
+      "3.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D015"
+     ]
+    },
+    {
+     "requirement_id": "PMR-007",
+     "wbs_ids": [
+      "1.7",
+      "5.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D007",
+      "PRJ-09-D034"
+     ]
+    },
+    {
+     "requirement_id": "PMR-008",
+     "wbs_ids": [
+      "1.7",
+      "5.1",
+      "5.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D007",
+      "PRJ-09-D032",
+      "PRJ-09-D033"
+     ]
+    },
+    {
+     "requirement_id": "PMR-009",
+     "wbs_ids": [
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D035"
+     ]
+    },
+    {
+     "requirement_id": "PMR-010",
+     "wbs_ids": [
+      "1.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D002"
+     ]
+    },
+    {
+     "requirement_id": "PMR-011",
+     "wbs_ids": [
+      "2.7",
+      "5.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D014",
+      "PRJ-09-D037"
+     ]
+    },
+    {
+     "requirement_id": "PSR-002",
+     "wbs_ids": [
+      "5.4"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D035"
+     ]
+    },
+    {
+     "requirement_id": "PSR-003",
+     "wbs_ids": [
+      "1.7",
+      "5.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D007",
+      "PRJ-09-D034"
+     ]
+    },
+    {
+     "requirement_id": "PSR-004",
+     "wbs_ids": [
+      "3.10",
+      "5.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D024",
+      "PRJ-09-D025",
+      "PRJ-09-D036"
+     ]
+    },
+    {
+     "requirement_id": "PSR-005",
+     "wbs_ids": [
+      "5.2",
+      "5.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D033",
+      "PRJ-09-D036"
+     ]
+    },
+    {
+     "requirement_id": "PSR-006",
+     "wbs_ids": [
+      "5.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D037"
+     ]
+    },
+    {
+     "requirement_id": "PSR-007",
+     "wbs_ids": [
+      "5.7"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D038"
+     ]
+    },
+    {
+     "requirement_id": "QUR-002",
+     "wbs_ids": [
+      "1.3",
+      "2.4",
+      "3.5",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D003",
+      "PRJ-09-D011",
+      "PRJ-09-D019",
+      "PRJ-09-D027"
+     ]
+    },
+    {
+     "requirement_id": "QUR-003",
+     "wbs_ids": [
+      "1.6",
+      "2.7",
+      "3.9",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D006",
+      "PRJ-09-D014",
+      "PRJ-09-D023",
+      "PRJ-09-D030"
+     ]
+    },
+    {
+     "requirement_id": "QUR-004",
+     "wbs_ids": [
+      "1.5",
+      "2.5",
+      "3.7",
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D005",
+      "PRJ-09-D012",
+      "PRJ-09-D021",
+      "PRJ-09-D028"
+     ]
+    },
+    {
+     "requirement_id": "SER-001",
+     "wbs_ids": [
+      "1.6",
+      "2.7",
+      "3.9",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D006",
+      "PRJ-09-D014",
+      "PRJ-09-D023",
+      "PRJ-09-D030"
+     ]
+    },
+    {
+     "requirement_id": "SER-002",
+     "wbs_ids": [
+      "2.7",
+      "3.9",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D014",
+      "PRJ-09-D023",
+      "PRJ-09-D030"
+     ]
+    },
+    {
+     "requirement_id": "SER-003",
+     "wbs_ids": [
+      "1.6",
+      "2.2",
+      "2.7",
+      "3.9",
+      "4.5"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D006",
+      "PRJ-09-D009",
+      "PRJ-09-D014",
+      "PRJ-09-D023",
+      "PRJ-09-D030"
+     ]
+    },
+    {
+     "requirement_id": "SFR-002",
+     "wbs_ids": [
+      "1.4",
+      "2.3",
+      "3.2",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D004",
+      "PRJ-09-D010",
+      "PRJ-09-D016",
+      "PRJ-09-D027"
+     ]
+    },
+    {
+     "requirement_id": "SFR-003",
+     "wbs_ids": [
+      "1.4",
+      "2.3",
+      "3.3",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D004",
+      "PRJ-09-D010",
+      "PRJ-09-D017",
+      "PRJ-09-D027"
+     ]
+    },
+    {
+     "requirement_id": "SFR-004",
+     "wbs_ids": [
+      "1.4",
+      "2.3",
+      "3.4",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D004",
+      "PRJ-09-D010",
+      "PRJ-09-D018",
+      "PRJ-09-D027"
+     ]
+    },
+    {
+     "requirement_id": "SFR-005",
+     "wbs_ids": [
+      "1.3",
+      "2.4",
+      "3.5",
+      "4.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D003",
+      "PRJ-09-D011",
+      "PRJ-09-D019",
+      "PRJ-09-D027"
+     ]
+    },
+    {
+     "requirement_id": "SFR-006",
+     "wbs_ids": [
+      "1.5",
+      "3.10"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D005",
+      "PRJ-09-D024",
+      "PRJ-09-D025"
+     ]
+    },
+    {
+     "requirement_id": "SIR-002",
+     "wbs_ids": [
+      "3.6",
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D020",
+      "PRJ-09-D028"
+     ]
+    },
+    {
+     "requirement_id": "SIR-003",
+     "wbs_ids": [
+      "1.5",
+      "2.5",
+      "3.7",
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D005",
+      "PRJ-09-D012",
+      "PRJ-09-D021",
+      "PRJ-09-D028"
+     ]
+    },
+    {
+     "requirement_id": "SIR-004",
+     "wbs_ids": [
+      "1.5",
+      "2.5",
+      "3.7",
+      "4.3"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D005",
+      "PRJ-09-D012",
+      "PRJ-09-D021",
+      "PRJ-09-D028"
+     ]
+    },
+    {
+     "requirement_id": "TER-001",
+     "wbs_ids": [
+      "1.7",
+      "4.1"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D007",
+      "PRJ-09-D026"
+     ]
+    },
+    {
+     "requirement_id": "TER-002",
+     "wbs_ids": [
+      "1.7",
+      "4.4",
+      "5.1",
+      "5.2"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D007",
+      "PRJ-09-D029",
+      "PRJ-09-D032",
+      "PRJ-09-D033"
+     ]
+    },
+    {
+     "requirement_id": "TER-003",
+     "wbs_ids": [
+      "1.7",
+      "2.6",
+      "4.6"
+     ],
+     "deliverable_ids": [
+      "PRJ-09-D007",
+      "PRJ-09-D013",
+      "PRJ-09-D031"
+     ]
+    }
+   ]
+  }
+ ]
+}

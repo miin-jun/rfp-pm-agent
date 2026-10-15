@@ -1,0 +1,473 @@
+{
+  "doc_id": "e13d2d0cd453eec2",
+  "prompt_version": "wbs_draft_v2",
+  "excluded_requirement_ids": [
+    "SFR-001",
+    "SIR-001",
+    "TER-004",
+    "SER-004",
+    "QUR-001",
+    "QUR-005"
+  ],
+  "draft": {
+    "tasks": [
+      {
+        "phase": "분석",
+        "name": "사업 착수 및 수행계획 수립",
+        "requirement_ids": [
+          "PMR-001",
+          "PMR-002",
+          "PMR-003",
+          "PMR-005"
+        ],
+        "deliverables": [
+          "사업수행계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "일정관리 및 보고회 운영",
+        "requirement_ids": [
+          "PMR-010"
+        ],
+        "deliverables": [
+          "사업보고서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "기존 시스템 및 연계 현황 분석",
+        "requirement_ids": [
+          "SFR-005",
+          "QUR-002",
+          "COR-001",
+          "COR-002"
+        ],
+        "deliverables": [
+          "현행시스템 분석서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "팹서비스 업무요건 분석",
+        "requirement_ids": [
+          "SFR-002",
+          "SFR-003",
+          "SFR-004"
+        ],
+        "deliverables": [
+          "요구사항정의서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "사용자 및 관리자 요구 분석",
+        "requirement_ids": [
+          "SFR-006",
+          "SIR-003",
+          "SIR-004",
+          "QUR-004"
+        ],
+        "deliverables": [
+          "요구사항정의서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "성능 및 보안 요구 분석",
+        "requirement_ids": [
+          "PER-001",
+          "PER-002",
+          "PER-003",
+          "PER-004",
+          "SER-001",
+          "SER-003",
+          "QUR-003"
+        ],
+        "deliverables": [
+          "요구사항정의서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "시험 및 이행 요구 분석",
+        "requirement_ids": [
+          "TER-001",
+          "TER-002",
+          "TER-003",
+          "PMR-004",
+          "PMR-007",
+          "PMR-008",
+          "PSR-003"
+        ],
+        "deliverables": [
+          "요구사항정의서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "시스템 아키텍처 설계",
+        "requirement_ids": [
+          "COR-001",
+          "COR-002",
+          "COR-003"
+        ],
+        "deliverables": [
+          "시스템 아키텍처 설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "데이터베이스 구조 설계",
+        "requirement_ids": [
+          "DAR-001",
+          "SER-003"
+        ],
+        "deliverables": [
+          "데이터베이스 설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "팹서비스 기능 설계",
+        "requirement_ids": [
+          "SFR-002",
+          "SFR-003",
+          "SFR-004"
+        ],
+        "deliverables": [
+          "화면설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "모아팹 연계 인터페이스 설계",
+        "requirement_ids": [
+          "SFR-005",
+          "QUR-002"
+        ],
+        "deliverables": [
+          "인터페이스 설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "화면 및 사용자경험 설계",
+        "requirement_ids": [
+          "SIR-003",
+          "SIR-004",
+          "QUR-004"
+        ],
+        "deliverables": [
+          "화면설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "성능 및 장애대응 설계",
+        "requirement_ids": [
+          "PER-001",
+          "PER-002",
+          "PER-003",
+          "PER-004",
+          "TER-003"
+        ],
+        "deliverables": [
+          "성능설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "보안 및 개발표준 설계",
+        "requirement_ids": [
+          "SER-001",
+          "SER-002",
+          "SER-003",
+          "QUR-003",
+          "COR-003",
+          "COR-004",
+          "PMR-011"
+        ],
+        "deliverables": [
+          "보안설계서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "개발환경 및 시스템 설치",
+        "requirement_ids": [
+          "PMR-006",
+          "COR-001",
+          "COR-002"
+        ],
+        "deliverables": [
+          "개발환경 구성서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "팹서비스 상태 및 계획 기능 개발",
+        "requirement_ids": [
+          "SFR-002"
+        ],
+        "deliverables": [
+          "프로그램 소스코드"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "Runsheet 및 Logsheet 기능 개발",
+        "requirement_ids": [
+          "SFR-003"
+        ],
+        "deliverables": [
+          "프로그램 소스코드"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "일괄공정 및 배치 기능 개발",
+        "requirement_ids": [
+          "SFR-004"
+        ],
+        "deliverables": [
+          "프로그램 소스코드"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "모아팹 연계 인터페이스 개발",
+        "requirement_ids": [
+          "SFR-005",
+          "QUR-002"
+        ],
+        "deliverables": [
+          "인터페이스 명세서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "파일 관리 기능 개발",
+        "requirement_ids": [
+          "SIR-002"
+        ],
+        "deliverables": [
+          "프로그램 소스코드"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "확인 메시지 및 한글입력 적용",
+        "requirement_ids": [
+          "SIR-003",
+          "SIR-004",
+          "QUR-004"
+        ],
+        "deliverables": [
+          "프로그램 소스코드"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "성능 모니터링 및 경고 구현",
+        "requirement_ids": [
+          "PER-001",
+          "PER-002",
+          "PER-003",
+          "PER-004"
+        ],
+        "deliverables": [
+          "성능 모니터링 구성서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "보안 코딩 및 개인정보 보호 적용",
+        "requirement_ids": [
+          "SER-001",
+          "SER-002",
+          "SER-003",
+          "QUR-003"
+        ],
+        "deliverables": [
+          "보안 점검 결과서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "매뉴얼 및 교육자료 작성",
+        "requirement_ids": [
+          "SFR-006",
+          "PSR-004"
+        ],
+        "deliverables": [
+          "사용자 매뉴얼",
+          "관리자 매뉴얼"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "시험계획 및 승인시험 계획 수립",
+        "requirement_ids": [
+          "TER-001",
+          "PMR-004"
+        ],
+        "deliverables": [
+          "시험계획서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "기능 및 인터페이스 시험",
+        "requirement_ids": [
+          "SFR-002",
+          "SFR-003",
+          "SFR-004",
+          "SFR-005",
+          "QUR-002"
+        ],
+        "deliverables": [
+          "통합시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "파일 및 화면 사용성 시험",
+        "requirement_ids": [
+          "SIR-002",
+          "SIR-003",
+          "SIR-004",
+          "QUR-004"
+        ],
+        "deliverables": [
+          "시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "성능 및 안정성 시험",
+        "requirement_ids": [
+          "PER-001",
+          "PER-002",
+          "PER-003",
+          "PER-004",
+          "TER-002"
+        ],
+        "deliverables": [
+          "성능시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "보안 취약점 및 호환성 시험",
+        "requirement_ids": [
+          "SER-001",
+          "SER-002",
+          "SER-003",
+          "QUR-003",
+          "COR-002"
+        ],
+        "deliverables": [
+          "보안점검결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "백업 및 장애대응 시험",
+        "requirement_ids": [
+          "TER-003"
+        ],
+        "deliverables": [
+          "시험결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "운영환경 배포 및 데이터 이관",
+        "requirement_ids": [
+          "PMR-008",
+          "TER-002"
+        ],
+        "deliverables": [
+          "이행계획서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "시험운영 및 안정화 지원",
+        "requirement_ids": [
+          "PMR-008",
+          "TER-002",
+          "PSR-005"
+        ],
+        "deliverables": [
+          "시험운영결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "검사 및 검수 대응",
+        "requirement_ids": [
+          "PMR-007",
+          "PSR-003"
+        ],
+        "deliverables": [
+          "검수요청서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "산출물 정리 및 인계",
+        "requirement_ids": [
+          "PMR-009",
+          "PSR-002"
+        ],
+        "deliverables": [
+          "산출물 목록"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "교육 및 기술지원 수행",
+        "requirement_ids": [
+          "PSR-004",
+          "PSR-005"
+        ],
+        "deliverables": [
+          "교육결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "저작권 및 기타사항 확인",
+        "requirement_ids": [
+          "COR-004",
+          "PMR-011",
+          "PSR-006"
+        ],
+        "deliverables": [
+          "저작권 확인서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "하자보수 및 유지지원 계획",
+        "requirement_ids": [
+          "PSR-007"
+        ],
+        "deliverables": [
+          "하자보수 계획서"
+        ]
+      }
+    ]
+  },
+  "dropped_requirement_ids": [],
+  "usage": [
+    {
+      "model": "gpt-6-luna",
+      "input_tokens": 1145,
+      "output_tokens": 1912,
+      "reasoning_tokens": 222
+    }
+  ]
+}

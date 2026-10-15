@@ -8,15 +8,18 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "alembic>=1.20.0",
     "httpx>=0.28.1",
     "numpy>=2.5.3",
     "openai>=3.13.0",
     "opensearch-py>=3.2.0",
+    "psycopg[binary]>=3.3.6",
     "pyhwp>=0.1b15",
     "pymupdf>=1.28.2",
     "python-dotenv>=1.2.3",
     "rank-bm25>=0.2.2",
     "six>=1.17.0",
+    "sqlalchemy>=2.1.4",
 ]
 
 [project.scripts]
@@ -37,7 +40,7 @@ known-first-party = ["rfp_pm_agent"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src", "tests"]
+files = ["src", "tests", "migrations"]
 
 [[tool.mypy.overrides]]
 # rank_bm25 0.2.2는 타입 정보를 담고 있지 않다 (py.typed 없음, 별도 스텁 없음).

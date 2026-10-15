@@ -1,0 +1,518 @@
+{
+  "doc_id": "c6d225f1669cfadb",
+  "prompt_version": "wbs_draft_v1",
+  "excluded_requirement_ids": [
+    "SFR-001",
+    "SFR-016",
+    "INR-002",
+    "SER-003",
+    "TER-001"
+  ],
+  "draft": {
+    "tasks": [
+      {
+        "phase": "분석",
+        "name": "착수 및 사업수행계획 수립",
+        "requirement_ids": [
+          "PMR-001"
+        ],
+        "deliverables": [
+          "사업수행계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "요구사항 및 현행환경 분석",
+        "requirement_ids": [
+          "ECR-001",
+          "SFR-002",
+          "SFR-003",
+          "SFR-004",
+          "SFR-005",
+          "SFR-006",
+          "SFR-007",
+          "SFR-008",
+          "SFR-009",
+          "SFR-010",
+          "SFR-011",
+          "SFR-012",
+          "SFR-013",
+          "SFR-014",
+          "SFR-015",
+          "SFR-017",
+          "SFR-018",
+          "INR-001",
+          "PER-001",
+          "PER-002",
+          "DAR-001",
+          "DAR-002",
+          "SER-001",
+          "SER-002",
+          "QUR-001",
+          "QUR-002",
+          "QUR-003",
+          "COR-001",
+          "PSR-001",
+          "PSR-002",
+          "PSR-003"
+        ],
+        "deliverables": [
+          "요구사항정의서",
+          "현행환경분석서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "법령·표준 및 제약사항 분석",
+        "requirement_ids": [
+          "COR-001",
+          "SER-002",
+          "QUR-002",
+          "QUR-003"
+        ],
+        "deliverables": [
+          "제약사항분석서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "사용자 및 콘텐츠 분석",
+        "requirement_ids": [
+          "SFR-005",
+          "SFR-006",
+          "SFR-007",
+          "SFR-009",
+          "SFR-011",
+          "SFR-012",
+          "SFR-013",
+          "SFR-017",
+          "INR-001"
+        ],
+        "deliverables": [
+          "업무분석서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "데이터·연계 현황 분석",
+        "requirement_ids": [
+          "DAR-001",
+          "DAR-002",
+          "SFR-009",
+          "SFR-014"
+        ],
+        "deliverables": [
+          "데이터분석서",
+          "인터페이스목록"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "성능·보안·품질 분석",
+        "requirement_ids": [
+          "PER-001",
+          "PER-002",
+          "SER-001",
+          "SER-002",
+          "QUR-001",
+          "QUR-002"
+        ],
+        "deliverables": [
+          "품질보증계획서"
+        ]
+      },
+      {
+        "phase": "분석",
+        "name": "주간 업무보고",
+        "requirement_ids": [
+          "PMR-002"
+        ],
+        "deliverables": [
+          "주간보고서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "서비스 정보구조 설계",
+        "requirement_ids": [
+          "SFR-002",
+          "INR-001"
+        ],
+        "deliverables": [
+          "정보구조도",
+          "화면설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "반응형 UI·UX 설계",
+        "requirement_ids": [
+          "SFR-003",
+          "SFR-005",
+          "INR-001",
+          "QUR-002"
+        ],
+        "deliverables": [
+          "화면설계서",
+          "UI/UX 설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "CMS 및 관리자 기능 설계",
+        "requirement_ids": [
+          "SFR-004",
+          "SFR-018",
+          "SER-001"
+        ],
+        "deliverables": [
+          "기능설계서",
+          "화면설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "프로그램·행사 서비스 설계",
+        "requirement_ids": [
+          "SFR-006",
+          "SFR-007",
+          "SFR-008",
+          "SFR-009"
+        ],
+        "deliverables": [
+          "기능설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "콘텐츠·검색 서비스 설계",
+        "requirement_ids": [
+          "SFR-011",
+          "SFR-012",
+          "SFR-013",
+          "SFR-014",
+          "SFR-015",
+          "SFR-017"
+        ],
+        "deliverables": [
+          "기능설계서",
+          "검색설계서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "데이터베이스 및 메타데이터 설계",
+        "requirement_ids": [
+          "DAR-001",
+          "DAR-002"
+        ],
+        "deliverables": [
+          "데이터베이스설계서",
+          "데이터표준정의서"
+        ]
+      },
+      {
+        "phase": "설계",
+        "name": "클라우드·보안·연계 설계",
+        "requirement_ids": [
+          "ECR-001",
+          "PER-001",
+          "PER-002",
+          "SER-001",
+          "SER-002",
+          "COR-001"
+        ],
+        "deliverables": [
+          "시스템구성도",
+          "보안설계서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "클라우드 기반환경 구축",
+        "requirement_ids": [
+          "ECR-001",
+          "PER-002"
+        ],
+        "deliverables": [
+          "시스템구성도"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "공통 웹 및 반응형 화면 개발",
+        "requirement_ids": [
+          "SFR-003",
+          "INR-001",
+          "QUR-002"
+        ],
+        "deliverables": [
+          "프로그램소스"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "다국어 서비스 개발",
+        "requirement_ids": [
+          "SFR-005"
+        ],
+        "deliverables": [
+          "프로그램소스"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "CMS 및 관리자 기능 개발",
+        "requirement_ids": [
+          "SFR-004",
+          "SFR-018"
+        ],
+        "deliverables": [
+          "프로그램소스",
+          "관리자매뉴얼"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "프로그램·행사 기능 개발",
+        "requirement_ids": [
+          "SFR-006",
+          "SFR-007",
+          "SFR-008",
+          "SFR-009"
+        ],
+        "deliverables": [
+          "프로그램소스"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "뉴스·아카이브·자료실 개발",
+        "requirement_ids": [
+          "SFR-011",
+          "SFR-012",
+          "SFR-013",
+          "DAR-002"
+        ],
+        "deliverables": [
+          "프로그램소스"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "AI 검색·챗봇 및 통합검색 개발",
+        "requirement_ids": [
+          "SFR-014",
+          "SFR-013"
+        ],
+        "deliverables": [
+          "프로그램소스"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "디렉토리·SEO 기능 개발",
+        "requirement_ids": [
+          "SFR-017",
+          "SFR-015"
+        ],
+        "deliverables": [
+          "프로그램소스"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "개인정보·통계 기능 개발",
+        "requirement_ids": [
+          "SFR-010",
+          "SFR-018",
+          "SER-002"
+        ],
+        "deliverables": [
+          "프로그램소스"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "데이터베이스 및 외부연계 구현",
+        "requirement_ids": [
+          "DAR-001",
+          "SFR-009",
+          "COR-001"
+        ],
+        "deliverables": [
+          "데이터베이스구축내역서",
+          "인터페이스명세서"
+        ]
+      },
+      {
+        "phase": "구현",
+        "name": "시큐어코딩 및 오픈소스 관리",
+        "requirement_ids": [
+          "SER-001",
+          "QUR-003"
+        ],
+        "deliverables": [
+          "소프트웨어 보안약점 진단결과서",
+          "오픈소스 사용목록"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "단위 기능 시험",
+        "requirement_ids": [
+          "QUR-001",
+          "SFR-004",
+          "SFR-006",
+          "SFR-007",
+          "SFR-008",
+          "SFR-009",
+          "SFR-011",
+          "SFR-012",
+          "SFR-013",
+          "SFR-017"
+        ],
+        "deliverables": [
+          "단위시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "통합 및 인터페이스 시험",
+        "requirement_ids": [
+          "COR-001",
+          "DAR-001",
+          "SFR-014"
+        ],
+        "deliverables": [
+          "통합시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "성능 및 동시접속 시험",
+        "requirement_ids": [
+          "PER-001"
+        ],
+        "deliverables": [
+          "성능시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "백업·복구 및 장애대응 시험",
+        "requirement_ids": [
+          "PER-002"
+        ],
+        "deliverables": [
+          "복구시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "보안 및 개인정보 시험",
+        "requirement_ids": [
+          "SER-001",
+          "SER-002",
+          "SFR-010"
+        ],
+        "deliverables": [
+          "보안취약점진단결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "접근성 및 호환성 시험",
+        "requirement_ids": [
+          "QUR-002",
+          "SFR-003",
+          "INR-001"
+        ],
+        "deliverables": [
+          "웹접근성시험결과서"
+        ]
+      },
+      {
+        "phase": "시험",
+        "name": "통합 품질 및 사용자 인수시험",
+        "requirement_ids": [
+          "QUR-001",
+          "SFR-005",
+          "SFR-015",
+          "SFR-018"
+        ],
+        "deliverables": [
+          "인수시험결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "서비스 데이터 이관 및 검증",
+        "requirement_ids": [
+          "DAR-002",
+          "SFR-012",
+          "SFR-013"
+        ],
+        "deliverables": [
+          "데이터이관결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "운영환경 배포 및 개통",
+        "requirement_ids": [
+          "ECR-001",
+          "PER-002"
+        ],
+        "deliverables": [
+          "배포계획서",
+          "전환결과서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "운영자 교육 및 기술지원",
+        "requirement_ids": [
+          "PSR-002",
+          "PSR-003"
+        ],
+        "deliverables": [
+          "교육결과서",
+          "운영자매뉴얼"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "하자보수 및 운영지원 계획",
+        "requirement_ids": [
+          "PSR-001",
+          "PSR-003"
+        ],
+        "deliverables": [
+          "하자보수계획서"
+        ]
+      },
+      {
+        "phase": "이행",
+        "name": "산출물 정리 및 최종보고",
+        "requirement_ids": [
+          "PMR-003",
+          "PMR-001"
+        ],
+        "deliverables": [
+          "최종산출물목록",
+          "완료보고서"
+        ]
+      }
+    ]
+  },
+  "dropped_requirement_ids": [],
+  "usage": [
+    {
+      "model": "gpt-6-luna",
+      "input_tokens": 1098,
+      "output_tokens": 2022,
+      "reasoning_tokens": 58
+    }
+  ]
+}

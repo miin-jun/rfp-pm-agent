@@ -561,13 +561,15 @@ projects ─┬─< project_members >── users
 | **이번 주 지연된 업무** | 지연 업무 중 `planned_end`가 **이번 주 월요일 ~ 기준일 전날** 사이인 것 (이번 주에 새로 지연된 것) |
 | **전체 지연 업무** | 지연 업무 전부 (누적). 툴 인자 `scope: "this_week" \| "all"`로 구분하고 툴 설명에 두 정의를 모두 명시 |
 | **미해결 Risk** | `status IN ('open', 'mitigating')`, 정렬 = `probability × impact` 내림차순 |
-| **Risk 등급** (#21) | 점수 `probability × impact`가 15 이상 `high`, 8~14 `medium`, 7 이하 `low` |
+| **Risk 등급** (#21, [ADR-0009](adr/0009-pms-query-tools.md)) | 점수 `probability × impact`가 15 이상 `high`, 8~14 `medium`, 7 이하 `low` |
 | **기한 지난 미제출 산출물** (#21) | `status = 'not_submitted'` **AND** `due_date < 기준일`. 지난 일수 = 기준일 − due_date |
 | **관련 산출물** | 업무(wbs)에 연결된 deliverables + 같은 요구사항에 연결된 업무의 deliverables |
 
 → 설계 원칙: **"지연"처럼 사람마다 다르게 해석하는 말을 코드 한 곳에 정의**하고, 툴 설명·평가 정답이 같은 정의를 쓰게 함. 코드: `src/rfp_pm_agent/pms/rules.py`(#20·#21) — 기준일·이번 주·지연·지연 일수·미해결 Risk·Risk 점수·Risk 등급·기한 지난 미제출. 합성 정답(`pms/synth.py`)과 조회 툴이 같은 함수를 쓴다. "관련 산출물"은 `get_deliverables(wbs_id=...)`(`tools/pms_tools.py`)
 
 ### PMS 조회 툴 `get_delayed_tasks`·`get_open_risks`·`get_deliverables` (#21)
+
+설계 근거와 버린 대안: [ADR-0009](adr/0009-pms-query-tools.md).
 
 코드: `src/rfp_pm_agent/tools/pms_tools.py`(툴), `pms/reader.py`(DB 읽기), `schemas/pms_tools.py`(결과). Agent(#22)·MCP(#24)가 함께 쓴다. 읽기 전용.
 

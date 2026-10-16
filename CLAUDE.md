@@ -29,7 +29,7 @@
 - src/rfp_pm_agent/agent/     LangGraph 에이전트
 - src/rfp_pm_agent/api/       FastAPI
 - src/rfp_pm_agent/mcp_server/ MCP 서버 (읽기 전용 툴만)
-- src/rfp_pm_agent/eval/       평가 실행 (청킹 비교: `run_chunk_eval`, 모델 선정: `run_retrieval`)
+- src/rfp_pm_agent/eval/       평가 실행 (청킹 비교: `run_chunk_eval`, 모델 선정: `run_retrieval`, 에이전트 개발 평가: `run_agent_dev`)
 - data/eval/                   평가 세트(qa_*.jsonl), 실행 기록(runs.jsonl), 틀린 질문(failures/) — git 포함
 - data/                        수집·파싱 산출물 (git 제외)
 

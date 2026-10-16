@@ -89,7 +89,7 @@ def format_citation(hit: DocumentHit) -> str:
 _CHUNK_TAG_RE = re.compile(r"<(\s*/?\s*chunk)", re.IGNORECASE)
 
 
-def _escape_chunk_tags(text: str) -> str:
+def escape_chunk_tags(text: str) -> str:
     """청크 본문의 `<chunk`·`</chunk`를 `&lt;chunk`·`&lt;/chunk`로 바꾼다(그 밖의 글자는 그대로).
 
     한계: ASCII `<`와 `\\s` 공백만 본다. 폭 없는 공백(`<\\u200b/chunk>`)·전각 `＜/chunk＞`는 바꾸지 않는다.
@@ -97,9 +97,9 @@ def _escape_chunk_tags(text: str) -> str:
     return _CHUNK_TAG_RE.sub(r"&lt;\1", text)
 
 
-def _escape_doc_attr(title: str) -> str:
+def escape_doc_attr(title: str) -> str:
     """`doc="…"` 속성값: 구분자 태그를 바꾸고 `"`·`>`를 `&quot;`·`&gt;`로 바꾼다(문서명도 외부 데이터다)."""
-    return _escape_chunk_tags(title).replace('"', "&quot;").replace(">", "&gt;")
+    return escape_chunk_tags(title).replace('"', "&quot;").replace(">", "&gt;")
 
 
 def build_prompt(query: str, hits: list[DocumentHit]) -> list[ChatMessage]:
@@ -108,12 +108,12 @@ def build_prompt(query: str, hits: list[DocumentHit]) -> list[ChatMessage]:
     소유자 구현(학습 모드, #19). 번호 i는 `hits[i-1]`이다.
     #86(사용자 지시로 Claude 구현): 청크마다 `<chunk id="i" doc="문서명">`…`</chunk>`로 감싸 자료 구역을 표시하고,
     질문은 마지막 청크 뒤에 둔다. 본문의 `<chunk`·`</chunk`는 `&lt;`로 바꿔 구역을 끝내거나 새로 열지 못하게 하고,
-    문서명은 `_escape_doc_attr`로 속성값을 벗어나지 못하게 한다.
+    문서명은 `escape_doc_attr`로 속성값을 벗어나지 못하게 한다.
     """
     lines = []
     for number, hit in enumerate(hits, start=1):
-        text = _escape_chunk_tags(hit.text)
-        doc = _escape_doc_attr(hit.bid_title)
+        text = escape_chunk_tags(hit.text)
+        doc = escape_doc_attr(hit.bid_title)
         lines.append(f'<chunk id="{number}" doc="{doc}">\n[{number}] {text}\n</chunk>')
     chunks = "\n\n".join(lines)
 

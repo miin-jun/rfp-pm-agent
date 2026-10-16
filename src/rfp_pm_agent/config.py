@@ -228,3 +228,17 @@ class SynthConfig(BaseModel):
             as_of_date=date.fromisoformat(raw_as_of),
             synth_seed=_get_int("SYNTH_SEED", 42),
         )
+
+
+class AgentConfig(BaseModel):
+    """LangGraph 에이전트 설정 (이슈 #22, docs/adr/0010-langgraph-agent.md).
+
+    max_steps는 질문(사용자 턴) 하나에서 부를 수 있는 LLM 호출 수의 상한이다. 툴 실행·출처 변환 같은 노드는 세지 않는다.
+    상한에 닿은 호출은 툴 없이 불러 그때까지의 툴 결과로 답을 끝내게 한다.
+    """
+
+    max_steps: int = Field(ge=1)
+
+    @classmethod
+    def from_env(cls) -> AgentConfig:
+        return cls(max_steps=_get_int("AGENT_MAX_STEPS", 6))

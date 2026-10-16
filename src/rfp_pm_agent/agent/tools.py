@@ -317,6 +317,13 @@ def _run_pms(name: str, args: _Args, deps: ToolDeps) -> ToolRun:
     )
 
 
+def invalid_call(name: str, error: str | None) -> ToolRun:
+    """형식이 깨진 툴 호출(인자 JSON을 읽지 못함)의 결과 — 인자 오류로 LLM에 돌려준다."""
+    return _error(
+        name or "알 수 없음", "invalid_args", f"인자를 읽을 수 없다({error or '형식 오류'})"
+    )
+
+
 def run_tool(
     name: str, raw_args: dict[str, Any], deps: ToolDeps, registry: dict[int, DocumentHit]
 ) -> ToolRun:

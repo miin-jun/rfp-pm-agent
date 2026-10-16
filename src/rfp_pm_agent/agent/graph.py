@@ -20,6 +20,7 @@ from typing import Annotated, Any, TypedDict
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
@@ -27,7 +28,14 @@ from langgraph.graph.message import add_messages
 from langgraph.graph.state import CompiledStateGraph
 
 from rfp_pm_agent.agent.catalog import CatalogEntry, build_catalog, render_catalog
-from rfp_pm_agent.agent.tools import TOOL_SPECS, ToolDeps, run_tool
+from rfp_pm_agent.agent.tools import (
+    TOOL_SPECS,
+    ToolDeps,
+    ToolRun,
+    escape_tags,
+    invalid_call,
+    run_tool,
+)
 from rfp_pm_agent.clients.chat_model import make_chat_model
 from rfp_pm_agent.clients.cost import CostLogger
 from rfp_pm_agent.config import AgentConfig, ClientsConfig
@@ -78,6 +86,37 @@ def load_system_prompt(as_of_date: date, catalog: list[CatalogEntry]) -> str:
     )
 
 
+# 실행하지 않은 툴 호출을 닫는 ToolMessage 본문. Responses API는 결과(function_call_output)가 없는 툴 호출이 대화에
+# 남아 있으면 다음 요청을 거부하므로, 상한 호출·버그 예외로 실행하지 않은 호출도 결과 메시지를 채운다(ADR-0010 결정 7)
+NOT_RUN_CONTENT = (
+    '<tool_result name="{name}" status="not_run">\n실행하지 않았다: {reason}\n</tool_result>'
+)
+
+
+def unanswered_tool_calls(messages: list[AnyMessage]) -> list[tuple[str, str]]:
+    """결과 ToolMessage가 없는 툴 호출의 (id, 이름). 형식이 깨진 호출(`invalid_tool_calls`)도 센다."""
+    answered = {m.tool_call_id for m in messages if isinstance(m, ToolMessage)}
+    calls: list[tuple[str, str]] = []
+    for message in messages:
+        if isinstance(message, AIMessage):
+            for call in [*message.tool_calls, *message.invalid_tool_calls]:
+                call_id = call.get("id") or ""
+                if call_id and call_id not in answered:
+                    calls.append((call_id, call.get("name") or ""))
+    return calls
+
+
+def closing_messages(messages: list[AnyMessage], reason: str) -> list[ToolMessage]:
+    return [
+        ToolMessage(
+            content=NOT_RUN_CONTENT.format(name=escape_tags(name), reason=reason),
+            tool_call_id=call_id,
+            name=name,
+        )
+        for call_id, name in unanswered_tool_calls(messages)
+    ]
+
+
 def _usage_of(message: AIMessage) -> dict[str, int]:
     usage = message.usage_metadata
     if not usage:
@@ -110,6 +149,7 @@ def build_graph(
     tools = [spec.openai_tool() for spec in TOOL_SPECS]
     model_with_tools = deps.chat_model.bind_tools(tools)
     model_final = deps.chat_model.bind_tools(tools, tool_choice="none")
+    project_by_doc = {e.doc_id: e.project_id for e in deps.catalog}
 
     def prepare(state: AgentState) -> dict[str, Any]:
         return {
@@ -138,7 +178,7 @@ def build_graph(
         last = state["messages"][-1]
         if (
             isinstance(last, AIMessage)
-            and last.tool_calls
+            and (last.tool_calls or last.invalid_tool_calls)
             and state.get("llm_calls", 0) < deps.max_steps
         ):
             return "tools"
@@ -155,25 +195,38 @@ def build_graph(
         records = list(state.get("turn_tool_calls", []))
         tool_messages: list[ToolMessage] = []
         new_citations: dict[int, Any] = {}
+        # 형식이 깨진 호출(인자 JSON을 읽지 못함)은 실행하지 않고 인자 오류로 돌려준다 — LLM이 고쳐 다시 부를 수 있다
+        jobs: list[tuple[str, str, dict[str, Any], ToolRun]] = []
+        for bad in last.invalid_tool_calls:
+            name = bad.get("name") or ""
+            jobs.append(
+                (
+                    bad.get("id") or "",
+                    name,
+                    {"_raw": bad.get("args")},
+                    invalid_call(name, bad.get("error")),
+                )
+            )
         for call in last.tool_calls:
             run = run_tool(call["name"], call["args"], deps.tools, registry)
+            jobs.append((call["id"] or "", call["name"], call["args"], run))
             registry.update(run.new_hits)
+        for call_id, name, args, run in jobs:
             new_citations.update({n: h.model_dump(mode="json") for n, h in run.new_hits.items()})
-            if run.project_id is not None:
-                project_id = run.project_id
             if run.doc_ids is not None:
                 doc_ids = run.doc_ids
+                # PMS 툴은 project_id를 돌려준다. 검색은 doc_ids로 사업 목록에서 다시 정한다(PMS 없는 사업·여러 사업이면 None)
+                if run.project_id is not None:
+                    project_id = run.project_id
+                else:
+                    projects = {project_by_doc.get(d) for d in doc_ids}
+                    project_id = projects.pop() if len(projects) == 1 else None
             records.append(
                 ToolCallRecord(
-                    name=call["name"],
-                    args=call["args"],
-                    status=run.status,
-                    result_count=run.result_count,
+                    name=name, args=args, status=run.status, result_count=run.result_count
                 ).model_dump(mode="json")
             )
-            tool_messages.append(
-                ToolMessage(content=run.content, tool_call_id=call["id"] or "", name=call["name"])
-            )
+            tool_messages.append(ToolMessage(content=run.content, tool_call_id=call_id, name=name))
         return {
             "messages": tool_messages,
             "citations": new_citations,
@@ -185,6 +238,8 @@ def build_graph(
     def finalize(state: AgentState) -> dict[str, Any]:
         last = state["messages"][-1]
         text = last.text.strip() if isinstance(last, AIMessage) else ""
+        # 상한 호출이 tool_choice="none"을 어기고 툴을 불렀으면 실행하지 않고 결과 메시지로 닫는다
+        closing = closing_messages(state["messages"], "툴 호출 상한에 닿았다")
         registry = {
             int(n): DocumentHit.model_validate(h) for n, h in state.get("citations", {}).items()
         }
@@ -220,7 +275,7 @@ def build_graph(
             doc_ids=list(state.get("doc_ids", [])),
             usage=LLMUsage(**state.get("turn_usage", {})),
         )
-        return {"result": answer.model_dump(mode="json")}
+        return {"messages": closing, "result": answer.model_dump(mode="json")}
 
     graph = StateGraph(AgentState)
     graph.add_node("prepare", prepare)
@@ -248,10 +303,20 @@ class Agent:
         # LangGraph 단계(노드 실행) 수 안전망: prepare 1 + agent·tools 왕복 최대 2·max_steps − 1 + finalize 1에 여유 2.
         # 실제 상한은 agent 노드가 지키는 max_steps(LLM 호출 수)다
         recursion_limit = 2 * self.deps.max_steps + 4
-        state = self.graph.invoke(
-            {"messages": [HumanMessage(question)]},
-            config={"configurable": {"thread_id": thread_id}, "recursion_limit": recursion_limit},
-        )
+        config: RunnableConfig = {
+            "configurable": {"thread_id": thread_id},
+            "recursion_limit": recursion_limit,
+        }
+        try:
+            state = self.graph.invoke({"messages": [HumanMessage(question)]}, config=config)
+        except Exception:
+            # 툴 실행 중 버그 예외로 끝나면 실행하지 못한 툴 호출이 체크포인트에 남아 같은 대화의 다음 요청이 거부된다.
+            # 결과 메시지로 닫아 두고 예외는 그대로 올린다
+            messages = self.graph.get_state(config).values.get("messages", [])
+            closing = closing_messages(messages, "툴 실행 중 오류")
+            if closing:
+                self.graph.update_state(config, {"messages": closing}, as_node="finalize")
+            raise
         return AgentAnswer.model_validate(state["result"])
 
 

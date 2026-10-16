@@ -606,7 +606,9 @@ projects ─┬─< project_members >── users
 
 - **그래프**: `prepare` → `agent` ⇄ `tools` → `finalize`. LLM은 OpenAI **Responses API**, 추론 강도 `LLM_REASONING_EFFORT`(low)
 - **반복 상한**: `AGENT_MAX_STEPS` = 질문(사용자 턴) 하나의 **LLM 호출 수**. 상한에 닿는 호출은 `tool_choice="none"`으로 불러 툴 없이 답을 끝낸다
-- **대화**: Checkpointer(`InMemorySaver`, thread_id 단위). 대화 기록·청크 번호·대상 사업(`project_id`·`doc_ids`)이 이어지고, LLM 호출 수·툴 기록은 턴마다 새로 센다
+- **대화**: Checkpointer(`InMemorySaver`, thread_id 단위). 대화 기록·청크 번호가 이어지고, LLM 호출 수·툴 기록은 턴마다 새로 센다.
+  대상 사업(`project_id`·`doc_ids`)은 State에 기록해 `AgentAnswer`로 돌려줄 뿐 프롬프트에 넣지 않는다 — 다음 턴에 사업이 이어지는 것은 대화 기록 덕분이다.
+  실행하지 않은 툴 호출(상한 호출·버그 예외·형식이 깨진 호출)은 결과 메시지로 닫는다(Responses API는 짝 없는 툴 호출이 있으면 요청을 거부한다)
 - **사업 목록**: 색인 문서(OpenSearch 집계 1회) × PMS 프로젝트를 system 프롬프트에 넣는다. PMS가 없는 문서는 project_id "없음"으로 표시
 - **툴 4개**(LLM에게 보이는 인자): `search_documents(query, doc_ids, top_k=8)` — `doc_ids` **필수**, `top_k` 1~10 /
   `get_delayed_tasks(project_id, scope, limit)`·`get_open_risks(project_id, min_level, limit)`·`get_deliverables(project_id, status_filter, wbs_id, requirement_id, limit)` — `limit` 1~20.

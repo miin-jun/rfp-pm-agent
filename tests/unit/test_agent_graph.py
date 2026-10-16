@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from rfp_pm_agent.agent import tools as agent_tools
 from rfp_pm_agent.agent.catalog import CatalogEntry
@@ -136,7 +136,8 @@ def test_document_question_cites_chunk_numbers_as_sources(
         ("search_documents", "ok", 2)
     ]
     assert result.doc_ids == ["docA"]
-    assert result.project_id is None
+    # 검색만 불러도 사업 목록으로 대상 프로젝트를 정한다
+    assert result.project_id == "PRJ-01"
     # 사용량은 이번 턴 AI 메시지의 합(툴 호출 메시지는 사용량이 없다)
     assert result.usage.input_tokens == 100
     assert result.usage.reasoning_tokens == 3
@@ -376,3 +377,105 @@ def test_load_system_prompt_fills_placeholders() -> None:
 
     assert "{{" not in prompt
     assert "| A 사업 | docA | PRJ-01 |" in prompt
+
+
+# --- 짝 없는 툴 호출이 대화에 남지 않는다 (PR 전 reviewer 권장 1) ---
+
+
+def _unpaired_tool_calls(messages: list[Any]) -> list[str]:
+    """모델이 받은 메시지에서 ToolMessage 짝이 없는 툴 호출 id."""
+    answered = {m.tool_call_id for m in messages if isinstance(m, ToolMessage)}
+    ids = [
+        call["id"] or ""
+        for m in messages
+        if isinstance(m, AIMessage)
+        for call in [*m.tool_calls, *m.invalid_tool_calls]
+    ]
+    return [i for i in ids if i not in answered]
+
+
+def test_unexecuted_last_step_tool_call_is_closed_for_next_turn(
+    dataset: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_search(monkeypatch, [[_hit("c1")]])
+    agent, model = _agent(
+        dataset,
+        [
+            tool_call("search_documents", {"query": "a", "doc_ids": ["docA"]}, "call-1"),
+            tool_call("search_documents", {"query": "b", "doc_ids": ["docA"]}, "call-2"),
+            answer("둘째 답"),
+        ],
+        max_steps=2,
+    )
+
+    agent.ask("첫 질문", thread_id="t1")
+    agent.ask("둘째 질문", thread_id="t1")
+
+    assert _unpaired_tool_calls(model.calls[2]["messages"]) == []
+
+
+def test_invalid_tool_call_is_returned_as_invalid_args(dataset: Any) -> None:
+    broken = AIMessage(
+        content="",
+        invalid_tool_calls=[
+            {
+                "name": "get_open_risks",
+                "args": '{"project_id": ',
+                "id": "call-bad",
+                "error": "JSON 해석 실패",
+                "type": "invalid_tool_call",
+            }
+        ],
+    )
+    agent, model = _agent(dataset, [broken, answer("어느 사업인가요?")])
+
+    result = agent.ask("Risk 알려줘", thread_id="t1")
+
+    assert [(c.name, c.status) for c in result.tool_calls] == [("get_open_risks", "invalid_args")]
+    assert result.llm_calls == 2
+    assert _unpaired_tool_calls(model.calls[1]["messages"]) == []
+    [tool_message] = _tool_messages(model, 1)
+    assert "인자를 고쳐 다시 부른다" in str(tool_message.content)
+
+
+def test_tool_bug_is_raised_and_thread_stays_usable(
+    dataset: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_search(monkeypatch, [KeyError("bug")])
+    agent, model = _agent(
+        dataset,
+        [
+            tool_call("search_documents", {"query": "a", "doc_ids": ["docA"]}, "call-1"),
+            answer("둘째 답"),
+        ],
+    )
+
+    with pytest.raises(KeyError):
+        agent.ask("첫 질문", thread_id="t1")
+    result = agent.ask("둘째 질문", thread_id="t1")
+
+    assert result.answer == "둘째 답"
+    assert _unpaired_tool_calls(model.calls[1]["messages"]) == []
+
+
+def test_search_only_switch_updates_project_from_catalog(
+    dataset: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_search(monkeypatch, [[_hit("c1", doc_id="docB")], [_hit("c2", doc_id="docC")]])
+    agent, _ = _agent(
+        dataset,
+        [
+            tool_call("get_delayed_tasks", {"project_id": "PRJ-01"}, "call-1"),
+            tool_call("search_documents", {"query": "a", "doc_ids": ["docB"]}, "call-2"),
+            answer("B 사업 답"),
+            tool_call("search_documents", {"query": "b", "doc_ids": ["docC"]}, "call-3"),
+            answer("C 사업 답"),
+        ],
+    )
+
+    first = agent.ask("질문", thread_id="t1")
+    second = agent.ask("C 사업은?", thread_id="t1")
+
+    # 검색이 다른 사업으로 옮겨 가면 project_id도 사업 목록으로 다시 정한다(PMS 없는 사업은 None)
+    assert (first.project_id, first.doc_ids) == ("PRJ-02", ["docB"])
+    assert (second.project_id, second.doc_ids) == (None, ["docC"])

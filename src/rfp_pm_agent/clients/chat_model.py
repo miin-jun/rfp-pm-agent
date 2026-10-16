@@ -59,6 +59,10 @@ class CostLogCallback(BaseCallbackHandler):
                 ):
                     self._log(generation.message, latency_ms)
 
+    def on_llm_error(self, error: BaseException, *, run_id: UUID, **kwargs: Any) -> None:
+        # 실패한 호출은 `LoggingLLMClient`처럼 기록하지 않는다(사용량을 모른다). 시작 시각만 지운다
+        self._started.pop(run_id, None)
+
     def _log(self, message: AIMessage, latency_ms: float) -> None:
         usage = message.usage_metadata
         input_tokens = usage["input_tokens"] if usage else 0

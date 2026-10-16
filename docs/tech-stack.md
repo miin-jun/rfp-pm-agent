@@ -17,7 +17,7 @@
 | 임베딩·리랭커 서빙 | **Hugging Face TEI** (RunPod, 로컬 대체 가능) | 확정 | — |
 | 답변·에이전트 LLM | **OpenAI GPT-6 Luna** (`gpt-6-luna`, 추론 강도 low) | 개발 모델 확정 (2026-10-12, #19, [ADR-0006](adr/0006-grounded-answer-refusal-and-citation.md)) · 최종 평가 모델은 #25 | **vLLM on RunPod** (Private LLM) |
 | 평가 채점 LLM | OpenAI mini급 | 기본값(모델명 미확정) | — |
-| 에이전트 | **LangGraph** + langchain-openai | 확정 | HITL(쓰기 동작) |
+| 에이전트 | **LangGraph** 1.2.15 + langchain-openai 1.7.2 (OpenAI **Responses API**) | 확정 (#22, [ADR-0010](adr/0010-langgraph-agent.md)) | HITL(쓰기 동작) |
 | API / MCP | **FastAPI** / **MCP Python SDK (FastMCP)** | 확정 | Streamable HTTP 원격 배포 |
 | 문서 파싱 | PDF: **PyMuPDF** / HWP: **hwp5html(pyhwp) 변환** | 실측(docs/parsing-exploration.md)으로 확정(이슈 #11) · HWPX는 범위 밖(스텁) | docx·xlsx, HWPX 실제 파싱 |
 | 평가 | 자체 평가 스크립트 + JSONL 골든셋 | 확정 | **Langfuse** 트레이싱 |
@@ -103,6 +103,11 @@
 
 - 교육과정에서 다룬 도구 → 이번엔 서비스 수준으로 (State, 조건 분기, Checkpointer, 최대 반복 제한)
 - 툴 함수는 `tools/` 한 곳에 두고 **에이전트와 MCP 서버가 같은 함수를 import**
+- (#22) `langgraph==1.2.15`, `langchain-openai==1.7.2`(버전 고정). 모델은 `clients/chat_model.py`의 `make_chat_model`로만 만든다 — 호출마다 비용 로그 콜백
+- (#22) **Responses API**를 쓴다. gpt-6-luna는 Chat Completions에서 함수 호출을 추론 강도 `none`일 때만 받는다(모델 페이지, 2026-10-16). Responses API는 #19와 같은 `low`로 툴을 부를 수 있다.
+  `store=False` + `include=["reasoning.encrypted_content"]` — 서버에 저장하지 않고 추론 항목은 암호화해 다음 호출에 돌려준다.
+  Phase 2 vLLM 전환 때 Responses API 지원 여부를 다시 확인해야 한다(확인하지 않음)
+- (#22) Checkpointer는 `InMemorySaver`(프로세스 메모리). 영속 저장(Postgres)은 쓰기 계정이 필요해 따로 정한다
 
 ## 7. 정형 DB — PostgreSQL 16
 

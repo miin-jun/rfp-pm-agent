@@ -599,6 +599,29 @@ projects ─┬─< project_members >── users
 
 검증(2026-10-15): 실제 DB(v2 적재, agent_ro)로 9개 프로젝트 모두 지연·이번 주 지연·미해결 Risk(순서)·기한 지난 미제출이 `data/eval/pms_truth_v2.json`과 일치(`tests/integration/test_pms_tools_db.py`).
 
+### 에이전트 `Agent.ask` (#22)
+
+설계 근거와 버린 대안: [ADR-0010](adr/0010-langgraph-agent.md). 코드: `agent/graph.py`(그래프·`Agent`), `agent/tools.py`(툴 래퍼),
+`agent/catalog.py`(사업 목록), `agent/prompts/agent_v1.md`(system 프롬프트), `clients/chat_model.py`(모델·비용 로그), 결과 `schemas/agent.py`.
+
+- **그래프**: `prepare` → `agent` ⇄ `tools` → `finalize`. LLM은 OpenAI **Responses API**, 추론 강도 `LLM_REASONING_EFFORT`(low)
+- **반복 상한**: `AGENT_MAX_STEPS` = 질문(사용자 턴) 하나의 **LLM 호출 수**. 상한에 닿는 호출은 `tool_choice="none"`으로 불러 툴 없이 답을 끝낸다
+- **대화**: Checkpointer(`InMemorySaver`, thread_id 단위). 대화 기록·청크 번호·대상 사업(`project_id`·`doc_ids`)이 이어지고, LLM 호출 수·툴 기록은 턴마다 새로 센다
+- **사업 목록**: 색인 문서(OpenSearch 집계 1회) × PMS 프로젝트를 system 프롬프트에 넣는다. PMS가 없는 문서는 project_id "없음"으로 표시
+- **툴 4개**(LLM에게 보이는 인자): `search_documents(query, doc_ids, top_k=8)` — `doc_ids` **필수**, `top_k` 1~10 /
+  `get_delayed_tasks(project_id, scope, limit)`·`get_open_risks(project_id, min_level, limit)`·`get_deliverables(project_id, status_filter, wbs_id, requirement_id, limit)` — `limit` 1~20.
+  `as_of`·`deps`는 숨긴다(기준일은 `AS_OF_DATE` 고정). 툴 설명은 원래 함수의 docstring에서 숨긴 인자 항목만 지우고 바뀐 인자 항목만 바꾼다
+- **툴 결과**: `<tool_result name status>` 안에 넣는다. 검색은 `<chunk id="n" doc="문서명">[n] 본문</chunk>`(#86 v2 형식) — 번호 n은 대화 전체에서
+  이어지고 같은 청크는 같은 번호. 청크 본문 3,000자 상한. PMS는 JSON — 지연 업무는 `stage_delays`(level 1)·`task_delays`로 나누고,
+  Risk 설명·대응은 300자, 결과 전체 12,000자 상한(넘으면 목록 뒤에서 덜고 `omitted_by_size`). 모든 결과에서 `<chunk`·`<tool_result` 태그를 `&lt;`로 바꾼다
+- **툴 오류**: 인자 오류(검증 실패·`ValueError`)는 `status="invalid_args"`, 서버 연결 불가(`SearchUnavailableError`·`PmsUnavailableError`)는
+  `"unavailable"` 툴 결과로 LLM에 돌려준다. 그 밖의 예외는 버그로 보고 올린다
+- **출처**: `finalize`가 답의 `[n]`을 `format_citation`으로 바꾼다(#19와 같은 5가지 표기). 이 대화에서 준 적 없는 번호는 `invalid_citations`.
+  PMS 내용은 번호 대신 ID(WBS·Risk·산출물)를 적는다
+
+반환 `AgentAnswer`: `answer`(LLM 답 그대로, `[n]` 포함)·`refused`(`is_refusal`)·`citations`·`citation_map`·`cited_chunk_ids`·`invalid_citations`
+(뜻은 `GroundedAnswer`와 같다)·`tool_calls`(이름·인자·상태·결과 수)·`llm_calls`·`reached_max_steps`·`project_id`·`doc_ids`·`usage`(이번 턴 토큰 합). 보여 줄 문자열은 `render_answer`(답 + 출처 목록).
+
 ---
 
 ## 7. 합성 PMS 생성 규칙
@@ -737,6 +760,26 @@ projects ─┬─< project_members >── users
   만든 출처가 v1 doc 실행의 `citation_map` 57건과 모두 같았다(2026-10-15). 결과 이름은 `grounded_answer_<YYYYMMDD>_doc_replay_<프롬프트>`,
   `_run.json`의 `notes`에 재생 원본을 적는다
 
+### `data/eval/agent_dev_v1.jsonl` — 에이전트 개발 평가 (#22)
+
+#22의 통과 기준 확인용 30문항(문서만 8 · PMS만 8 · 둘 다 6 · 사업 미지정 4 · 답 없음 4). #25의 `agent_v1`(자동 채점·회귀 게이트)과 따로 둔다.
+스키마 `schemas/eval.py` `AgentDevQuestion`, 통과 기준·측정 전 예상 `data/eval/agent_dev_v1_criteria.md`(측정 전 커밋).
+
+```json
+{"qid": "b1", "type": "both", "turns": ["AX를 통한 … 이번 주 지연된 업무랑 관련된 요구사항 문서 알려줘"],
+ "doc_id": "722630192c1100a1", "project_id": "PRJ-03",
+ "expected_tools": ["get_delayed_tasks", "search_documents"],
+ "expected_facts": {"wbs_ids": ["2.5"], "requirement_ids": ["DAR-002", "SFR-005"], ...},
+ "should_clarify": false, "should_refuse": false, "must_cite": true, "reference_answer": null,
+ "source": "pms_truth_v2:PRJ-03", "dod": true, "prediction": "통과 예상(architecture.md 3절 예시)"}
+```
+
+- 만들기·검사: `uv run python -m rfp_pm_agent.eval.agent_dev_set build|check`. 질문 문장·예상은 코드에 있고, 정답 ID는 `pms_truth_v2.json`(지연·Risk·기한 지난 미제출·RTM),
+  문서 정답은 qa_v2 `answer`, 무관 질문은 `irrelevant_v1.jsonl`에서 가져온다 — 사람이 옮겨 적지 않는다
+- `turns`가 2개면 같은 thread로 차례로 묻는다(u4: 되묻기 → 사업 답). `should_clarify`는 첫 턴, 나머지 판정은 마지막 턴에 적용
+- 실행: `uv run python -m rfp_pm_agent.eval.run_agent_dev --out-dir data/eval/results/agent [--baseline] [--only <qid>]`.
+  문서 답 판정은 `<결과>_judgments.jsonl`(qid·system·correct·reason)에 적고 `--from-rows <결과>.jsonl`로 요약을 다시 만든다(비용 없음)
+
 ### `data/eval/agent_v1.jsonl` — 에이전트 평가 (#25)
 
 ```json
@@ -753,7 +796,7 @@ projects ─┬─< project_members >── users
 - **평가 실행 진입점**: `rfp_pm_agent.eval` 패키지 안의 모듈 — 청킹 비교는
   `uv run python -m rfp_pm_agent.eval.run_chunk_eval` (#13), 검색 평가는
   `uv run python -m rfp_pm_agent.eval.run_retrieval` (#16·#18), 근거 답변(qa_v2 + 무관 질문, LLM 비용 있음)은
-  `uv run python -m rfp_pm_agent.eval.run_grounded_answer --out-dir data/eval/results/answer [--scope doc]` (#19). 에이전트 평가(`run_agent`)는 #25에서 같은 자리에 추가한다
+  `uv run python -m rfp_pm_agent.eval.run_grounded_answer --out-dir data/eval/results/answer [--scope doc]` (#19). 에이전트 개발 평가(#22)는 `run_agent_dev`, 에이전트 평가(`run_agent`)는 #25에서 같은 자리에 추가한다
 - **기준선 비교**: 지금은 별도 기준선 파일을 두지 않는다. `run_retrieval --compare <run_id> <run_id> ... --out-dir data/eval/results/<실험>`이
   그 실험의 `runs.jsonl` 하나에서 실행 기록을 찾아, Recall@10(전부 적중)이 가장 많은 실행을 1위로 두고 나머지를 문항별 McNemar로
   비교한다 — 같은 기록 위치의 실행끼리만 비교되고, `--out-dir`를 빼면 `model_selection`을 읽는다.
@@ -772,6 +815,7 @@ projects ─┬─< project_members >── users
 | `OPENSEARCH_TIMEOUT_S` | `10` | `search_documents`(`SearchDeps.from_env`)가 쓰는 OpenSearch 요청 제한 시간(초). opensearch-py 기본값과 같다 (#18 PR ③) |
 | `POSTGRES_DSN` | `postgresql+psycopg://app:app@localhost:5432/si` | |
 | `POSTGRES_READONLY_DSN` | `postgresql+psycopg://agent_ro:...@localhost:5432/si` | 에이전트 툴 전용 읽기 계정 |
+| `AGENT_MAX_STEPS` | `6` | 에이전트가 질문 하나에 부를 수 있는 LLM 호출 수 상한(`AgentConfig`, #22) |
 | `NARA_API_KEY` | (비밀) | 나라장터 입찰공고정보서비스(공공데이터포털) 인증키 |
 | `NARA_BASE_URL` | `https://apis.data.go.kr/1230000/ad/BidPublicInfoService` | |
 | `SYNTH_SEED` | `42` | 합성 데이터 재현용 |

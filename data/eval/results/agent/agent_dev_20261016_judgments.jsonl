@@ -1,0 +1,24 @@
+{"qid": "d1", "system": "agent", "correct": true, "reason": "499,620,000원(부가세 포함) — 인용 b0033 '사업예산 금499,620,000원/부가세포함'과 일치"}
+{"qid": "d1", "system": "baseline_doc", "correct": false, "reason": "거절. 질문 그대로 검색한 상위 10에 예산 청크 b0033이 없었다(재검색 확인: b0031·b0630·…). 검색 결과로는 맞는 거절이나 정답 아님"}
+{"qid": "d1", "system": "baseline_all", "correct": false, "reason": "거절. 상위 10이 문서 지정과 같았고 b0033 없음"}
+{"qid": "d2", "system": "agent", "correct": true, "reason": "계약일로부터 3개월 이내, 안정화 1개월 포함 — 인용 b0014와 일치"}
+{"qid": "d2", "system": "baseline_doc", "correct": true, "reason": "정답과 같음, 출처 PDF 2쪽"}
+{"qid": "d2", "system": "baseline_all", "correct": true, "reason": "정답과 같음"}
+{"qid": "d3", "system": "agent", "correct": true, "reason": "첫 단어 평균 3초·전체 최대 10초 — PER-001과 일치. 덧붙인 '동시 접속에서도 유지'는 PER-001·PER-002에 있음"}
+{"qid": "d3", "system": "baseline_doc", "correct": true, "reason": "정답과 같음(PER-001)"}
+{"qid": "d3", "system": "baseline_all", "correct": true, "reason": "정답과 같음(PER-001)"}
+{"qid": "d4", "system": "agent", "correct": true, "reason": "제로트러스트 기반·Control Plane 분리 — CSR-004와 일치. 'SDN 기반 ZTA'는 인용 b0007에 있음"}
+{"qid": "d4", "system": "baseline_doc", "correct": true, "reason": "제로트러스트 아키텍처 — 묻는 사실(보안 아키텍처)은 맞음. 정답의 Control Plane 분리는 빠짐"}
+{"qid": "d4", "system": "baseline_all", "correct": true, "reason": "문서 지정과 같은 답(Control Plane 빠짐)"}
+{"qid": "d5", "system": "agent", "correct": true, "reason": "입학전배정 원서 접수 관리, 제출·접수관리·출력물 수정·보완 — SFR-013과 일치"}
+{"qid": "d5", "system": "baseline_doc", "correct": true, "reason": "입학전배정 원서 접수 관리 — 정답 앞부분과 같음"}
+{"qid": "d5", "system": "baseline_all", "correct": true, "reason": "원서 제출과 접수 관리 — 같은 뜻"}
+{"qid": "d6", "system": "agent", "correct": true, "reason": "15개, 통합형 5·일반형 10 — SCR-001·b0034와 일치"}
+{"qid": "d6", "system": "baseline_doc", "correct": true, "reason": "정답과 같음"}
+{"qid": "d6", "system": "baseline_all", "correct": true, "reason": "정답과 같음"}
+{"qid": "d7", "system": "agent", "correct": true, "reason": "배회·쓰러짐·싸움·보행자-차량 충돌위험 4종 — SFR-006과 일치. 추가 옵션도 SFR-006에 있음"}
+{"qid": "d7", "system": "baseline_doc", "correct": true, "reason": "정답과 같음"}
+{"qid": "d7", "system": "baseline_all", "correct": true, "reason": "정답과 같음"}
+{"qid": "d8", "system": "agent", "correct": true, "reason": "국정원·KISA·OWASP 『웹 어플리케이션 개발 시 고려사항』 — SER-001과 일치. 홈페이지 보안관리 매뉴얼도 SER-001에 있음"}
+{"qid": "d8", "system": "baseline_doc", "correct": true, "reason": "정답과 같음"}
+{"qid": "d8", "system": "baseline_all", "correct": true, "reason": "정답과 같음"}

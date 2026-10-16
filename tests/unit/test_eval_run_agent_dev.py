@@ -292,3 +292,24 @@ def test_eval_set_composition_and_sources() -> None:
 
 def test_committed_eval_set_matches_sources() -> None:
     assert agent_dev_set.main(["check"]) == 0
+
+
+def test_partial_judgment_is_reported_both_ways_without_changing_rule() -> None:
+    questions = [
+        _q(qid=f"d{i}", type="doc", expected_tools=["search_documents"], must_cite=True)
+        for i in (1, 2)
+    ]
+    rows = [_row(q, _a("답")) for q in questions]
+    judgments = [
+        Judgment(qid="d1", system="agent", correct=True, reason="r"),
+        Judgment(qid="d2", system="agent", correct=True, reason="r"),
+        Judgment(qid="d1", system="baseline_doc", correct=True, reason="r"),
+        Judgment(qid="d2", system="baseline_doc", correct=True, partial=True, reason="절반"),
+    ]
+
+    result = summarize(questions, rows, [], judgments)["results"]["doc_answers"]
+
+    # 부분 정답은 정답(correct=True)으로 세고, 오답으로 볼 때의 수와 판정 영향을 함께 적는다
+    assert "기준선 문서 지정 2(부분 정답 1 포함, 오답으로 보면 1)" in result["value"]
+    assert result["pass"] is True
+    assert result["pass_if_partial_wrong"] is True

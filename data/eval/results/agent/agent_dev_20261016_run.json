@@ -34,8 +34,9 @@
         "pass": true
       },
       "doc_answers": {
-        "value": "에이전트 8/8 · 기준선 문서 지정 7 · 전체 검색 7",
-        "pass": true
+        "value": "에이전트 8/8 · 기준선 문서 지정 7(부분 정답 1 포함, 오답으로 보면 6) · 전체 검색 7(부분 정답 1 포함, 오답으로 보면 6)",
+        "pass": true,
+        "pass_if_partial_wrong": true
       },
       "clarify": {
         "value": "4/4",

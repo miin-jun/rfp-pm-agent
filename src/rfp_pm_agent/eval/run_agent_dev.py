@@ -94,6 +94,8 @@ class Judgment(BaseModel):
     qid: str
     system: Literal["agent", "baseline_doc", "baseline_all"]
     correct: bool
+    # 묻는 사실은 맞지만 정답의 일부가 빠진 답(소유자 판정, 2026-10-16). correct=True로 세고, 오답으로 볼 때의 수를 따로 적는다
+    partial: bool = False
     reason: str
 
 
@@ -198,7 +200,7 @@ def summarize(
         t: [r for r in rows if by_qid[r.qid].type == t]
         for t in ("doc", "pms", "both", "unspecified", "no_answer")
     }
-    judged = {(j.qid, j.system): j.correct for j in judgments}
+    judged: dict[tuple[str, str], bool] = {(j.qid, j.system): j.correct for j in judgments}
 
     def count(rs: list[AgentRow], key: str) -> int:
         return sum(1 for r in rs if r.checks.get(key) is True)
@@ -207,9 +209,25 @@ def summarize(
     latencies = [sum(t.latency_ms for t in r.turns) for r in rows]
     agent_cost = sum(t.cost_usd for r in rows for t in r.turns)
     doc_qids = [r.qid for r in of_type["doc"]]
-    doc_agent = sum(judged.get((q, "agent"), False) for q in doc_qids)
-    doc_base = sum(judged.get((q, "baseline_doc"), False) for q in doc_qids)
-    doc_base_all = sum(judged.get((q, "baseline_all"), False) for q in doc_qids)
+    partial = {(j.qid, j.system) for j in judgments if j.correct and j.partial}
+
+    def doc_count(system: str) -> tuple[int, int]:
+        """(정답 수, 그중 부분 정답 수)."""
+        correct = sum(judged.get((q, system), False) for q in doc_qids)
+        return correct, sum(1 for q in doc_qids if (q, system) in partial)
+
+    def doc_text(system: str) -> str:
+        correct, n_partial = doc_count(system)
+        return (
+            f"{correct}(부분 정답 {n_partial} 포함, 오답으로 보면 {correct - n_partial})"
+            if n_partial
+            else str(correct)
+        )
+
+    (doc_agent, agent_partial), (doc_base, base_partial) = (
+        doc_count("agent"),
+        doc_count("baseline_doc"),
+    )
     doc_judged = all((q, "agent") in judged and (q, "baseline_doc") in judged for q in doc_qids)
     cite_rows = [r for r in rows if r.checks.get("citation") is not None]
     tool_ok = count(rows, "tool_selection")
@@ -223,8 +241,16 @@ def summarize(
             "pass": count(of_type["pms"], "facts") >= CRITERIA["pms_facts_min"],
         },
         "doc_answers": {
-            "value": f"에이전트 {doc_agent}/{len(doc_qids)} · 기준선 문서 지정 {doc_base} · 전체 검색 {doc_base_all}",
+            "value": f"에이전트 {doc_text('agent')}/{len(doc_qids)} · 기준선 문서 지정 {doc_text('baseline_doc')}"
+            f" · 전체 검색 {doc_text('baseline_all')}",
             "pass": (doc_agent >= doc_base - CRITERIA["doc_vs_baseline_margin"])
+            if doc_judged
+            else None,
+            # 판정 규칙은 그대로이고, 부분 정답을 양쪽 모두 오답으로 셀 때의 결과를 함께 적는다
+            "pass_if_partial_wrong": (
+                doc_agent - agent_partial
+                >= doc_base - base_partial - CRITERIA["doc_vs_baseline_margin"]
+            )
             if doc_judged
             else None,
         },
@@ -321,6 +347,12 @@ def render_md(
     lines += [
         f"| {names[k]} | {v['value']} | {mark[v['pass']]} |" for k, v in summary["results"].items()
     ]
+    doc_result = summary["results"]["doc_answers"]
+    if doc_result.get("pass_if_partial_wrong") is not None:
+        lines += [
+            "",
+            f"- 문서 답: 부분 정답을 오답으로 세어도 판정은 {mark[doc_result['pass_if_partial_wrong']]}",
+        ]
     lines += [
         "",
         "## 문항별",
@@ -336,7 +368,9 @@ def render_md(
         llm = sum(t.answer.llm_calls for t in row.turns if t.answer)
         doc = (
             "/".join(
-                mark[judged[(row.qid, s)].correct] if (row.qid, s) in judged else "?"
+                ("부분" if judged[(row.qid, s)].partial else mark[judged[(row.qid, s)].correct])
+                if (row.qid, s) in judged
+                else "?"
                 for s in ("agent", "baseline_doc", "baseline_all")
             )
             if q.type == "doc"
@@ -370,7 +404,8 @@ def render_md(
         for s in ("agent", "baseline_doc", "baseline_all"):
             j = judged.get((row.qid, s))
             if j:
-                lines += [f"- 판정 {s}: {'정답' if j.correct else '오답'} — {j.reason}"]
+                grade = "부분 정답" if j.correct and j.partial else "정답" if j.correct else "오답"
+                lines += [f"- 판정 {s}: {grade} — {j.reason}"]
         lines.append("")
     return "\n".join(lines) + "\n"
 

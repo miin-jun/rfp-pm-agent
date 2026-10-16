@@ -288,3 +288,54 @@ class RetrievalRunRecord(BaseModel):
     scores: RetrievalRunScore
     questions_file: str
     failures_file: str
+
+
+# --- 에이전트 개발 평가 세트 (이슈 #22, data/eval/agent_dev_v1.jsonl, docs/data-design.md 9절) ---
+
+AgentQuestionType = Literal["doc", "pms", "both", "unspecified", "no_answer"]
+AgentToolName = Literal[
+    "search_documents", "get_delayed_tasks", "get_open_risks", "get_deliverables"
+]
+
+
+class AgentExpectedFacts(BaseModel):
+    """정답 ID. PMS 값은 `data/eval/pms_truth_v2.json`에서 자동으로 만든다(사람이 옮겨 적지 않는다).
+
+    - wbs_ids: 답에 나와야 하는 업무 ID(재현율로 본다). stage_wbs_ids는 그중 단계(level 1) — "단계 지연"으로 따로 적어야 한다
+    - risk_ids·deliverable_ids: 답에 나와야 하는 ID. 같은 프로젝트의 다른 ID가 답에 있으면 틀린 것(정밀도도 본다)
+    - requirement_ids: 둘 다(both) 문항에서 답에 나와야 하는 요구사항 ID
+    - count: "몇 건" 질문의 정답 건수
+    """
+
+    wbs_ids: list[str] = []
+    stage_wbs_ids: list[str] = []
+    risk_ids: list[str] = []
+    deliverable_ids: list[str] = []
+    requirement_ids: list[str] = []
+    count: int | None = None
+
+
+class AgentDevQuestion(BaseModel):
+    """에이전트 개발 평가 문항 하나. turns가 2개 이상이면 같은 대화(thread)로 차례로 묻는다.
+
+    판정 기준은 마지막 턴에 적용하고, should_clarify는 첫 턴에 적용한다(되묻기 → 사업 답 → 정답).
+    """
+
+    qid: str
+    type: AgentQuestionType
+    turns: list[str]
+    doc_id: str | None  # 대상 문서. 사업 미지정·무관 질문은 None
+    project_id: str | None  # 대상 PMS 프로젝트. PMS가 없는 문서·무관 질문은 None
+    expected_tools: list[
+        AgentToolName
+    ]  # 마지막 턴에 불러야 하는 툴(집합으로 비교, 순서는 보지 않는다)
+    expected_facts: AgentExpectedFacts
+    should_clarify: bool  # 첫 턴에서 어느 사업인지 되물어야 한다
+    should_refuse: bool  # 마지막 턴이 거절 문구여야 한다
+    must_cite: bool  # 마지막 턴 답에 유효한 청크 번호 인용이 하나 이상 있어야 한다
+    reference_answer: (
+        str | None
+    )  # 문서 답 판정의 기준(qa_v2 answer). 판정은 이것과 인용 청크 원문을 대조한다
+    source: str  # 문항 출처(예: "qa_v2:q010", "pms_truth_v2:PRJ-03", "irrelevant_v1:u001")
+    dod: bool  # 이슈 #22 DoD "예시 질문 3종"에 해당
+    prediction: str  # 측정 전 예상(통과/위험 요인). 측정 뒤에 고치지 않는다

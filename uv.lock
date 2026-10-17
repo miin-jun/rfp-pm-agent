@@ -2203,7 +2203,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "langchain-openai", specifier = "==1.7.2" },
     { name = "langgraph", specifier = "==1.2.15" },
-    { name = "mcp", extras = ["cli"], specifier = ">=2.3.0" },
+    { name = "mcp", extras = ["cli"], specifier = ">=2.3.0,<3" },
     { name = "numpy", specifier = ">=2.5.3" },
     { name = "openai", specifier = ">=3.13.0" },
     { name = "opensearch-py", specifier = ">=3.2.0" },

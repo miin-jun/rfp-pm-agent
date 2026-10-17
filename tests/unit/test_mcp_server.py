@@ -17,8 +17,10 @@ import pytest
 from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 from mcp.types import CallToolResult
 
+from rfp_pm_agent.pms.errors import PmsUnavailableError
 from rfp_pm_agent.schemas.pms import PmsDataset
 from rfp_pm_agent.schemas.search import DocumentHit
+from rfp_pm_agent.search.errors import SearchUnavailableError
 from rfp_pm_agent.tools import pms_tools
 from rfp_pm_agent.tools import search_documents as search_tool
 from rfp_pm_agent.tools.pms_tools import PmsDeps
@@ -270,13 +272,97 @@ def test_search_documents_default_top_k_through_mcp(
     assert out == {"result": [_hit(1, "docA").model_dump(mode="json")]}
 
 
-def test_tool_exception_message_does_not_reach_client(server: ModuleType, fake_deps: None) -> None:
-    """ADR-0011 "한계": 원본이 던진 ValueError는 SDK가 예상하지 못한 예외로 보고 원래 메시지를 빼고 돌려준다."""
-    with pytest.raises(UnexpectedToolError) as exc_info:
+def test_tool_exception_message_reaches_client(server: ModuleType, fake_deps: None) -> None:
+    """원본이 던진 ValueError를 래퍼가 ToolError로 바꿔, 원래 메시지가 클라이언트 오류 결과에 남는다."""
+    with pytest.raises(ToolError) as exc_info:
         asyncio.run(
             server.mcp.call_tool("get_delayed_tasks", {"project_id": "PRJ-01", "limit": 99})
         )
 
-    assert str(exc_info.value) == "Error executing tool get_delayed_tasks"
-    assert isinstance(exc_info.value.__cause__, ValueError)
-    assert "limit" in str(exc_info.value.__cause__)  # 원래 메시지는 서버 쪽 예외에만 있다
+    assert not isinstance(exc_info.value, UnexpectedToolError)
+    assert str(exc_info.value).startswith("Error executing tool get_delayed_tasks: limit")
+
+
+# --- 오류: 예상한 예외는 ToolError로 바꿔 원래 메시지를 클라이언트에 보낸다 (ADR-0011 결정 6) ---
+
+
+def _raising(exc: Exception) -> Callable[..., Any]:
+    def fn(*args: Any, **kwargs: Any) -> Any:
+        raise exc
+
+    return fn
+
+
+def _tool_error(server: ModuleType, name: str, arguments: dict[str, Any]) -> ToolError:
+    with pytest.raises(ToolError) as exc_info:
+        asyncio.run(server.mcp.call_tool(name, arguments))
+    assert not isinstance(exc_info.value, UnexpectedToolError)  # 메시지를 버리는 경로가 아니다
+    return exc_info.value
+
+
+def test_search_documents_empty_doc_ids_is_tool_error_before_search(
+    server: ModuleType, fake_deps: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = _spy(monkeypatch, search_tool, "search_documents", returns=[])
+
+    err = _tool_error(server, "search_documents", {"query": "SFR-001", "doc_ids": []})
+
+    assert "doc_ids" in str(err)
+    assert calls == []
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        ValueError("인덱스에 없는 doc_id: ['없는-문서']"),
+        ValueError("질의가 너무 깁니다: 입력 토큰 한도 초과"),
+        SearchUnavailableError("tei-rerank", "connection refused"),
+    ],
+    ids=["unknown-doc-id", "too-long", "unavailable"],
+)
+def test_search_documents_expected_errors_reach_client_with_message(
+    server: ModuleType, fake_deps: None, monkeypatch: pytest.MonkeyPatch, exc: Exception
+) -> None:
+    monkeypatch.setattr(search_tool, "search_documents", _raising(exc))
+
+    err = _tool_error(server, "search_documents", {"query": "테스트", "doc_ids": ["docA"]})
+
+    assert str(err) == f"Error executing tool search_documents: {exc}"
+    assert err.__cause__ is not None and err.__cause__.__cause__ is exc
+
+
+PMS_CALLS = [
+    ("get_delayed_tasks", {"project_id": "PRJ-01"}),
+    ("get_open_risks", {"project_id": "PRJ-01"}),
+    ("get_deliverables", {"project_id": "PRJ-01"}),
+]
+
+
+@pytest.mark.parametrize(("name", "arguments"), PMS_CALLS, ids=[n for n, _ in PMS_CALLS])
+def test_pms_unavailable_reaches_client_with_message(
+    server: ModuleType,
+    fake_deps: None,
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    arguments: dict[str, Any],
+) -> None:
+    exc = PmsUnavailableError("connection refused")
+    monkeypatch.setattr(pms_tools, name, _raising(exc))
+
+    err = _tool_error(server, name, arguments)
+
+    assert str(err) == f"Error executing tool {name}: PMS DB에 연결할 수 없다: connection refused"
+
+
+def test_unexpected_exception_still_hides_message(
+    server: ModuleType, fake_deps: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ValueError·*UnavailableError 밖의 예외는 버그로 보고 바꾸지 않는다 — SDK가 메시지를 서버에만 남긴다."""
+    monkeypatch.setattr(search_tool, "search_documents", _raising(RuntimeError("내부 정보")))
+
+    with pytest.raises(UnexpectedToolError) as exc_info:
+        asyncio.run(
+            server.mcp.call_tool("search_documents", {"query": "테스트", "doc_ids": ["docA"]})
+        )
+
+    assert str(exc_info.value) == "Error executing tool search_documents"

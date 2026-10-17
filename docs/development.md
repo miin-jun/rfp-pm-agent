@@ -71,6 +71,37 @@ uv run python -m rfp_pm_agent.eval.run_retrieval --os-hybrid [--rerank --rerank-
 uv run pytest tests/integration -m integration -q   # 실제 OpenSearch 검색 테스트 (읽기만 한다)
 ```
 
+### MCP 서버 (#24)
+
+읽기 전용 툴 4개(`get_delayed_tasks`·`get_open_risks`·`get_deliverables`·`search_documents`)를 stdio로 노출한다. 결정과 검증은 [ADR-0011](adr/0011-mcp-server.md).
+PMS 툴은 postgres(합성 PMS 적재), `search_documents`는 opensearch·`tei-embed`·`tei-rerank`가 떠 있어야 한다. 서버는 기동 때 `AS_OF_DATE`가 없으면 멈춘다(`.env`는 `config.py`가 파일 위치로 읽으므로 실행 디렉터리와 상관없다).
+
+Claude Code (이 레포에서, 로컬 범위 — 자기 설정에만 들어간다):
+
+```bash
+claude mcp add rfp-pm -- uv run python -m rfp_pm_agent.mcp_server.server
+claude mcp get rfp-pm        # Status: ✔ Connected 이면 연결됨. 세션 안에서는 /mcp 로 툴 4개 확인
+claude mcp remove rfp-pm -s local
+```
+
+Claude Desktop(Windows)에서 WSL 안의 서버를 부를 때는 `claude_desktop_config.json`(설정 → 개발자 → 구성 편집)에 넣고 Desktop을 다시 시작한다.
+`uv` 경로는 WSL에서 `which uv`로 확인해 바꾼다(로그인 셸이 아니라 PATH가 비어 있을 수 있다).
+
+```json
+{
+  "mcpServers": {
+    "rfp-pm": {
+      "command": "wsl.exe",
+      "args": ["--cd", "/home/user/projects/rfp-pm-agent", "--", "/home/user/.local/bin/uv", "run", "python", "-m", "rfp_pm_agent.mcp_server.server"]
+    }
+  }
+}
+```
+
+- stdout은 MCP 메시지 전용이다. 서버 코드에서 `print`로 stdout에 쓰면 프로토콜이 깨진다(로그는 stderr)
+- 기동 확인만 할 때: `printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}\n' | uv run python -m rfp_pm_agent.mcp_server.server` — `serverInfo.name`이 `rfp-pm-agent`인 응답 한 줄이 나오면 된다
+- 테스트: `uv run pytest tests/unit/test_mcp_server.py -q`(가짜 deps), `uv run pytest tests/integration/test_mcp_server_db.py -m integration -q`(PRJ-05 정답 대조, postgres 필요)
+
 ## 알려진 함정
 
 - **WSL2에서 OpenSearch 컨테이너가 계속 재시작되거나 바로 죽는 경우**: 커널의 `vm.max_map_count`가 기본값(65530)이라 OpenSearch(Lucene)가 요구하는 최소값(262144)에 못 미쳐서 발생합니다.

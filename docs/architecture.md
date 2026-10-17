@@ -241,6 +241,7 @@
 - 서버가 노출하는 것: **Tools**(실행 가능한 함수), **Resources**(읽을 수 있는 데이터), **Prompts**(재사용 템플릿)
 - 전송 방식: **stdio**(로컬 프로세스) / **Streamable HTTP**(원격)
 - 이 프로젝트: 에이전트의 툴을 MCP 서버로도 노출 → Claude Desktop·Claude Code에서 "우리 프로젝트 지연 업무 알려줘"가 동작
+- 구현(#24): MCP Python SDK 2.x의 `MCPServer`(1.x의 FastMCP가 이름을 바꾼 것), stdio, 툴 4개(`get_delayed_tasks`·`get_open_risks`·`get_deliverables`·`search_documents`). 결정은 [ADR-0011](adr/0011-mcp-server.md), 연결 방법은 [development.md](development.md) "MCP 서버"
 - **보안**: MCP 툴은 LLM이 스스로 호출 여부를 결정 → 부작용 있는 툴(삭제·등록)을 열면 **프롬프트 인젝션이 곧 데이터 조작**. MVP는 **읽기 전용 툴만** 노출 (인프라 계획 ADR-3과 같은 원칙)
 
 ### 4-9. LLM 대량 처리 — Batch API와 구조화 출력 🆕 [P2]
@@ -350,6 +351,7 @@
 | 10-15 | **합성 PMS: postgres:16에 data-design.md 6절 10개 테이블, RTM 정답은 `wbs_requirements` + `data/eval/pms_truth_v2.json`, 원천 RFP 9건, LLM은 WBS 초안만(초안 git 보관), 날짜·상태·지연·Risk·Issue는 seed로 코드가, 누락 후보는 사업관리(PMR·PSR)를 뺀 요구사항의 12%, 기준일 2026-09-24(목)** 채택 (#20) | 정답을 생성 과정에서 알기 위해 판단이 들어가는 값은 코드가 정한다(7절). 기존 예시 기준일 2026-09-21은 월요일이라 "이번 주 지연" 구간이 비었다. v1 정답은 사람 검수에서 `llm_omitted` 3건이 모두 보고 요구사항인데 비슷한 보고 업무가 있는 것으로 드러났다 — 초안 프롬프트 규칙 5(관리 업무는 빈 목록)가 원인이라 v2로 고쳤다. LLM 18회(v1·v2 각 9회) $0.0195 ([ADR-0008](adr/0008-synthetic-pms-and-rtm-truth.md)) |
 | 10-15 | **PMS 조회 툴 3개: project_id 필수(없으면 예외 대신 `project_required`와 후보 목록), 판단은 `pms/rules.py`(SQL은 project_id 바인딩 조회만), 결과 상한 20(최대 50)+전체 건수, Risk 등급 15/8 경계** 채택 (#21) | 판단 규칙을 정답 파일과 같은 함수 한 곳에 둬 SQL·Python 두 벌로 갈라지지 않게 했다. 실제 DB(agent_ro)로 9개 프로젝트 모두 정답과 일치. 프로젝트를 모르면 되묻게 해 ADR-0006 결정 4(문서 지정 전제)와 맞췄다 (data-design.md 6절 "PMS 조회 툴", [ADR-0009](adr/0009-pms-query-tools.md)) |
 | 10-16 | **LangGraph 에이전트: Responses API + 추론 강도 low, 문서 툴은 `search_documents` 래퍼(`doc_ids` 필수, v2 청크 형식·대화 전체 번호 인용), 사업 목록은 system 프롬프트(PMS 없는 문서 포함), `as_of`·`deps` 숨김, 단계 지연 따로, `InMemorySaver`, `AGENT_MAX_STEPS`=LLM 호출 수** 채택 (#22) | gpt-6-luna는 Chat Completions에서 함수 호출을 `none`일 때만 받는다. 개발 평가 30문항(기준 측정 전 고정): 툴 선택 30/30, PMS 8/8, 문서 8/8(기준선 문서 지정 7/8), 되묻기 4/4, 출처 14/14, 평균 LLM 2.1회, $0.035 — **답 없음 거절 2/4로 미통과**(뜻은 거절이나 거절 문구가 아님, 프롬프트 규칙 2·7 겹침으로 추정, 미검증). 소유자가 미통과로 기록하고 기준을 바꾸지 않은 채 병합하기로 했고, 고치는 일은 #94(`agent_v2`, 새 답 없음 질문으로 측정). 기준선은 사업 미지정 질문에 다른 사업 답을 냈다. 학습 모드 대상이지만 소유자 결정으로 Claude가 구현 ([ADR-0010](adr/0010-langgraph-agent.md)) |
+| 10-17 | **MCP 서버: MCP Python SDK 2.x `MCPServer`(stdio), 읽기 전용 툴 4개(PMS 3 + `search_documents`), `deps`·`as_of` 숨김, `search_documents`의 `doc_ids` 필수, 결과는 `model_dump(mode="json")`** 채택 (#24) | 1.x FastMCP는 2.x에서 `MCPServer`로 이름이 바뀜. `doc_ids` 필수는 ADR-0006 결정 4(문서 지정에서만 통과). 수동 검증(Claude Code): PRJ-05 3개 툴 정답 일치(지연 6·high R05·기한 지난 미제출 7), 되묻기, 4개 툴 연쇄. 툴의 예상한 오류(`ValueError`·`*UnavailableError`)는 `ToolError`로 바꿔 메시지를 클라이언트에 보냄 — SDK가 그 밖의 예외 메시지는 버리는 것을 패키지 소스로 확인, 전/후 실측. 완료 기준 Desktop 캡처는 Claude Code 실호출·정답 대조로 대체(Desktop 설정 미검증). `mcp[cli]>=2.3.0,<3`. 서버 코드는 소유자 직접 구현(학습 모드) ([ADR-0011](adr/0011-mcp-server.md)) |
 
 ## 참고
 

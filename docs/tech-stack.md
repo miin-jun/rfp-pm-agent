@@ -18,7 +18,7 @@
 | 답변·에이전트 LLM | **OpenAI GPT-6 Luna** (`gpt-6-luna`, 추론 강도 low) | 개발 모델 확정 (2026-10-12, #19, [ADR-0006](adr/0006-grounded-answer-refusal-and-citation.md)) · 최종 평가 모델은 #25 | **vLLM on RunPod** (Private LLM) |
 | 평가 채점 LLM | OpenAI mini급 | 기본값(모델명 미확정) | — |
 | 에이전트 | **LangGraph** 1.2.15 + langchain-openai 1.7.2 (OpenAI **Responses API**) | 확정 (#22, [ADR-0010](adr/0010-langgraph-agent.md)) | HITL(쓰기 동작) |
-| API / MCP | **FastAPI** / **MCP Python SDK (FastMCP)** | 확정 | Streamable HTTP 원격 배포 |
+| API / MCP | **FastAPI** / **MCP Python SDK 2.x `MCPServer`** (`mcp[cli]`, stdio) | 확정 (#24, [ADR-0011](adr/0011-mcp-server.md)) | Streamable HTTP 원격 배포 |
 | 문서 파싱 | PDF: **PyMuPDF** / HWP: **hwp5html(pyhwp) 변환** | 실측(docs/parsing-exploration.md)으로 확정(이슈 #11) · HWPX는 범위 밖(스텁) | docx·xlsx, HWPX 실제 파싱 |
 | 평가 | 자체 평가 스크립트 + JSONL 골든셋 | 확정 | **Langfuse** 트레이싱 |
 | 파이프라인 | Python 스크립트 (멱등·증분) | 확정 | **Airflow**, **PySpark**, **OpenAI Batch API** |
@@ -149,7 +149,8 @@
 ## 9. API · MCP
 
 - **FastAPI** + Pydantic v2: `/chat`, `/search`, `/health`
-- **MCP Python SDK의 FastMCP**: stdio(로컬, Claude Desktop·Claude Code 연결) → Phase 2에 Streamable HTTP
+- **MCP Python SDK 2.x의 `MCPServer`**(`from mcp.server.mcpserver import MCPServer`): stdio(로컬, Claude Desktop·Claude Code 연결) → Phase 2에 Streamable HTTP.
+  1.x의 `FastMCP`가 2.x에서 `MCPServer`로 이름이 바뀌었다 — `mcp.server.fastmcp`는 `ModuleNotFoundError`. 연결 방법은 [development.md](development.md) "MCP 서버"
 - MCP는 **읽기 전용 툴만** 노출
 
 ## 10. 평가·관측

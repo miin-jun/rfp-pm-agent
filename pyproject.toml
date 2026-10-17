@@ -12,6 +12,7 @@ dependencies = [
     "httpx>=0.28.1",
     "langchain-openai==1.7.2",
     "langgraph==1.2.15",
+    "mcp[cli]>=2.3.0,<3",
     "numpy>=2.5.3",
     "openai>=3.13.0",
     "opensearch-py>=3.2.0",

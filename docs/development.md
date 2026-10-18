@@ -102,6 +102,19 @@ Claude Desktop(Windows)에서 WSL 안의 서버를 부를 때는 `claude_desktop
 - 기동 확인만 할 때: `printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}\n' | uv run python -m rfp_pm_agent.mcp_server.server` — `serverInfo.name`이 `rfp-pm-agent`인 응답 한 줄이 나오면 된다
 - 테스트: `uv run pytest tests/unit/test_mcp_server.py -q`(가짜 deps), `uv run pytest tests/integration/test_mcp_server_db.py -m integration -q`(PRJ-05 정답 대조, postgres 필요)
 
+### RTM (#39)
+
+요구사항×업무 리랭커 점수표 → 사업별 RTM → 누락 채점. 결정과 결과는 [ADR-0012](adr/0012-rtm-reranker-mapping.md).
+
+```bash
+uv run python scripts/build_rtm_scores.py          # 점수표 data/eval/rtm_scores_v1.csv (git 제외, tei-rerank 필요, 약 3분, LLM 비용 없음)
+uv run python -m rfp_pm_agent.rtm.report           # RTM_OUT_DIR/rtm_<project_id>.md·.csv (postgres 필요, 점수표만 읽음)
+uv run python -m rfp_pm_agent.eval.run_rtm_eval    # 시험 50건·연습 채점 → data/eval/results/rtm/rtm_eval_v1.json
+```
+
+- 채점은 한 번만 돌린다 — 결과 파일이 이미 있으면 멈춘다(덮어쓰지 않음). 기준값(0.5)은 측정 전 고정이라 설정값이 아니다
+- 경로 설정: `RTM_SCORES_PATH`(점수표), `RTM_OUT_DIR`(출력, 기본 `data/out`, git 제외)
+
 ## 알려진 함정
 
 - **WSL2에서 OpenSearch 컨테이너가 계속 재시작되거나 바로 죽는 경우**: 커널의 `vm.max_map_count`가 기본값(65530)이라 OpenSearch(Lucene)가 요구하는 최소값(262144)에 못 미쳐서 발생합니다.

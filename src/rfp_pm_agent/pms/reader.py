@@ -32,6 +32,7 @@ from rfp_pm_agent.schemas.pms import (
     DocumentRow,
     IssueRow,
     ProjectRow,
+    RequirementRow,
     RiskRow,
     WbsItemRow,
     WbsRequirementRow,
@@ -45,6 +46,7 @@ class PmsReader(Protocol):
     def documents(self, project_id: str) -> list[DocumentRow]: ...
     def user_names(self, project_id: str) -> dict[str, str]: ...
     def requirement_ids(self, project_id: str) -> list[str]: ...
+    def requirements(self, project_id: str) -> list[RequirementRow]: ...
     def wbs_items(self, project_id: str) -> list[WbsItemRow]: ...
     def wbs_requirements(self, project_id: str) -> list[WbsRequirementRow]: ...
     def deliverables(self, project_id: str) -> list[DeliverableRow]: ...
@@ -101,6 +103,14 @@ class SqlPmsReader:
             .order_by(Requirement.requirement_id)
         )
         return [r["requirement_id"] for r in self._rows(stmt)]
+
+    def requirements(self, project_id: str) -> list[RequirementRow]:
+        stmt = (
+            select(*self._columns(Requirement))
+            .where(Requirement.project_id == project_id)
+            .order_by(Requirement.requirement_id)
+        )
+        return [RequirementRow.model_validate(r) for r in self._rows(stmt)]
 
     def wbs_items(self, project_id: str) -> list[WbsItemRow]:
         stmt = select(*self._columns(WbsItem)).where(WbsItem.project_id == project_id)

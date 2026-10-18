@@ -230,6 +230,24 @@ class SynthConfig(BaseModel):
         )
 
 
+class RtmConfig(BaseModel):
+    """요구사항 추적 매트릭스(RTM) 입출력 경로 (이슈 #39, docs/adr/0012-rtm-reranker-mapping.md).
+
+    scores_path는 요구사항×업무 리랭커 점수표(`scripts/build_rtm_scores.py`가 만든다), out_dir은 사업별
+    `rtm_<project_id>.md`·`.csv`를 쓰는 폴더다. 기준값(0.5)은 측정 전 고정한 결정이라 설정값으로 두지 않는다.
+    """
+
+    scores_path: Path
+    out_dir: Path
+
+    @classmethod
+    def from_env(cls) -> RtmConfig:
+        return cls(
+            scores_path=Path(os.environ.get("RTM_SCORES_PATH") or "data/eval/rtm_scores_v1.csv"),
+            out_dir=Path(os.environ.get("RTM_OUT_DIR") or "data/out"),
+        )
+
+
 class AgentConfig(BaseModel):
     """LangGraph 에이전트 설정 (이슈 #22, docs/adr/0010-langgraph-agent.md).
 

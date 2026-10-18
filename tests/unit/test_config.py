@@ -6,7 +6,7 @@ import pytest
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
-from rfp_pm_agent.config import ClientsConfig, NaraApiConfig, OpenSearchConfig
+from rfp_pm_agent.config import ClientsConfig, NaraApiConfig, OpenSearchConfig, RtmConfig
 
 
 def test_from_env_reads_base_urls_and_models(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -258,3 +258,22 @@ def test_llm_reasoning_effort_rejects_unknown_value(monkeypatch: pytest.MonkeyPa
 
     with pytest.raises(ValidationError):
         ClientsConfig.from_env()
+
+
+def test_rtm_config_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("RTM_SCORES_PATH", raising=False)
+    monkeypatch.setenv("RTM_OUT_DIR", "")
+
+    cfg = RtmConfig.from_env()
+
+    assert cfg.scores_path == Path("data/eval/rtm_scores_v1.csv")
+    assert cfg.out_dir == Path("data/out")
+
+
+def test_rtm_config_reads_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RTM_SCORES_PATH", "x/scores.csv")
+    monkeypatch.setenv("RTM_OUT_DIR", "x/out")
+
+    cfg = RtmConfig.from_env()
+
+    assert (cfg.scores_path, cfg.out_dir) == (Path("x/scores.csv"), Path("x/out"))

@@ -651,7 +651,11 @@ projects ─┬─< project_members >── users
 - **누락 정답 사람 검수와 채점 규칙(#39, 2026-10-18 RTM 매핑 측정 전 고정)**: `injected` 50건마다 사용자가 요구사항 원문과 그 사업 업무 전체를 보고 비슷한 업무가 있는지 판정했다
   — 판정 `data/eval/rtm_injected_judgment.csv`(`judgment`: 있음 13·애매 31·없음 5·해당없음 1, `matched_wbs_ids`는 `;` 구분), 읽기용 검수표 `rtm_injected_review.csv`·`.md`(`scripts/build_rtm_injected_review.py`).
   채점: **없음(5건)** = 진짜 누락 — RTM이 미매핑(누락)으로 표시해야 정답 / **있음·애매(44건)** — RTM이 어떤 업무와 이어도 정답 / **해당없음(1건)** — 채점 제외
-- **범위 외 후보(#39)**: 요구사항이 연결되지 않은 말단 업무. v1은 16건(관리 업무), **v2는 0건** — v2 규칙 5로 관리 업무가 PMR 요구사항에 연결됐다. 일부러 심을지는 #39에서 정한다
+- **RTM 연결 규칙과 결과(#39, 2026-10-18 측정 전 고정, [ADR-0012](adr/0012-rtm-reranker-mapping.md))**: 요구사항×업무(단계 제외) 모든 쌍의 리랭커 점수(`data/eval/rtm_scores_v1.csv` — git 제외, sha256과 재생성 명령은 ADR-0012 결정 1, query = 요구사항 원문, document = 업무 이름).
+  점수 ≥ **0.5**인 업무는 전부 연결, 요구사항별 최고 점수 < 0.5면 누락 후보. 기준값은 연습 세트(`injected`가 아닌 366건) 분포로 정했다(누락으로 잘못 부르는 수 0.3: 7 · 0.5: 20 · 0.7: 51 — `llm_omitted` 2건 포함 기준).
+  연습 세트 채점은 `llm_omitted` 2건을 빼고 따로 표기한다. 1회 채점 결과(`data/eval/results/rtm/rtm_eval_v1.json`): **진짜 누락 0/5(미통과)**, 있음·애매 44/44, 연습 오탐 19/364(위 20건 = 19건 + 원래 연결이 없는 `llm_omitted` PRJ-09 PSR-001).
+  연결 쌍 정확도(연습 세트, 채점 코드 밖에서 점수표·`pms_v2.json`으로 계산): 정밀도 618/4,935 = 12.5%, 재현율 618/930 = 66.5%
+- **범위 외 후보(#39)**: 요구사항이 연결되지 않은 말단 업무. v1은 16건(관리 업무), **v2는 0건** — v2 규칙 5로 관리 업무가 PMR 요구사항에 연결됐다. #39에서 데이터에 심지 않고 단위 테스트(가짜 데이터에 무관한 업무를 심음)로만 확인하기로 정했다([ADR-0012](adr/0012-rtm-reranker-mapping.md) "한계")
 - **WBS 초안**: 프로젝트당 LLM 1회(형식 오류 시 1회 더), 프롬프트 `pms/prompts/wbs_draft_v2.md`(v1은 보존). 업무 이름·단계·연결 요구사항·산출물 이름만 받는다. 목록에 없는 요구사항 ID는 버리고 기록한다.
   결과는 `data/synth/wbs_drafts/<프롬프트 버전>/<doc_id>.json`(**git 포함** — 정답을 LLM 없이 다시 만드는 입력)에 저장하고, 같은 제외 목록·프롬프트 버전이면 다시 부르지 않는다. 정답 파일에 프로젝트별 초안 sha256을 남긴다.
   v2 규칙 5: 보고·일정 등 사업관리 요구사항(PMR 등)이 있으면 해당 관리 업무에 연결한다. v1 규칙 5(관리 업무는 항상 빈 목록)는 보고 요구사항이 연결될 업무를 없앴다
@@ -824,6 +828,8 @@ projects ─┬─< project_members >── users
 | `NARA_API_KEY` | (비밀) | 나라장터 입찰공고정보서비스(공공데이터포털) 인증키 |
 | `NARA_BASE_URL` | `https://apis.data.go.kr/1230000/ad/BidPublicInfoService` | |
 | `SYNTH_SEED` | `42` | 합성 데이터 재현용 |
+| `RTM_SCORES_PATH` | `data/eval/rtm_scores_v1.csv` | RTM 요구사항×업무 리랭커 점수표 (`RtmConfig`, #39) |
+| `RTM_OUT_DIR` | `data/out` | 사업별 RTM `rtm_<project_id>.md`·`.csv` 출력 폴더 (#39) |
 
 ---
 

@@ -8,6 +8,7 @@ from rfp_pm_agent.schemas.pms import (
     IssueRow,
     PmsDataset,
     ProjectRow,
+    RequirementRow,
     RiskRow,
     WbsItemRow,
     WbsRequirementRow,
@@ -35,6 +36,11 @@ class FakePmsReader:
     def requirement_ids(self, project_id: str) -> list[str]:
         self.calls.append(("requirement_ids", project_id))
         return sorted(r.requirement_id for r in self.ds.requirements if r.project_id == project_id)
+
+    def requirements(self, project_id: str) -> list[RequirementRow]:
+        self.calls.append(("requirements", project_id))
+        rows = [r for r in self.ds.requirements if r.project_id == project_id]
+        return sorted(rows, key=lambda r: r.requirement_id)
 
     def wbs_items(self, project_id: str) -> list[WbsItemRow]:
         self.calls.append(("wbs_items", project_id))

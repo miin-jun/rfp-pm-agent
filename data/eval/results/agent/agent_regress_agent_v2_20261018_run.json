@@ -1,0 +1,130 @@
+{
+  "name": "agent_regress_agent_v2_20261018",
+  "started_at": "2026-10-18T13:55:00.289500+00:00",
+  "model": "gpt-6-luna",
+  "reasoning_effort": "low",
+  "api": "responses",
+  "agent_prompt": "agent_v2",
+  "baseline_prompt": "grounded_answer_v2",
+  "max_steps": 6,
+  "as_of_date": "2026-09-24",
+  "index_alias": "rfp_chunks",
+  "questions_file": "data/eval/agent_dev_v1.jsonl",
+  "only": [
+    "d1",
+    "d2",
+    "d3",
+    "d4",
+    "d5",
+    "d6",
+    "d7",
+    "d8",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5",
+    "p6",
+    "p7",
+    "p8",
+    "b1",
+    "b2",
+    "b3",
+    "b4",
+    "b5",
+    "b6",
+    "u1",
+    "u2",
+    "u3",
+    "u4"
+  ],
+  "catalog_size": 10,
+  "finished_at": "2026-10-18T13:57:25.676045+00:00",
+  "summary": {
+    "criteria": {
+      "tool_selection_min_rate": 0.9,
+      "pms_facts_min": 7,
+      "doc_vs_baseline_margin": 1,
+      "clarify_min": 4,
+      "refuse_min": 3,
+      "avg_llm_calls_max": 3.0,
+      "max_steps_hits_max": 1,
+      "cost_max_usd": 0.3
+    },
+    "results": {
+      "tool_selection": {
+        "value": "26/26",
+        "pass": true
+      },
+      "pms_facts": {
+        "value": "8/8",
+        "pass": true
+      },
+      "doc_answers": {
+        "value": "에이전트 0/8 · 기준선 문서 지정 0 · 전체 검색 0",
+        "pass": null,
+        "pass_if_partial_wrong": null
+      },
+      "clarify": {
+        "value": "4/4",
+        "pass": true
+      },
+      "refuse": {
+        "value": "0/0",
+        "pass": false
+      },
+      "citation": {
+        "value": "유효 출처 14/14, 범위 밖 번호 있는 문항 0",
+        "pass": true
+      },
+      "llm_calls": {
+        "value": "평균 2.23회, 상한 도달 0문항",
+        "pass": true
+      },
+      "cost": {
+        "value": "$0.0336",
+        "pass": true
+      },
+      "latency": {
+        "value": "p50 4.6초 · p95 11.4초",
+        "pass": null
+      }
+    },
+    "all_pass": false,
+    "by_type": {
+      "doc": {
+        "n": 8,
+        "tool_selection": 8,
+        "facts": "0/0",
+        "refusal_as_expected": 8
+      },
+      "pms": {
+        "n": 8,
+        "tool_selection": 8,
+        "facts": "8/8",
+        "refusal_as_expected": 8
+      },
+      "both": {
+        "n": 6,
+        "tool_selection": 6,
+        "facts": "6/6",
+        "refusal_as_expected": 6
+      },
+      "unspecified": {
+        "n": 4,
+        "tool_selection": 4,
+        "facts": "1/1",
+        "refusal_as_expected": 4
+      },
+      "no_answer": {
+        "n": 0,
+        "tool_selection": 0,
+        "facts": "0/0",
+        "refusal_as_expected": 0
+      }
+    },
+    "baseline": {},
+    "agent_cost_usd": 0.033637,
+    "agent_llm_calls": 58
+  }
+}

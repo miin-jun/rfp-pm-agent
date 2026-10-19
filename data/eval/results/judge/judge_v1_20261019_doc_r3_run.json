@@ -1,0 +1,42 @@
+{
+  "run": {
+    "started_at": "2026-10-19T07:26:42+00:00",
+    "finished_at": "2026-10-19T07:28:10+00:00",
+    "answers_file": "data/eval/results/answer/grounded_answer_20261019_doc_r3.jsonl",
+    "kind": "answer",
+    "model": "gpt-6-sol",
+    "reasoning_effort": "low",
+    "prompt_version": "judge_v1",
+    "price_input_per_1m": 2.0,
+    "price_output_per_1m": 10.0
+  },
+  "summary": {
+    "total": 62,
+    "answerable": 51,
+    "answer_correct": 36,
+    "answer_accuracy": 0.7058823529411765,
+    "no_answer": 11,
+    "no_answer_refused": 11,
+    "refused_answerable": [
+      "q027",
+      "q031",
+      "q038",
+      "q039",
+      "q043",
+      "q048"
+    ],
+    "refused_group_a": [
+      "q027",
+      "q038"
+    ],
+    "citation_judged": 45,
+    "citation_supported": 44,
+    "citation_accuracy": 0.9777777777777777,
+    "judge_errors": [],
+    "llm_calls": 45,
+    "input_tokens": 58450,
+    "output_tokens": 3152,
+    "reasoning_tokens": 440,
+    "cost_usd": 0.14842
+  }
+}

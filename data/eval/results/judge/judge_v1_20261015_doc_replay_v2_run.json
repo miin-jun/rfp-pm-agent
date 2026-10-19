@@ -1,0 +1,60 @@
+{
+  "run": {
+    "started_at": "2026-10-19T07:11:06+00:00",
+    "finished_at": "2026-10-19T07:12:35+00:00",
+    "answers_file": "data/eval/results/answer/grounded_answer_20261015_doc_replay_v2.jsonl",
+    "kind": "answer",
+    "model": "gpt-6-sol",
+    "reasoning_effort": "low",
+    "prompt_version": "judge_v1",
+    "price_input_per_1m": 2.0,
+    "price_output_per_1m": 10.0
+  },
+  "summary": {
+    "total": 62,
+    "answerable": 51,
+    "answer_correct": 33,
+    "answer_accuracy": 0.6470588235294118,
+    "no_answer": 11,
+    "no_answer_refused": 11,
+    "refused_answerable": [
+      "q031",
+      "q036",
+      "q038",
+      "q039",
+      "q042",
+      "q043",
+      "q046",
+      "q048",
+      "q051"
+    ],
+    "refused_group_a": [
+      "q036",
+      "q038"
+    ],
+    "citation_judged": 42,
+    "citation_supported": 42,
+    "citation_accuracy": 1.0,
+    "judge_errors": [],
+    "llm_calls": 42,
+    "input_tokens": 51599,
+    "output_tokens": 3028,
+    "reasoning_tokens": 571,
+    "cost_usd": 0.133478
+  },
+  "agreement": {
+    "answer_agree": 9,
+    "answer_total": 10,
+    "citation_agree": 7,
+    "citation_total": 7,
+    "disagreements": [
+      {
+        "qid": "q020",
+        "field": "answer_correct",
+        "human": true,
+        "llm": false,
+        "reason": "종료일과 연장 가능성은 인용 조각에 근거하지만, 기간의 기준을 정답의 착수일이 아닌 계약일로 답했다."
+      }
+    ]
+  }
+}

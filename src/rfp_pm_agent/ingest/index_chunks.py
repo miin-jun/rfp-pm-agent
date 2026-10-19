@@ -11,7 +11,12 @@
    직렬화 규칙은 `metadata_hash` 설명 참고
 5. embedding_model = "{모델ID}@{revision}". TEI `/info`의 model_sha가 있으면 그 값, null이면
    (TEI 1.9.4 기본) #16과 같은 방법으로 TEI 모델 볼륨의 snapshots/를 읽는다
-6. 인덱스가 있으면 chunk_id·content_hash·embedding_model·metadata_hash만 읽어 판정한다. 위에서부터
+6. 인덱스가 있으면 그 매핑의 properties를 `index_mapping.json`과 비교한다(필드 이름·type만, #82).
+   실제로는 1번 바로 뒤, 청크 검사·TEI `/info`보다 먼저 한다 — TEI가 꺼져 있어도 매핑 차이가 먼저 보인다.
+   빠진 필드나 type이 다른 필드가 있으면 MappingMismatchError로 멈춘다 — dry-run도 같다. refresh·조회·쓰기
+   전이라 인덱스와 별칭은 바뀌지 않는다. 검사가 없으면 `dynamic: strict`인 옛 매핑 인덱스에서 첫 쓰기가
+   거절되어 "필드가 없다"는 원인 없이 bulk 오류로 멈춘다(#81 리뷰 권장 7)
+   이어서 chunk_id·content_hash·embedding_model·metadata_hash만 읽어 판정한다. 위에서부터
    처음 맞는 것 하나로 정한다(content > model > metadata)
    - 인덱스에 없음 → create
    - content_hash 다름 → update(content): 다시 임베딩하고 문서 전체를 다시 쓴다
@@ -83,6 +88,10 @@ class MassDeleteError(IndexingError):
     """삭제 대상이 MASS_DELETE_RATIO를 넘었고 허용 플래그가 없을 때. 인덱스는 바뀌지 않았다."""
 
 
+class MappingMismatchError(IndexingError):
+    """기존 인덱스의 매핑에 코드 매핑(`index_mapping.json`)의 필드가 없거나 type이 다를 때."""
+
+
 class Embedder(Protocol):
     def info(self) -> dict[str, Any]: ...
 
@@ -135,6 +144,63 @@ def load_mapping() -> dict[str, Any]:
     raw = resources.files("rfp_pm_agent.ingest").joinpath("index_mapping.json").read_text("utf-8")
     mapping: dict[str, Any] = json.loads(raw)
     return mapping
+
+
+def compare_mapping_properties(
+    expected: Mapping[str, Any], actual: Mapping[str, Any]
+) -> tuple[list[str], list[tuple[str, str, str]]]:
+    """매핑 properties 두 개를 필드 이름과 type만으로 비교한다.
+
+    반환: (expected에 있는데 actual에 없는 필드, (필드, 기대 type, 실제 type) 목록), 둘 다 필드 이름순.
+    actual에만 있는 필드는 무시한다 — 쓰기를 막지 않기 때문이다. analyzer·knn_vector의 dimension·method
+    같은 세부 설정은 비교하지 않는다. `get_mapping`은 이를 서버가 정리한 형태(기본값을 채우는 등)로
+    돌려줄 수 있어, 그대로 비교하면 같은 매핑도 다르다고 할 수 있다. type이 없는 필드는 object로 본다.
+    """
+
+    def field_type(spec: Mapping[str, Any]) -> str:
+        return str(spec.get("type", "object"))
+
+    missing = sorted(name for name in expected if name not in actual)
+    type_diff = sorted(
+        (name, field_type(spec), field_type(actual[name]))
+        for name, spec in expected.items()
+        if name in actual and field_type(spec) != field_type(actual[name])
+    )
+    return missing, type_diff
+
+
+def check_index_mapping(client: OpenSearch, index_name: str) -> None:
+    """이미 있는 인덱스의 매핑이 코드 매핑과 다르면 MappingMismatchError (#82).
+
+    `get_mapping` 응답의 키는 실제 인덱스 이름이다(별칭으로 물으면 별칭이 아니라 가리키는 인덱스 이름).
+    그래서 index_name으로 꺼내지 않고 응답 값 하나를 쓴다. 인덱스가 둘 이상이면(여러 인덱스를 가리키는
+    별칭) 어느 매핑을 볼지 정할 수 없어 멈춘다. `index_chunks` 안에서는 `check_index_name`이 별칭 이름을
+    먼저 막으므로, 별칭으로 묻는 경로는 이 함수를 직접 부를 때만 쓰인다.
+    """
+    response: Mapping[str, Any] = client.indices.get_mapping(index=index_name)
+    if len(response) != 1:
+        raise MappingMismatchError(
+            f"{index_name}의 매핑 응답이 인덱스 {len(response)}개다({', '.join(sorted(response))}) — "
+            "OPENSEARCH_INDEX_NAME에는 실제 인덱스 하나의 이름을 넣는다"
+        )
+    ((actual_index, body),) = response.items()
+    actual = body.get("mappings", {}).get("properties", {})
+    expected = load_mapping()["mappings"]["properties"]
+    missing, type_diff = compare_mapping_properties(expected, actual)
+    if not missing and not type_diff:
+        return
+    parts = []
+    if missing:
+        parts.append(f"빠진 필드 {len(missing)}개: {', '.join(missing)}")
+    if type_diff:
+        shown = ", ".join(f"{name}(기대 {want}, 실제 {got})" for name, want, got in type_diff)
+        parts.append(f"type 다른 필드 {len(type_diff)}개: {shown}")
+    raise MappingMismatchError(
+        f"인덱스 {actual_index}의 매핑이 코드 매핑(index_mapping.json)과 다르다 — {' / '.join(parts)}. "
+        "쓰기 전에 멈췄다(인덱스·별칭은 바뀌지 않았다). 매핑을 바꿨다면 새 인덱스 이름"
+        "(OPENSEARCH_INDEX_NAME)으로 색인한 뒤 별칭을 옮기세요 — docs/development.md "
+        '"매핑을 바꾼 뒤 새 인덱스로 옮기기"'
+    )
 
 
 class IndexedMeta(BaseModel):
@@ -477,6 +543,10 @@ def index_chunks(
     if not index_name:
         raise ValueError("인덱스 이름이 비어 있다 (OPENSEARCH_INDEX_NAME)")
     check_index_name(client, index_name, alias)
+    # 매핑 검사는 TEI `/info`보다 먼저 한다 — TEI가 꺼져 있어도 원인(매핑 차이)이 먼저 보이게 (#82)
+    index_exists = bool(client.indices.exists(index=index_name))
+    if index_exists:
+        check_index_mapping(client, index_name)  # refresh·조회·쓰기 전에, dry-run에서도
     check_chunks(chunks)
     metadata_by_id = {c.chunk_id: metadata_fields(c, documents) for c in chunks}
     hashes = chunk_hashes(chunks, documents, config.embed_passage_prefix, metadata_by_id)
@@ -486,7 +556,7 @@ def index_chunks(
 
     # 판정과 5% 검사를 인덱스·별칭을 만들기 전에 한다 — 걸리면 아무것도 바뀌지 않게 (#17 리뷰 1번)
     indexed: dict[str, IndexedMeta] = {}
-    if client.indices.exists(index=index_name):
+    if index_exists:
         if not dry_run:
             client.indices.refresh(index=index_name)  # 직전 쓰기를 검색에 보이게 한다
         indexed = fetch_indexed(client, index_name)
@@ -656,17 +726,21 @@ def main(argv: list[str] | None = None) -> int:
     chunks = load_chunks(args.chunks)
     documents = load_documents((c.doc_id for c in chunks), args.parsed_dir)
     logger.info("청크 %d개 (%s), 문서 %d건", len(chunks), args.chunks, len(documents))
-    report = index_chunks(
-        chunks,
-        documents,
-        client=OpenSearch(hosts=[os_config.url]),
-        embedder=TEIEmbeddingClient(clients_config),
-        config=clients_config,
-        index_name=os_config.index_name,
-        alias=os_config.index_alias,
-        dry_run=args.dry_run,
-        allow_mass_delete=args.allow_mass_delete,
-    )
+    try:
+        report = index_chunks(
+            chunks,
+            documents,
+            client=OpenSearch(hosts=[os_config.url]),
+            embedder=TEIEmbeddingClient(clients_config),
+            config=clients_config,
+            index_name=os_config.index_name,
+            alias=os_config.index_alias,
+            dry_run=args.dry_run,
+            allow_mass_delete=args.allow_mass_delete,
+        )
+    except MappingMismatchError as exc:
+        logger.error("%s", exc)
+        return 1
     logger.info("%s", format_report(report))
     return 0
 

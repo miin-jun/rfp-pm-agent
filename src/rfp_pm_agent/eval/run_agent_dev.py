@@ -16,6 +16,7 @@
 
 CLI
 - `uv run python -m rfp_pm_agent.eval.run_agent_dev --out-dir data/eval/results/agent [--only d1] [--baseline]`
+  `[--prompt agent_v1|agent_v2]`(기본 `PROMPT_VERSION`) `[--questions <세트>.jsonl]` — #94 거절 측정은 `agent_refusal_v1_criteria.md`
 - 요약만 다시 만들기(비용 없음): `... --from-rows <결과>.jsonl [--judgments <판정>.jsonl]`
 """
 
@@ -33,7 +34,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from rfp_pm_agent.agent.graph import PROMPT_VERSION, Agent, agent_deps_from_env
+from rfp_pm_agent.agent.graph import PROMPT_VERSION, PROMPT_VERSIONS, Agent, agent_deps_from_env
 from rfp_pm_agent.clients.cost import CostLogger, compute_llm_cost
 from rfp_pm_agent.clients.llm import OpenAICompatLLMClient
 from rfp_pm_agent.clients.logged import LoggingLLMClient
@@ -545,6 +546,12 @@ def main(
     parser.add_argument(
         "--baseline", action="store_true", help="기준선(answer_question 문서 지정·전체 검색)도 실행"
     )
+    parser.add_argument(
+        "--prompt",
+        choices=PROMPT_VERSIONS,
+        default=PROMPT_VERSION,
+        help="에이전트 system 프롬프트 버전(_run.json의 agent_prompt에 남는다)",
+    )
     parser.add_argument("--name", help="결과 파일 이름(기본 agent_dev_<YYYYMMDD>)")
     parser.add_argument(
         "--from-rows", type=Path, help="이 결과(.jsonl)로 요약만 다시 만든다(비용 없음)"
@@ -577,14 +584,14 @@ def main(
 
     clients = ClientsConfig.from_env()
     cost_logger = CostLogger(clients.cost_log_path)
-    agent = Agent(agent_deps_from_env(cost_logger))
+    agent = Agent(agent_deps_from_env(cost_logger, prompt_version=args.prompt))
     run_info = {
         "name": name,
         "started_at": now().isoformat(),
         "model": clients.llm_model_dev,
         "reasoning_effort": clients.llm_reasoning_effort,
         "api": "responses",
-        "agent_prompt": PROMPT_VERSION,
+        "agent_prompt": agent.deps.prompt_version,
         "baseline_prompt": grounded_answer.PROMPT_VERSION,
         "max_steps": AgentConfig.from_env().max_steps,
         "as_of_date": SynthConfig.from_env().as_of_date.isoformat(),

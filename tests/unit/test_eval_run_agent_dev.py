@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from collections import Counter
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -292,6 +294,39 @@ def test_eval_set_composition_and_sources() -> None:
 
 def test_committed_eval_set_matches_sources() -> None:
     assert agent_dev_set.main(["check"]) == 0
+
+
+def test_refusal_set_composition_and_regression_ids() -> None:
+    """#94 세트: A 답 없음 8(사업명 있는 6 + 무관 2) · B 일부만 찾음 3. 기준 문서의 C 목록 = agent_dev_v1 답 있는 문항."""
+    questions = agent_dev_set.load_agent_questions(Path("data/eval/agent_refusal_v1.jsonl"))
+    catalog_titles = {
+        "304e5f8b0f11f1ea": "업무자동화(RPA) 시스템 고도화",
+        "5c393c1c11137fdc": "연구행정 데이터 기반 AI 플랫폼 구축",
+        "722630192c1100a1": "AX를 통한 불균형 투자계약 점검 시스템 구축",
+        "73c61cba5e928858": "2027학년도 고등학교 입학전형 시스템 기능개선 및 GIS 현행화 용역",
+        "c6d225f1669cfadb": "2028 세계디자인수도(WDC) 부산 디지털 플랫폼 구축 용역",
+        "e13d2d0cd453eec2": "한국나노기술원 모아팹 연계기능 및 인터페이스 고도화 사업 용역(재공고)",
+    }
+
+    assert [q.qid for q in questions] == [f"a{i}" for i in range(1, 9)] + ["b1", "b2", "b3"]
+    for q in questions:
+        assert q.qid.startswith("a") == q.should_refuse == (q.type == "no_answer")
+        assert "승인 사용자" in q.source and q.prediction
+        if q.doc_id:
+            # 질문 본문에 정식 사업명이 있다(사업명 없으면 에이전트가 되묻는다)
+            assert catalog_titles[q.doc_id] in q.turns[0]
+            assert q.expected_tools == ["search_documents"]
+        else:
+            assert q.expected_tools == [] and q.type == "no_answer"
+        if q.type == "doc":
+            assert q.must_cite and q.reference_answer and "찾지 못했다" in q.reference_answer
+    assert sum(1 for q in questions if q.doc_id is None) == 2
+
+    criteria = Path("data/eval/agent_refusal_v1_criteria.md").read_text("utf-8")
+    only_lists = re.findall(r"--only ((?:[a-z]\d+ ?)+)", criteria)
+    answerable = [q.qid for q in agent_dev_set.load_agent_questions() if not q.should_refuse]
+    assert len(only_lists) == 2 and all(o.split() == answerable for o in only_lists)
+    assert len(answerable) == 26
 
 
 def test_partial_judgment_is_reported_both_ways_without_changing_rule() -> None:

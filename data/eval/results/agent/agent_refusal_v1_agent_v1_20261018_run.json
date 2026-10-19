@@ -1,0 +1,103 @@
+{
+  "name": "agent_refusal_v1_agent_v1_20261018",
+  "started_at": "2026-10-18T13:50:43.771737+00:00",
+  "model": "gpt-6-luna",
+  "reasoning_effort": "low",
+  "api": "responses",
+  "agent_prompt": "agent_v1",
+  "baseline_prompt": "grounded_answer_v2",
+  "max_steps": 6,
+  "as_of_date": "2026-09-24",
+  "index_alias": "rfp_chunks",
+  "questions_file": "data/eval/agent_refusal_v1.jsonl",
+  "only": [],
+  "catalog_size": 10,
+  "finished_at": "2026-10-18T13:51:40.711062+00:00",
+  "summary": {
+    "criteria": {
+      "tool_selection_min_rate": 0.9,
+      "pms_facts_min": 7,
+      "doc_vs_baseline_margin": 1,
+      "clarify_min": 4,
+      "refuse_min": 3,
+      "avg_llm_calls_max": 3.0,
+      "max_steps_hits_max": 1,
+      "cost_max_usd": 0.3
+    },
+    "results": {
+      "tool_selection": {
+        "value": "11/11",
+        "pass": true
+      },
+      "pms_facts": {
+        "value": "0/0",
+        "pass": false
+      },
+      "doc_answers": {
+        "value": "에이전트 0/3 · 기준선 문서 지정 0 · 전체 검색 0",
+        "pass": null,
+        "pass_if_partial_wrong": null
+      },
+      "clarify": {
+        "value": "0/0",
+        "pass": false
+      },
+      "refuse": {
+        "value": "3/8",
+        "pass": true
+      },
+      "citation": {
+        "value": "유효 출처 3/3, 범위 밖 번호 있는 문항 0",
+        "pass": true
+      },
+      "llm_calls": {
+        "value": "평균 2.09회, 상한 도달 0문항",
+        "pass": true
+      },
+      "cost": {
+        "value": "$0.0176",
+        "pass": true
+      },
+      "latency": {
+        "value": "p50 4.5초 · p95 11.5초",
+        "pass": null
+      }
+    },
+    "all_pass": false,
+    "by_type": {
+      "doc": {
+        "n": 3,
+        "tool_selection": 3,
+        "facts": "0/0",
+        "refusal_as_expected": 3
+      },
+      "pms": {
+        "n": 0,
+        "tool_selection": 0,
+        "facts": "0/0",
+        "refusal_as_expected": 0
+      },
+      "both": {
+        "n": 0,
+        "tool_selection": 0,
+        "facts": "0/0",
+        "refusal_as_expected": 0
+      },
+      "unspecified": {
+        "n": 0,
+        "tool_selection": 0,
+        "facts": "0/0",
+        "refusal_as_expected": 0
+      },
+      "no_answer": {
+        "n": 8,
+        "tool_selection": 8,
+        "facts": "0/0",
+        "refusal_as_expected": 3
+      }
+    },
+    "baseline": {},
+    "agent_cost_usd": 0.017577,
+    "agent_llm_calls": 23
+  }
+}

@@ -14,6 +14,8 @@ from rfp_pm_agent.agent import tools as agent_tools
 from rfp_pm_agent.agent.catalog import CatalogEntry
 from rfp_pm_agent.agent.graph import (
     FINAL_STEP_NOTE,
+    PROMPT_VERSION,
+    PROMPT_VERSIONS,
     Agent,
     AgentDeps,
     load_system_prompt,
@@ -372,11 +374,95 @@ def test_tool_errors_are_returned_to_llm(dataset: Any, monkeypatch: pytest.Monke
     assert "모르는 툴" in contents[2]
 
 
-def test_load_system_prompt_fills_placeholders() -> None:
-    prompt = load_system_prompt(AS_OF, CATALOG)
+@pytest.mark.parametrize("version", PROMPT_VERSIONS)
+def test_load_system_prompt_fills_placeholders(version: str) -> None:
+    prompt = load_system_prompt(AS_OF, CATALOG, version)
 
     assert "{{" not in prompt
     assert "| A 사업 | docA | PRJ-01 |" in prompt
+
+
+def test_load_system_prompt_rejects_unknown_version() -> None:
+    with pytest.raises(ValueError, match="agent_v9"):
+        load_system_prompt(AS_OF, CATALOG, "agent_v9")
+
+
+# --- agent_v2: 답 없음 거절 규칙 (#94) ---
+
+
+def test_agent_v2_rules_2_and_7_split_partial_and_full_refusal() -> None:
+    v1 = load_system_prompt(AS_OF, CATALOG, "agent_v1")
+    v2 = load_system_prompt(AS_OF, CATALOG, "agent_v2")
+
+    # 기본값은 agent_v1로 되돌렸다 — v2는 거절이 v1과 같아(#94, ADR-0013) 재현용으로만 남긴다
+    assert PROMPT_VERSION == "agent_v1"
+    # 규칙 2: 일부만 찾았을 때로 좁힌다 — 찾은 사실은 번호, 못 찾은 사실은 번호 없이
+    assert "그중 일부만 청크에 직접 적혀 있으면" in v2
+    assert '못 찾은 사실은 번호 없이 "문서에서 찾지 못했다"고 적는다' in v2
+    assert "사업명·주제만 같고 묻는 사실이 없으면 그 부분은 문서에서 찾지 못했다고 적는다" not in v2
+    # 규칙 7: 하나도 못 찾으면 주제가 같은 청크가 있어도 거절 문구만, 번호 없이
+    assert "질문이 묻는 사실을 하나도 찾지 못하면" in v2
+    assert "사업명·주제가 같은 청크가 있더라도" in v2
+    assert f'정확히 "{REFUSAL_TEXT}"만 쓴다' in v2
+    assert "이때 청크 번호를 붙이지 않는다" in v2
+    # v1은 #22 결과 재현용으로 그대로 남는다
+    assert "사업명·주제만 같고 묻는 사실이 없으면 그 부분은 문서에서 찾지 못했다고 적는다" in v1
+    assert "하나도 찾지 못하면" not in v1
+
+
+@pytest.mark.parametrize("version", PROMPT_VERSIONS)
+def test_prompt_version_selects_system_prompt(dataset: Any, version: str) -> None:
+    model = ScriptedChatModel(responses=[answer(REFUSAL_TEXT)])
+    deps = AgentDeps(
+        tools=_tool_deps(dataset),
+        chat_model=model,
+        catalog=CATALOG,
+        max_steps=6,
+        prompt_version=version,
+    )
+
+    Agent(deps).ask("김치찌개 끓이는 법", thread_id="t1")
+
+    system = model.calls[0]["messages"][0]
+    assert system.content == load_system_prompt(AS_OF, CATALOG, version)
+
+
+def test_refusal_after_search_has_no_sources(dataset: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """주제가 같은 청크를 받고도 묻는 사실이 없어 거절하면 출처가 비어야 한다(#22 n1·n2 유형)."""
+    _patch_search(monkeypatch, [[_hit("c1"), _hit("c2", 2)]])
+    agent, _ = _agent(
+        dataset,
+        [
+            tool_call("search_documents", {"query": "GPU 서버 대수", "doc_ids": ["docA"]}),
+            answer(REFUSAL_TEXT),
+        ],
+    )
+
+    result = agent.ask("A 사업 GPU 서버는 몇 대야?", thread_id="t1")
+
+    assert result.refused
+    assert result.citations == [] and result.citation_map == {} and result.cited_chunk_ids == []
+    assert result.invalid_citations == []
+    assert [(c.name, c.status) for c in result.tool_calls] == [("search_documents", "ok")]
+
+
+def test_refusal_text_with_chunk_numbers_is_not_a_refusal(
+    dataset: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """거절 문구에 번호를 붙이면(#22 n1 `[1]–[8]`) 거절로 세지 않고 출처가 남는다 — #94 A 기준의 실패."""
+    _patch_search(monkeypatch, [[_hit("c1")]])
+    agent, _ = _agent(
+        dataset,
+        [
+            tool_call("search_documents", {"query": "GPU 서버 대수", "doc_ids": ["docA"]}),
+            answer(f"{REFUSAL_TEXT} [1]"),
+        ],
+    )
+
+    result = agent.ask("A 사업 GPU 서버는 몇 대야?", thread_id="t1")
+
+    assert not result.refused
+    assert result.citation_map == {1: "[A 사업 p.23 · SFR-001]"}
 
 
 # --- 짝 없는 툴 호출이 대화에 남지 않는다 (PR 전 reviewer 권장 1) ---

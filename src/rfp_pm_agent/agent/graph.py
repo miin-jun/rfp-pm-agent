@@ -50,8 +50,11 @@ from rfp_pm_agent.search.grounded_answer import (
 from rfp_pm_agent.tools.pms_tools import PmsDeps
 from rfp_pm_agent.tools.search_documents import SearchDeps
 
-# 프롬프트 파일 이름(확장자 제외)이 곧 버전이다. 내용을 바꾸면 파일을 고치지 않고 _v2를 새로 만든다
+# 프롬프트 파일 이름(확장자 제외)이 곧 버전이다. 내용을 바꾸면 파일을 고치지 않고 다음 버전 파일을 새로 만든다.
+# 기본값은 agent_v1. agent_v2(답 없음 거절 규칙 2·7 정리, #94)는 측정에서 거절이 v1과 같아(3/8) 기본값으로 쓰지 않고
+# #94 결과 재현용으로 남긴다 — `AgentDeps.prompt_version`·`run_agent_dev --prompt`로 고른다(ADR-0013)
 PROMPT_VERSION = "agent_v1"
+PROMPT_VERSIONS = ("agent_v1", "agent_v2")
 
 # 마지막(상한) 호출에 덧붙이는 system 메시지
 FINAL_STEP_NOTE = (
@@ -77,9 +80,15 @@ class AgentState(TypedDict, total=False):
     result: dict[str, Any] | None  # 이번 턴의 AgentAnswer dict(finalize가 채운다)
 
 
-def load_system_prompt(as_of_date: date, catalog: list[CatalogEntry]) -> str:
-    """`agent/prompts/<PROMPT_VERSION>.md`에 기준일과 사업 목록을 넣는다."""
-    path = resources.files("rfp_pm_agent.agent").joinpath("prompts", f"{PROMPT_VERSION}.md")
+def load_system_prompt(
+    as_of_date: date, catalog: list[CatalogEntry], prompt_version: str = PROMPT_VERSION
+) -> str:
+    """`agent/prompts/<prompt_version>.md`에 기준일과 사업 목록을 넣는다."""
+    if prompt_version not in PROMPT_VERSIONS:
+        raise ValueError(
+            f"모르는 프롬프트 버전: {prompt_version} (가능: {', '.join(PROMPT_VERSIONS)})"
+        )
+    path = resources.files("rfp_pm_agent.agent").joinpath("prompts", f"{prompt_version}.md")
     template = path.read_text("utf-8")
     return template.replace("{{AS_OF_DATE}}", as_of_date.isoformat()).replace(
         "{{CATALOG}}", render_catalog(catalog)
@@ -137,6 +146,7 @@ class AgentDeps:
     chat_model: BaseChatModel
     catalog: list[CatalogEntry]
     max_steps: int
+    prompt_version: str = PROMPT_VERSION
 
 
 def build_graph(
@@ -145,7 +155,7 @@ def build_graph(
     """그래프를 만든다. checkpointer를 주지 않으면 `InMemorySaver`."""
     if deps.max_steps < 1:
         raise ValueError(f"max_steps는 1 이상이어야 한다: {deps.max_steps}")
-    system_prompt = load_system_prompt(deps.tools.pms.as_of_date, deps.catalog)
+    system_prompt = load_system_prompt(deps.tools.pms.as_of_date, deps.catalog, deps.prompt_version)
     tools = [spec.openai_tool() for spec in TOOL_SPECS]
     model_with_tools = deps.chat_model.bind_tools(tools)
     model_final = deps.chat_model.bind_tools(tools, tool_choice="none")
@@ -320,7 +330,9 @@ class Agent:
         return AgentAnswer.model_validate(state["result"])
 
 
-def agent_deps_from_env(cost_logger: CostLogger, *, model: str | None = None) -> AgentDeps:
+def agent_deps_from_env(
+    cost_logger: CostLogger, *, model: str | None = None, prompt_version: str = PROMPT_VERSION
+) -> AgentDeps:
     """환경변수 설정으로 실제 의존성을 만든다. 사업 목록을 만들려고 OpenSearch(집계 1회)와 PMS DB를 읽는다."""
     clients = ClientsConfig.from_env()
     tool_deps = ToolDeps(search=SearchDeps.from_env(), pms=PmsDeps.from_env())
@@ -329,6 +341,7 @@ def agent_deps_from_env(cost_logger: CostLogger, *, model: str | None = None) ->
         chat_model=make_chat_model(clients, cost_logger, model=model),
         catalog=build_catalog(tool_deps.search.search_client, tool_deps.pms.reader),
         max_steps=AgentConfig.from_env().max_steps,
+        prompt_version=prompt_version,
     )
 
 

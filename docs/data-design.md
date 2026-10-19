@@ -232,7 +232,7 @@ Document
     }
   },
   "mappings": {
-    "dynamic": "strict",          // 매핑에 없는 필드가 오면 색인 오류 (모르는 필드가 에러 없이 추가되지 않게)
+    "dynamic": "strict",          // 매핑에 없는 필드가 오면 색인 오류 (모르는 필드가 에러 없이 추가되지 않게). 증분 색인은 쓰기 전에 기존 인덱스 매핑의 필드 이름·type을 이 JSON과 비교해 다르면 멈춘다(#82)
     "properties": {
       "chunk_id":        { "type": "keyword" },
       "doc_id":          { "type": "keyword" },
@@ -268,9 +268,9 @@ Document
   - 제외 `agency`, `project_id` — 출처가 없다 (manifest·Silver 어디에도 없음)
   - 제외 `heading_path`, `text_for_embedding` — 4절 경고대로 #11 이후 구조에 맞게 다시 정의해야 한다
   - 제외 `requirement_category`, `notice_no`, `security_level`, `allowed_roles` — 결정 목록에 없다. 필요해지면 매핑에 필드를 추가하고 다시 색인한다 (`dynamic: strict`라 매핑 추가가 먼저다)
-- **출처 필드 추가 (#81, 2026-10-08)**: `bid_title`, `format`, `printed_page`. `search_documents`(#18 PR ③) 결과만으로 출처 표기(2절)를 할 수 있게 한다. 새 인덱스 `rfp_chunks_v2_kure`에 전체 색인한 뒤 별칭을 v1 → v2로 옮겼다. v1(`rfp_chunks_v1_kure`)은 지우지 않고 남겨 두었다. 되돌리려면 별칭과 함께 코드(`METADATA_FIELDS`·`index_mapping.json`)도 #81 이전으로 돌려야 한다 — 지금 코드로는 v1의 metadata_hash가 3,499건 모두 달라 평가 가드(`check_alias_index`)가 멈추고, v1 매핑에 새 필드가 없어(`dynamic: strict`) 다시 색인해도 bulk 오류로 멈춘다. 재색인 전후 검색 비교는 [hybrid-search-measurement.md](hybrid-search-measurement.md) 6절
+- **출처 필드 추가 (#81, 2026-10-08)**: `bid_title`, `format`, `printed_page`. `search_documents`(#18 PR ③) 결과만으로 출처 표기(2절)를 할 수 있게 한다. 새 인덱스 `rfp_chunks_v2_kure`에 전체 색인한 뒤 별칭을 v1 → v2로 옮겼다. v1(`rfp_chunks_v1_kure`)은 지우지 않고 남겨 두었다. 되돌리려면 별칭과 함께 코드(`METADATA_FIELDS`·`index_mapping.json`)도 #81 이전으로 돌려야 한다 — 지금 코드로는 v1의 metadata_hash가 3,499건 모두 달라 평가 가드(`check_alias_index`)가 멈추고, v1 매핑에 새 필드가 없어 다시 색인해도 매핑 검사에서 쓰기 전에 멈춘다(#82 — 그 전에는 `dynamic: strict`라 bulk 오류로 멈췄다). 재색인 전후 검색 비교는 [hybrid-search-measurement.md](hybrid-search-measurement.md) 6절
 - **첫 색인 대상 청크 파일**: `data/chunks/block_requirement.jsonl`, #62 이후 3,499개, sha256 `3864758c77d4c3fe2e83437388e28b146670fdbd598b04003627ca7459906b7f` (앞 12자 `3864758c77d4`, PR #66 확인 실행 기록과 같음). #16 모델 선정은 그 전 파일(`e07f4fbbe181`, 3,514개) 기준이다 — 두 파일 차이는 의미 글자 없는 블록 15개
-- **증분 색인 판정** (`uv run python -m rfp_pm_agent.ingest.index_chunks`): 위에서부터 처음 맞는 것 하나로 정한다(content > model > metadata). 인덱스에 없음 → create / `content_hash` 다름 → update(content) / `embedding_model` 다름 → update(model) / `metadata_hash`만 다름 → update(metadata): 벡터·`content_hash`·`indexed_at`은 두고 메타데이터 필드와 `metadata_hash`만 부분 update(TEI 호출 없음) / 셋 다 같음 → skip(TEI 호출 없음) / 인덱스에만 있음 → delete. 삭제 대상이 인덱스 문서 수의 5%를 넘으면 멈추고 `--allow-mass-delete`로만 허용한다 — 이 검사는 인덱스 생성·별칭 연결보다 먼저 한다. create 대상은 bulk `create`로 보내 같은 `_id`가 있으면 409로 거절되게 하고, bulk 응답은 배치마다 확인해 오류가 있으면 다음 배치 전에 멈춘다. `OPENSEARCH_INDEX_NAME`이 별칭과 같거나 이미 별칭으로 쓰이는 이름이면 실행 전에 멈춘다(별칭으로도 쓰기가 되므로 다른 모델 인덱스를 덮어쓸 수 있음). 실행 방법은 docs/development.md
+- **증분 색인 판정** (`uv run python -m rfp_pm_agent.ingest.index_chunks`): 위에서부터 처음 맞는 것 하나로 정한다(content > model > metadata). 인덱스에 없음 → create / `content_hash` 다름 → update(content) / `embedding_model` 다름 → update(model) / `metadata_hash`만 다름 → update(metadata): 벡터·`content_hash`·`indexed_at`은 두고 메타데이터 필드와 `metadata_hash`만 부분 update(TEI 호출 없음) / 셋 다 같음 → skip(TEI 호출 없음) / 인덱스에만 있음 → delete. 삭제 대상이 인덱스 문서 수의 5%를 넘으면 멈추고 `--allow-mass-delete`로만 허용한다 — 이 검사는 인덱스 생성·별칭 연결보다 먼저 한다. create 대상은 bulk `create`로 보내 같은 `_id`가 있으면 409로 거절되게 하고, bulk 응답은 배치마다 확인해 오류가 있으면 다음 배치 전에 멈춘다. `OPENSEARCH_INDEX_NAME`이 별칭과 같거나 이미 별칭으로 쓰이는 이름이면 실행 전에 멈춘다(별칭으로도 쓰기가 되므로 다른 모델 인덱스를 덮어쓸 수 있음). 인덱스가 이미 있으면 그 매핑의 필드 이름·type을 `index_mapping.json`과 비교해, 빠진 필드나 type이 다른 필드가 있으면 refresh·조회·쓰기 전에 멈춘다(`MappingMismatchError`, dry-run 포함, #82). 실행 방법은 docs/development.md
 
 - **별칭(alias) 운영**: 코드는 항상 `rfp_chunks`(별칭)만 부르고, 실제 인덱스는 `rfp_chunks_v1_kure`, `rfp_chunks_v1_bgem3`처럼 **모델별로 분리** → 이후 모델 교체를 **검색 중단 없이 별칭 전환만으로** 처리. 이름의 `v{n}`은 매핑 버전이다 — 같은 모델이라도 매핑을 바꾸면 n을 올린다(#81: v1 → v2)
 - **채택 모델 (#16, 2026-09-27)**: 임베딩 **KURE-v1**([ADR-0001](adr/0001-embedding-model.md)), 리랭커 bge-reranker-v2-m3 N=20([ADR-0002](adr/0002-reranker.md)). 별칭 `rfp_chunks` → `rfp_chunks_v1_kure`로 시작했고, #81에서 `rfp_chunks_v2_kure`로 옮겼다. 인덱스·별칭 생성과 색인은 **#17**에서 한다. 색인 모듈은 인덱스가 없을 때만 만들고, 별칭이 아직 없을 때만 연결한다 — 별칭이 다른 인덱스를 가리키고 있으면 그대로 두고, 전환은 사람이 따로 한다

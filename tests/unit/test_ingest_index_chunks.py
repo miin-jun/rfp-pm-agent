@@ -18,18 +18,22 @@ from typing import Any, cast
 import pytest
 from opensearchpy import OpenSearch
 
-from rfp_pm_agent.clients.embedding import EMBEDDING_DIM
-from rfp_pm_agent.config import ClientsConfig
+from rfp_pm_agent.clients.embedding import EMBEDDING_DIM, InputType
+from rfp_pm_agent.config import ClientsConfig, OpenSearchConfig
 from rfp_pm_agent.ingest.index_chunks import (
     IndexingError,
     IndexReport,
+    MappingMismatchError,
     MassDeleteError,
     build_arg_parser,
+    check_index_mapping,
+    compare_mapping_properties,
     content_hash,
     embed_input,
     format_report,
     index_chunks,
     load_mapping,
+    main,
     metadata_hash,
 )
 from rfp_pm_agent.schemas.chunk import Chunk
@@ -530,11 +534,15 @@ def test_mapping_matches_decision() -> None:
 
 
 def test_existing_index_mapping_is_not_changed(env: Env) -> None:
-    env.os.indices.create(index=INDEX, body={"mappings": {"properties": {"marker": {}}}})
+    # 코드 매핑 + 인덱스에만 있는 필드. 처음엔 marker 필드 하나뿐인 매핑이었는데, #82부터 코드 매핑
+    # 필드가 빠진 인덱스에는 쓰기 전에 멈추므로 매핑 검사를 통과하는 모양으로 바꿨다(검사 대상은 그대로)
+    mappings = load_mapping()["mappings"]
+    mappings["properties"]["marker"] = {"type": "keyword"}
+    env.os.indices.create(index=INDEX, body={"mappings": mappings})
 
     env.run(_chunks())
 
-    assert env.os.indexes[INDEX]["mappings"] == {"properties": {"marker": {}}}
+    assert env.os.indexes[INDEX]["mappings"] == mappings
     assert env.os.create_calls == 1
     assert env.os.aliases[ALIAS] == {INDEX}
 
@@ -721,3 +729,181 @@ def test_created_document_keys_match_mapping_fields(env: Env) -> None:
 
     for doc in env.os.docs(ALIAS).values():
         assert set(doc) == mapping_fields
+
+
+# --- #82: 기존 인덱스 매핑이 코드 매핑과 다르면 쓰기 전에 멈춘다 ---
+
+# #81 이전(v1) 매핑: 출처 필드 bid_title·format·printed_page가 없다
+V1_MISSING = ["bid_title", "format", "printed_page"]
+
+
+def _v1_mappings() -> dict[str, Any]:
+    mappings: dict[str, Any] = load_mapping()["mappings"]
+    for name in V1_MISSING:
+        del mappings["properties"][name]
+    return mappings
+
+
+def test_compare_mapping_properties_same() -> None:
+    props = load_mapping()["mappings"]["properties"]
+
+    assert compare_mapping_properties(props, props) == ([], [])
+
+
+def test_compare_mapping_properties_missing_sorted() -> None:
+    expected = {"b": {"type": "keyword"}, "a": {"type": "keyword"}, "c": {"type": "integer"}}
+
+    assert compare_mapping_properties(expected, {"c": {"type": "integer"}}) == (["a", "b"], [])
+
+
+def test_compare_mapping_properties_type_diff_sorted() -> None:
+    expected = {"z": {"type": "keyword"}, "y": {"type": "integer"}, "x": {"type": "date"}}
+    actual = {"z": {"type": "text"}, "y": {"type": "long"}, "x": {"type": "date"}}
+
+    assert compare_mapping_properties(expected, actual) == (
+        [],
+        [("y", "integer", "long"), ("z", "keyword", "text")],
+    )
+
+
+def test_compare_mapping_properties_ignores_actual_only_fields_and_details() -> None:
+    expected = {"embedding": {"type": "knn_vector", "dimension": 1024, "method": {"name": "hnsw"}}}
+    # 서버가 돌려주는 모양은 세부 설정이 다를 수 있다 — type만 같으면 같다고 본다
+    actual = {
+        "embedding": {"type": "knn_vector", "dimension": 1024, "method": {"name": "hnsw", "x": 1}},
+        "extra": {"type": "keyword"},
+    }
+
+    assert compare_mapping_properties(expected, actual) == ([], [])
+
+
+def test_compare_mapping_properties_field_without_type_is_object() -> None:
+    expected = {"meta": {"type": "keyword"}}
+
+    assert compare_mapping_properties(expected, {"meta": {"properties": {}}}) == (
+        [],
+        [("meta", "keyword", "object")],
+    )
+
+
+def test_check_index_mapping_passes_for_code_mapping(env: Env) -> None:
+    env.os.indices.create(index=INDEX, body={"mappings": load_mapping()["mappings"]})
+
+    check_index_mapping(cast(OpenSearch, env.os), INDEX)
+
+
+def test_check_index_mapping_message_names_fields_and_next_step(env: Env) -> None:
+    mappings = _v1_mappings()
+    mappings["properties"]["page"] = {"type": "keyword"}
+    env.os.indices.create(index=INDEX, body={"mappings": mappings})
+
+    with pytest.raises(MappingMismatchError) as caught:
+        check_index_mapping(cast(OpenSearch, env.os), INDEX)
+
+    message = str(caught.value)
+    assert INDEX in message
+    assert "빠진 필드 3개: bid_title, format, printed_page" in message
+    assert "type 다른 필드 1개: page(기대 integer, 실제 keyword)" in message
+    assert "새 인덱스 이름" in message
+    assert "별칭을 옮기세요" in message
+
+
+def test_check_index_mapping_reads_response_by_real_index_name(env: Env) -> None:
+    # 별칭으로 물으면 응답 키는 실제 인덱스 이름이다 — 이름으로 꺼내면 KeyError가 난다
+    env.os.indices.create(
+        index="rfp_chunks_v1_real", body={"mappings": _v1_mappings(), "aliases": {"some_alias": {}}}
+    )
+
+    with pytest.raises(MappingMismatchError, match="rfp_chunks_v1_real"):
+        check_index_mapping(cast(OpenSearch, env.os), "some_alias")
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_mapping_mismatch_stops_before_any_write(dry_run: bool) -> None:
+    env = Env()
+    env.os.indices.create(index=INDEX, body={"mappings": _v1_mappings()})
+    env.os.docs(INDEX)["x"] = {"chunk_id": "x"}
+    before = env.os.snapshot()
+    create_calls = env.os.create_calls
+
+    with pytest.raises(MappingMismatchError, match="bid_title, format, printed_page"):
+        env.run(_chunks(), dry_run=dry_run)
+
+    assert env.os.snapshot() == before  # 문서·매핑·별칭 그대로 (put_alias 없음)
+    assert env.os.bulk_calls == 0
+    assert env.os.create_calls == create_calls
+    assert env.os.refresh_calls == 0
+    assert ALIAS not in env.os.aliases
+    assert len(env.tei.embed_inputs) == 0
+
+
+def test_missing_index_skips_mapping_check(env: Env) -> None:
+    report = env.run(_chunks(), dry_run=True)
+
+    assert report.created == 5
+    assert env.os.indexes == {}
+
+
+def test_main_returns_nonzero_on_mapping_mismatch(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    def mismatch(*args: Any, **kwargs: Any) -> IndexReport:
+        raise MappingMismatchError("인덱스 rfp_chunks_v1_kure의 매핑이 다르다")
+
+    # 설정은 환경(.env)에 따라 달라지지 않게 고정한다
+    monkeypatch.setattr(ClientsConfig, "from_env", classmethod(lambda cls: make_clients_config()))
+    os_config = OpenSearchConfig(
+        url="http://opensearch.test",
+        index_alias=ALIAS,
+        index_name="rfp_chunks_v1_kure",
+        timeout_s=1.0,
+    )
+    monkeypatch.setattr(OpenSearchConfig, "from_env", classmethod(lambda cls: os_config))
+    monkeypatch.setattr("rfp_pm_agent.ingest.index_chunks.load_chunks", lambda path: [])
+    monkeypatch.setattr("rfp_pm_agent.ingest.index_chunks.load_documents", lambda ids, d: {})
+    monkeypatch.setattr("rfp_pm_agent.ingest.index_chunks.index_chunks", mismatch)
+
+    with caplog.at_level("ERROR"):
+        assert main([]) == 1
+
+    assert "rfp_chunks_v1_kure의 매핑이 다르다" in caplog.text
+
+
+def test_check_index_mapping_stops_when_response_has_several_indexes(env: Env) -> None:
+    # 별칭 하나가 인덱스 둘을 가리키면 어느 매핑을 볼지 정할 수 없다
+    mappings = load_mapping()["mappings"]
+    for name in ("rfp_chunks_v1_a", "rfp_chunks_v1_b"):
+        env.os.indices.create(index=name, body={"mappings": mappings, "aliases": {"two": {}}})
+
+    with pytest.raises(MappingMismatchError, match="인덱스 2개"):
+        check_index_mapping(cast(OpenSearch, env.os), "two")
+
+
+class _TeiDown:
+    """TEI가 꺼진 상태: 어떤 호출이든 연결 오류."""
+
+    def info(self) -> dict[str, Any]:
+        raise ConnectionError("TEI 연결 실패")
+
+    def embed(self, texts: list[str], *, input_type: InputType = "passage") -> list[list[float]]:
+        raise ConnectionError("TEI 연결 실패")
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_mapping_mismatch_is_reported_before_tei_is_called(dry_run: bool) -> None:
+    # 매핑 검사가 TEI `/info`보다 먼저라, TEI가 꺼져 있어도 원인(매핑 차이)이 먼저 나온다
+    env = Env()
+    env.os.indices.create(index=INDEX, body={"mappings": _v1_mappings()})
+
+    with pytest.raises(MappingMismatchError, match="bid_title, format, printed_page"):
+        index_chunks(
+            _chunks(),
+            env.documents,
+            client=cast(OpenSearch, env.os),
+            embedder=_TeiDown(),
+            config=env.config,
+            index_name=INDEX,
+            alias=ALIAS,
+            revision_reader=_no_volume_read,
+            dry_run=dry_run,
+        )

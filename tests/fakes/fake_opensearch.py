@@ -1,7 +1,8 @@
 """네트워크를 쓰지 않는 가짜 OpenSearch 클라이언트 (opensearch-py `OpenSearch`의 일부만).
 
 색인 모듈(`ingest/index_chunks.py`)이 쓰는 호출만 흉내 낸다.
-- `indices.exists / create / exists_alias / get_alias / put_alias / refresh`
+- `indices.exists / create / exists_alias / get_alias / put_alias / refresh / get_mapping`
+  (`get_mapping`은 실제 서버처럼 별칭으로 물어도 응답 키가 실제 인덱스 이름이다)
 - `search`: match_all + `_source` 필드 목록 + `sort` 1개 필드 + `search_after`
 - `indices.exists`는 실제 서버처럼 별칭 이름에도 True를 준다
 - `bulk`: `create`(같은 _id가 있으면 409 오류), `index`(있으면 "updated", 없으면 "created"),
@@ -53,6 +54,17 @@ class FakeIndices:
     def put_alias(self, *, index: str, name: str) -> dict[str, Any]:
         self._store.aliases.setdefault(name, set()).add(index)
         return {"acknowledged": True}
+
+    def get_mapping(self, *, index: str) -> dict[str, Any]:
+        targets = (
+            [index] if index in self._store.indexes else sorted(self._store.aliases.get(index, ()))
+        )
+        if not targets:
+            raise KeyError(f"index_not_found_exception: {index}")
+        return {
+            name: {"mappings": copy.deepcopy(self._store.indexes[name]["mappings"])}
+            for name in targets
+        }
 
     def refresh(self, *, index: str) -> dict[str, Any]:
         self._store.refresh_calls += 1

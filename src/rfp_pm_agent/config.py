@@ -79,6 +79,11 @@ class ClientsConfig(BaseModel):
     # 추론(reasoning) 토큰을 쓰는 모델의 추론 강도. 추론 토큰은 응답에 보이지 않지만 출력 토큰으로
     # 과금되므로, 서버 기본값(gpt-6-luna는 medium)에 맡기지 않고 낮게 고정한다 (ADR-0006 결정 3)
     llm_reasoning_effort: ReasoningEffort = "low"
+    # 답변 채점(LLM-as-Judge, #25) 모델과 단가. 답을 만든 모델과 따로 고른다 — 같은 모델로 채점하면
+    # 자기 답의 표현·실수를 맞다고 보기 쉽다. 단가는 위 llm_price_*와 같은 규칙(1M 단위, 추측 금지)
+    llm_model_judge: str = ""
+    llm_judge_price_input_per_1m: float = 0.0
+    llm_judge_price_output_per_1m: float = 0.0
 
     embed_base_url: str
     embed_api_key: str | None
@@ -110,6 +115,15 @@ class ClientsConfig(BaseModel):
 
     cost_log_path: str
 
+    def for_judge(self) -> ClientsConfig:
+        """채점 호출용 사본. 비용 로그(`LoggingLLMClient`)가 채점 모델 단가로 계산하게 단가만 바꾼다."""
+        return self.model_copy(
+            update={
+                "llm_price_input_per_1m": self.llm_judge_price_input_per_1m,
+                "llm_price_output_per_1m": self.llm_judge_price_output_per_1m,
+            }
+        )
+
     @classmethod
     def from_env(cls) -> ClientsConfig:
         return cls(
@@ -124,6 +138,9 @@ class ClientsConfig(BaseModel):
             llm_reasoning_effort=cast(
                 ReasoningEffort, os.environ.get("LLM_REASONING_EFFORT") or "low"
             ),
+            llm_model_judge=os.environ.get("LLM_MODEL_JUDGE", ""),
+            llm_judge_price_input_per_1m=_get_float("LLM_JUDGE_PRICE_INPUT_PER_1M", 0.0),
+            llm_judge_price_output_per_1m=_get_float("LLM_JUDGE_PRICE_OUTPUT_PER_1M", 0.0),
             embed_base_url=os.environ.get("EMBED_BASE_URL", "http://localhost:8080"),
             embed_api_key=os.environ.get("TEI_API_KEY") or None,
             embed_model_id=os.environ.get("EMBED_MODEL_ID", ""),

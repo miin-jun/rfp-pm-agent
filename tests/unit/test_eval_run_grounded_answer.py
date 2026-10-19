@@ -511,10 +511,14 @@ def test_output_stem_carries_date_and_scope(scope: rga.Scope) -> None:
     assert rga.output_stem("20261015", scope) == f"grounded_answer_20261015_{scope}"
 
 
+def test_output_stem_appends_tag_for_repeated_runs() -> None:
+    assert rga.output_stem("20261019", "doc", "r2") == "grounded_answer_20261019_doc_r2"
+
+
 def test_main_refuses_to_overwrite_existing_results_before_running(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(rga, "output_stem", lambda date, scope: "same")
+    monkeypatch.setattr(rga, "output_stem", lambda date, scope, tag=None: "same")
     (tmp_path / "same.jsonl").write_text("", encoding="utf-8")
 
     with pytest.raises(SystemExit) as raised:

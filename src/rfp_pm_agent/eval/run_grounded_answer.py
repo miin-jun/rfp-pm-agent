@@ -324,9 +324,13 @@ def run(
     return rows
 
 
-def output_stem(date: str, scope: Scope) -> str:
-    """결과 파일 이름(확장자 제외). date는 YYYYMMDD. 2026-10-14 v1 결과는 scope가 붙기 전 이름(전체 검색)이다."""
-    return f"grounded_answer_{date}_{scope}"
+def output_stem(date: str, scope: Scope, tag: str | None = None) -> str:
+    """결과 파일 이름(확장자 제외). date는 YYYYMMDD. 2026-10-14 v1 결과는 scope가 붙기 전 이름(전체 검색)이다.
+
+    tag는 같은 날 같은 조건을 여러 번 돌릴 때 붙인다(예: #25 변동 확인 r1·r2·r3).
+    """
+    stem = f"grounded_answer_{date}_{scope}"
+    return f"{stem}_{tag}" if tag else stem
 
 
 def output_paths(out_dir: Path, stem: str) -> list[Path]:
@@ -567,6 +571,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="실행하지 않고 이 .jsonl(문항별 결과)로 _run.json 요약과 .md만 다시 만든다(비용 없음)",
     )
     parser.add_argument("--note", help="--from-rows로 다시 만들 때 _run.json notes에 남길 메모")
+    parser.add_argument(
+        "--tag", help="결과 파일 이름 끝에 붙일 표시(같은 날 같은 조건을 여러 번 돌릴 때, 예: r1)"
+    )
     return parser
 
 
@@ -584,7 +591,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.out_dir is None:
         parser.error("--out-dir가 필요하다(또는 --from-rows)")
     scope: Scope = args.scope
-    stem = output_stem(datetime.now(UTC).astimezone().strftime("%Y%m%d"), scope)
+    stem = output_stem(datetime.now(UTC).astimezone().strftime("%Y%m%d"), scope, args.tag)
     existing = [p for p in output_paths(args.out_dir, stem) if p.exists()]
     if existing:
         # LLM 비용을 쓰기 전에 멈춘다. 같은 날 같은 조건을 다시 돌리면 이전 결과를 지우지 않게 한다

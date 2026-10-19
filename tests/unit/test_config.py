@@ -277,3 +277,33 @@ def test_rtm_config_reads_env(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = RtmConfig.from_env()
 
     assert (cfg.scores_path, cfg.out_dir) == (Path("x/scores.csv"), Path("x/out"))
+
+
+def test_judge_model_and_prices_read_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_MODEL_JUDGE", "judge-model")
+    monkeypatch.setenv("LLM_JUDGE_PRICE_INPUT_PER_1M", "2.0")
+    monkeypatch.setenv("LLM_JUDGE_PRICE_OUTPUT_PER_1M", "10.0")
+    monkeypatch.setenv("LLM_PRICE_INPUT_PER_1M", "0.1")
+    monkeypatch.setenv("LLM_PRICE_OUTPUT_PER_1M", "0.5")
+
+    config = ClientsConfig.from_env()
+    judge = config.for_judge()
+
+    assert config.llm_model_judge == "judge-model"
+    assert (judge.llm_price_input_per_1m, judge.llm_price_output_per_1m) == (2.0, 10.0)
+    # 원래 설정(답변 모델 단가)은 그대로다
+    assert (config.llm_price_input_per_1m, config.llm_price_output_per_1m) == (0.1, 0.5)
+
+
+def test_judge_model_defaults_to_empty_and_prices_to_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in (
+        "LLM_MODEL_JUDGE",
+        "LLM_JUDGE_PRICE_INPUT_PER_1M",
+        "LLM_JUDGE_PRICE_OUTPUT_PER_1M",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    config = ClientsConfig.from_env()
+
+    assert config.llm_model_judge == ""
+    assert (config.llm_judge_price_input_per_1m, config.llm_judge_price_output_per_1m) == (0.0, 0.0)

@@ -1,0 +1,99 @@
+{
+  "run": {
+    "started_at": "2026-10-19T07:21:12+00:00",
+    "finished_at": "2026-10-19T07:23:24+00:00",
+    "model": "gpt-6-luna",
+    "reasoning_effort": "low",
+    "prompt_version": "grounded_answer_v2",
+    "index_alias": "rfp_chunks",
+    "index_names": [
+      "rfp_chunks_v2_kure"
+    ],
+    "top_k": 10,
+    "qa_file": "data/eval/qa_v2.jsonl",
+    "irrelevant_file": "data/eval/irrelevant_v1.jsonl",
+    "question_count": 62,
+    "scope": "doc",
+    "notes": []
+  },
+  "summary": {
+    "answered": 45,
+    "answered_with_citation": 45,
+    "answered_without_citation": [],
+    "format_error_qids": [],
+    "refused_with_citation": [],
+    "verdicts": [
+      {
+        "group": "A",
+        "total": 40,
+        "refused": 2,
+        "errors": 0,
+        "rule": "잘못 거절 ≤ 3",
+        "has_rule": true,
+        "passed": true
+      },
+      {
+        "group": "B",
+        "total": 11,
+        "refused": 4,
+        "errors": 0,
+        "rule": "기준 없음(검색에서 생긴 결과, DoD ③)",
+        "has_rule": false,
+        "passed": null
+      },
+      {
+        "group": "C",
+        "total": 6,
+        "refused": 6,
+        "errors": 0,
+        "rule": "거절 ≥ 5",
+        "has_rule": true,
+        "passed": true
+      },
+      {
+        "group": "U",
+        "total": 5,
+        "refused": 5,
+        "errors": 0,
+        "rule": "거절 ≥ 5",
+        "has_rule": true,
+        "passed": true
+      }
+    ],
+    "b_qids": [
+      "q020",
+      "q031",
+      "q039",
+      "q042",
+      "q043",
+      "q046",
+      "q048",
+      "q050",
+      "q051",
+      "q053",
+      "q054"
+    ],
+    "b_refused": [
+      "q031",
+      "q039",
+      "q043",
+      "q048"
+    ],
+    "invalid_citation_qids": [],
+    "error_qids": [],
+    "group_changes": [
+      "q004 B→A",
+      "q007 B→A",
+      "q008 B→A",
+      "q023 B→A",
+      "q025 B→A",
+      "q028 B→A",
+      "q029 B→A"
+    ],
+    "llm_calls": 62,
+    "input_tokens": 359398,
+    "output_tokens": 1930,
+    "reasoning_tokens": 26,
+    "cost_usd": 0.0369048
+  }
+}

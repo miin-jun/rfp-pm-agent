@@ -88,13 +88,14 @@ def gold_chunk_ids(chunks: Iterable[Chunk], question: EvalQuestionV2) -> list[li
     """evidence마다 그 evidence를 담은 청크 ID 목록을 evidence 순서대로 돌려준다.
 
     판정은 v1과 같다 — doc_id가 같고, 공백을 지운 evidence가 청크 text에 들어
-    있으면 그 청크가 그 evidence를 담은 것이다. 검색 결과는 쓰지 않는다.
+    있으면 그 청크가 그 evidence를 담은 것이다. evidence 항목이 대안 목록이면
+    대안 중 하나라도 담은 청크를 모두 모은다. 검색 결과는 쓰지 않는다.
     답 없음 문항은 evidence가 없으므로 빈 목록이다.
     """
     same_doc = [c for c in chunks if c.doc_id == question.doc_id]
     return [
-        [c.chunk_id for c in same_doc if evidence_in_text(evidence, c.text)]
-        for evidence in question.evidence
+        [c.chunk_id for c in same_doc if any(evidence_in_text(e, c.text) for e in options)]
+        for options in question.evidence_options()
     ]
 
 

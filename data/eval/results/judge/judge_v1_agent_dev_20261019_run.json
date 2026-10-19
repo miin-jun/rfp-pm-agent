@@ -1,0 +1,32 @@
+{
+  "run": {
+    "started_at": "2026-10-19T07:34:36+00:00",
+    "finished_at": "2026-10-19T07:34:51+00:00",
+    "answers_file": "data/eval/results/agent/agent_dev_20261019.jsonl",
+    "kind": "agent",
+    "model": "gpt-6-sol",
+    "reasoning_effort": "low",
+    "prompt_version": "judge_v1",
+    "price_input_per_1m": 2.0,
+    "price_output_per_1m": 10.0
+  },
+  "summary": {
+    "total": 8,
+    "answerable": 8,
+    "answer_correct": 8,
+    "answer_accuracy": 1.0,
+    "no_answer": 0,
+    "no_answer_refused": 0,
+    "refused_answerable": [],
+    "refused_group_a": [],
+    "citation_judged": 8,
+    "citation_supported": 8,
+    "citation_accuracy": 1.0,
+    "judge_errors": [],
+    "llm_calls": 8,
+    "input_tokens": 8677,
+    "output_tokens": 469,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.022044
+  }
+}

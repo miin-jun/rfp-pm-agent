@@ -1,0 +1,24 @@
+{
+  "generated_at": "2026-10-19T07:41:25+00:00",
+  "answers_file": "data/eval/results/answer/grounded_answer_20261019_doc_r3.jsonl",
+  "judge_file": "data/eval/results/judge/judge_v1_20261019_doc_r3.jsonl",
+  "answer_model": "gpt-6-luna",
+  "answer_prompt_version": "grounded_answer_v2",
+  "reasoning_effort": "low",
+  "index_alias": "rfp_chunks",
+  "index_names": [
+    "rfp_chunks_v2_kure"
+  ],
+  "scope": "doc",
+  "judge_model": "gpt-6-sol",
+  "judge_prompt_version": "judge_v1",
+  "answerable": 51,
+  "answer_correct": 36,
+  "citation_judged": 45,
+  "citation_supported": 44,
+  "citation_accuracy": 0.9777777777777777,
+  "refused_answerable": 6,
+  "no_answer": 11,
+  "no_answer_refused": 11,
+  "judge_errors": 0
+}

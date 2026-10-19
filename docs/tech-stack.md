@@ -16,7 +16,7 @@
 | 리랭커 | **bge-reranker-v2-m3** (RunPod), 후보 N=20 — #16 선정 실험 후 채택 ([ADR-0002](adr/0002-reranker.md)) | 확정 (2026-09-27) | — |
 | 임베딩·리랭커 서빙 | **Hugging Face TEI** (RunPod, 로컬 대체 가능) | 확정 | — |
 | 답변·에이전트 LLM | **OpenAI GPT-6 Luna** (`gpt-6-luna`, 추론 강도 low) | 개발 모델 확정 (2026-10-12, #19, [ADR-0006](adr/0006-grounded-answer-refusal-and-citation.md)) · 최종 평가 모델은 #25 | **vLLM on RunPod** (Private LLM) |
-| 평가 채점 LLM | OpenAI mini급 | 기본값(모델명 미확정) | — |
+| 평가 채점 LLM | **OpenAI GPT-6 Sol** (`gpt-6-sol`, 추론 강도 low, 프롬프트 `judge_v1`) — 답 모델과 다르게 둬 자기 채점 편향을 피함 | 확정 (2026-10-19, #25, [ADR-0014](adr/0014-llm-judge-and-ci-baseline.md)) | — |
 | 에이전트 | **LangGraph** 1.2.15 + langchain-openai 1.7.2 (OpenAI **Responses API**) | 확정 (#22, [ADR-0010](adr/0010-langgraph-agent.md)) | HITL(쓰기 동작) |
 | API / MCP | **FastAPI** / **MCP Python SDK 2.x `MCPServer`** (`mcp[cli]`, stdio) | 확정 (#24, [ADR-0011](adr/0011-mcp-server.md)) | Streamable HTTP 원격 배포 |
 | 문서 파싱 | PDF: **PyMuPDF** / HWP: **hwp5html(pyhwp) 변환** | 실측(docs/parsing-exploration.md)으로 확정(이슈 #11) · HWPX는 범위 밖(스텁) | docx·xlsx, HWPX 실제 파싱 |

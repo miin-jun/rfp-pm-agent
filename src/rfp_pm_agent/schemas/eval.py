@@ -57,12 +57,16 @@ class EvalQuestionV2(BaseModel):
     값은 evidence 순서에 맞춘 "그 evidence를 담은 청크 ID 목록"의 목록이다.
     evidence 하나를 여러 청크가 담을 수 있어서(예: q021) 평평한 목록으로 두면
     어느 evidence를 맞혔는지 구별할 수 없다.
+
+    evidence 항목은 문자열 하나 또는 대안 문자열 목록이다. 같은 정답이 서로 다른
+    표현으로 여러 곳에 적혀 있으면(예: q007의 배점표와 "기술평가(90%)" 문장) 대안
+    목록으로 적고, 그 항목의 정답 청크는 대안 중 하나라도 담은 청크 전부다.
     """
 
     question_id: str
     question: str
     answer: str | None = None
-    evidence: list[str]
+    evidence: list[str | list[str]]
     doc_id: str  # 답 없음 문항도 질문이 겨냥한 문서
     page: int | None = None
     type: QuestionType | None = None  # v1 필드. 답 없음 문항은 None
@@ -91,7 +95,17 @@ class EvalQuestionV2(BaseModel):
             raise ValueError(f"{self.question_id}: 답 없음 표시가 서로 맞지 않는다 ({detail})")
         if any(len(per) != len(self.evidence) for per in self.gold_chunk_ids.values()):
             raise ValueError(f"{self.question_id}: gold_chunk_ids의 길이가 evidence 개수와 다르다")
+        if any(isinstance(item, list) and not item for item in self.evidence):
+            raise ValueError(f"{self.question_id}: evidence에 빈 대안 목록이 있다")
         return self
+
+    def evidence_options(self) -> list[list[str]]:
+        """evidence 항목마다 대안 문자열 목록. 문자열 항목은 길이 1 목록이 된다."""
+        return [[item] if isinstance(item, str) else item for item in self.evidence]
+
+    def evidence_texts(self) -> list[str]:
+        """모든 항목의 대안 문자열을 한 목록으로 편다 (겹침률 계산용)."""
+        return [text for options in self.evidence_options() for text in options]
 
 
 class IrrelevantQuestion(BaseModel):

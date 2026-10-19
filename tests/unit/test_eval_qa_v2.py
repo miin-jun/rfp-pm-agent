@@ -158,6 +158,39 @@ def test_gold_chunk_ids는_evidence_순서대로_담은_청크를_모두_모은�
     ]
 
 
+def test_evidence_항목이_대안_목록이면_어느_대안이든_담은_청크를_모두_모은다():
+    chunks = [
+        _chunk("b1", "구분 | 배점\n기술평가 | 90"),
+        _chunk("b2", "평가비율 : 기술평가(90%), 가격평가(10%)"),
+        _chunk("b3", "예산 1억원"),
+    ]
+    q = _q(evidence=[["기술평가 | 90", "기술평가(90%), 가격평가(10%)"], "예산 1억원"])
+
+    assert gold_chunk_ids(chunks, q) == [
+        ["doc_a:block_requirement:b1", "doc_a:block_requirement:b2"],
+        ["doc_a:block_requirement:b3"],
+    ]
+    assert q.evidence_options() == [
+        ["기술평가 | 90", "기술평가(90%), 가격평가(10%)"],
+        ["예산 1억원"],
+    ]
+
+
+def test_빈_대안_목록은_거부한다():
+    with pytest.raises(ValidationError, match="대안"):
+        _q(evidence=[[]])
+
+
+def test_check는_대안_하나라도_원문에_없으면_오류로_낸다():
+    doc = _doc([_paragraph("b1", "사업기간 3개월")])
+    chunks = {"block_requirement": [_chunk("b1", "사업기간 3개월")]}
+    q = with_gold(_q(question_id="q001", evidence=[["사업기간 3개월", "없는 문장"]]), chunks)
+
+    report = check([q], {"doc_a": doc}, chunks)
+
+    assert report.errors == ["q001: evidence[0][1]가 doc_a 원문에 없다"]
+
+
 def test_evidence_하나라도_어느_청크에도_없으면_도달_불가():
     chunks = [_chunk("b1", "사업기간 3개월")]
     assert reachable(chunks, _q(evidence=["사업기간 3개월"])) is True
@@ -311,7 +344,7 @@ def test_qa_v1의_paraphrase_판정은_E_보고의_분포와_같다():
     below = {
         q.question_id
         for q in load_questions_v2(QA_V1)
-        if overlap_ratio(q.question, q.evidence) <= PARAPHRASE_MAX_OVERLAP
+        if overlap_ratio(q.question, q.evidence_texts()) <= PARAPHRASE_MAX_OVERLAP
     }
     assert below == {
         "q004", "q006", "q007", "q014", "q017", "q018",

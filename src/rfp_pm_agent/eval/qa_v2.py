@@ -199,7 +199,7 @@ def build_from_v1(
         note = V1_NOTE
         if is_table_question(question, docs[question.doc_id], reference):
             tags.append("table")
-        if overlap_ratio(question.question, question.evidence) <= PARAPHRASE_MAX_OVERLAP:
+        if overlap_ratio(question.question, question.evidence_texts()) <= PARAPHRASE_MAX_OVERLAP:
             tags.append("paraphrase")
             note = f"{V1_NOTE}; {PARAPHRASE_NOTE}"
         base = question.model_copy(
@@ -228,9 +228,12 @@ def check(
 
     for q in answerable:
         doc = docs[q.doc_id]
-        for i, evidence in enumerate(q.evidence):
-            if not evidence_source_ids(doc, evidence):
-                report.errors.append(f"{q.question_id}: evidence[{i}]가 {q.doc_id} 원문에 없다")
+        for i, options in enumerate(q.evidence_options()):
+            for j, evidence in enumerate(options):
+                if evidence_source_ids(doc, evidence):
+                    continue
+                where = f"evidence[{i}]" if len(options) == 1 else f"evidence[{i}][{j}]"
+                report.errors.append(f"{q.question_id}: {where}가 {q.doc_id} 원문에 없다")
 
         expected = with_gold(q, chunks_by_method).gold_chunk_ids
         if q.gold_chunk_ids != expected:
@@ -251,7 +254,7 @@ def check(
         if "table" not in q.tags and table_only:
             report.warnings.append(f"{q.question_id}: 정답 청크가 모두 표인데 table 태그가 없다")
 
-        ratio = overlap_ratio(q.question, q.evidence)
+        ratio = overlap_ratio(q.question, q.evidence_texts())
         if "paraphrase" in q.tags and ratio > PARAPHRASE_MAX_OVERLAP:
             report.errors.append(
                 f"{q.question_id}: paraphrase 태그인데 겹침률 {ratio:.3f}가 "

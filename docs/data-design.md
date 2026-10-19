@@ -821,7 +821,9 @@ projects ─┬─< project_members >── users
 - **기준선 비교**: 지금은 별도 기준선 파일을 두지 않는다. `run_retrieval --compare <run_id> <run_id> ... --out-dir data/eval/results/<실험>`이
   그 실험의 `runs.jsonl` 하나에서 실행 기록을 찾아, Recall@10(전부 적중)이 가장 많은 실행을 1위로 두고 나머지를 문항별 McNemar로
   비교한다 — 같은 기록 위치의 실행끼리만 비교되고, `--out-dir`를 빼면 `model_selection`을 읽는다.
-  평가 게이트용 기준선 파일과 형식은 #25에서 정한다
+  평가 게이트(#25, [ADR-0014](adr/0014-llm-judge-and-ci-baseline.md)): 근거 답변 결과를 `answer_judge`(`judge_v1`)로 채점하면 `data/eval/latest_summary.json`
+  (`LatestSummary`)이 갱신된다. 기준선은 `data/eval/baseline.json`(`Baseline`, 사람이 정함 — 정답 ≥ 33/51, 출처 정확도 ≥ 0.95, 잘못 거절 ≤ 9, 답 없음·무관 거절 11/11)이고,
+  CI는 `check_baseline check`로 두 파일만 비교한다(형식은 `src/rfp_pm_agent/eval/check_baseline.py`)
 
 ---
 

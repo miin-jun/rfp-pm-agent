@@ -22,7 +22,9 @@ citation_supported는 False다.
 계산한다(`ClientsConfig.for_judge`). 추론 강도는 답변과 같은 `LLM_REASONING_EFFORT`다.
 `--kind agent`는 `run_agent_dev` 결과에서 문서 답변 문항(type == "doc")의 첫 턴만 채점한다.
 
-출력: `--out`(문항별 JudgeRow) + `<out>_run.json`(실행 정보·요약, `--human`을 주면 사람 판정과의 일치율)
+출력: `--out`(문항별 JudgeRow) + `<out>_run.json`(실행 정보·요약, `--human`을 주면 사람 판정과의 일치율).
+`--kind answer`면 `data/eval/latest_summary.json`(CI 기준선 검사가 읽음, `check_baseline`)도 다시 쓴다 — 재생 실행·실험처럼
+서비스 경로가 아닌 결과는 `--no-latest`로 끈다.
 
 CLI: `uv run python -m rfp_pm_agent.eval.answer_judge --answers <결과>.jsonl --dry-run` (예상 호출 수만, 비용 없음)
      `uv run python -m rfp_pm_agent.eval.answer_judge --answers <결과>.jsonl --out <출력>.jsonl [--kind agent] [--human <판정>.jsonl]`
@@ -46,6 +48,7 @@ from rfp_pm_agent.clients.cost import CostLogger, compute_llm_cost
 from rfp_pm_agent.clients.llm import ChatMessage, LLMClient, OpenAICompatLLMClient
 from rfp_pm_agent.clients.logged import LoggingLLMClient
 from rfp_pm_agent.config import ClientsConfig
+from rfp_pm_agent.eval.check_baseline import DEFAULT_LATEST, write_latest_from_judge_run
 from rfp_pm_agent.eval.qa_v2 import load_questions_v2
 from rfp_pm_agent.eval.reranker_score_dist import GOLD_METHOD
 from rfp_pm_agent.ingest.chunking import DEFAULT_CHUNKS_DIR, load_chunks
@@ -511,6 +514,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
         type=Path,
         help="사람 판정 .jsonl(judge_sample). 주면 일치율을 _run.json에 남긴다",
     )
+    parser.add_argument(
+        "--latest",
+        type=Path,
+        default=DEFAULT_LATEST,
+        help="근거 답변 채점 뒤 갱신할 최신 평가 요약(CI 기준선 검사가 읽는다)",
+    )
+    parser.add_argument(
+        "--no-latest",
+        action="store_true",
+        help="최신 평가 요약을 갱신하지 않는다(재생 실행·실험처럼 서비스 경로가 아닌 결과를 채점할 때)",
+    )
     return parser
 
 
@@ -572,6 +586,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(args.out)
     print(json.dumps(record["summary"], ensure_ascii=False))
+    if kind == "answer" and not args.no_latest:
+        write_latest_from_judge_run(run_info_path(args.out), args.latest)
+        print(args.latest)
     return 0
 
 

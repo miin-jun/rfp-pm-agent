@@ -1,0 +1,89 @@
+{
+  "decided_at": "2026-10-19",
+  "decided_by": "소유자(miin-jun) — 3회 측정(r1~r3)과 replay_v2 결과를 보고 결정 (#25, ADR-0014)",
+  "thresholds": {
+    "answer_correct_min": 33,
+    "citation_accuracy_min": 0.95,
+    "refused_answerable_max": 9,
+    "no_answer_refused_min": 11
+  },
+  "answerable_total": 51,
+  "no_answer_total": 11,
+  "judge_model": "gpt-6-sol",
+  "judge_prompt_version": "judge_v1",
+  "conditions": {
+    "eval_set": "data/eval/qa_v2.jsonl 57문항 + data/eval/irrelevant_v1.jsonl 5문항 (q007·q013 측정 전 수정 2468451 반영)",
+    "answer_runner": "run_grounded_answer --scope doc (top_k 10, 문항당 LLM 1회)",
+    "answer_model": "gpt-6-luna",
+    "answer_prompt_version": "grounded_answer_v2",
+    "reasoning_effort": "low",
+    "index_alias": "rfp_chunks",
+    "index_names": [
+      "rfp_chunks_v2_kure"
+    ],
+    "judge_model": "gpt-6-sol (입력 $2.00 / 출력 $10.00 per 1M, 2026-10-19 공식 가격표)",
+    "judge_prompt_version": "judge_v1",
+    "code": "9b300db",
+    "measured_at": "2026-10-19"
+  },
+  "measurements": [
+    {
+      "run": "replay_v2 (2026-10-15 답변, 2026-10-19 채점)",
+      "judge_file": "data/eval/results/judge/judge_v1_20261015_doc_replay_v2_run.json",
+      "answer_correct": 33,
+      "answerable": 51,
+      "citation_supported": 42,
+      "citation_judged": 42,
+      "citation_accuracy": 1.0,
+      "refused_answerable": 9,
+      "refused_group_a": 2,
+      "no_answer_refused": 11,
+      "no_answer": 11
+    },
+    {
+      "run": "r1",
+      "judge_file": "data/eval/results/judge/judge_v1_20261019_doc_r1_run.json",
+      "answer_correct": 36,
+      "answerable": 51,
+      "citation_supported": 44,
+      "citation_judged": 44,
+      "citation_accuracy": 1.0,
+      "refused_answerable": 7,
+      "refused_group_a": 1,
+      "no_answer_refused": 11,
+      "no_answer": 11
+    },
+    {
+      "run": "r2",
+      "judge_file": "data/eval/results/judge/judge_v1_20261019_doc_r2_run.json",
+      "answer_correct": 34,
+      "answerable": 51,
+      "citation_supported": 44,
+      "citation_judged": 44,
+      "citation_accuracy": 1.0,
+      "refused_answerable": 7,
+      "refused_group_a": 2,
+      "no_answer_refused": 11,
+      "no_answer": 11
+    },
+    {
+      "run": "r3",
+      "judge_file": "data/eval/results/judge/judge_v1_20261019_doc_r3_run.json",
+      "answer_correct": 36,
+      "answerable": 51,
+      "citation_supported": 44,
+      "citation_judged": 45,
+      "citation_accuracy": 0.9778,
+      "refused_answerable": 6,
+      "refused_group_a": 2,
+      "no_answer_refused": 11,
+      "no_answer": 11
+    }
+  ],
+  "notes": [
+    "3회(r1~r3) 범위: 정답 34~36/51(평균 69.3%), 출처 정확도 0.978~1.0, 잘못 거절 6~7, 답 없음·무관 거절 11/11. 검색 결과는 3회 모두 같고(입력 토큰 359,398) 차이는 답변 LLM 출력에서 생겼다",
+    "정답 기준 33은 3회 최소(34)보다 1 낮고 replay_v2(33)와 같다 — 같은 코드에서 생기는 회차 변동(±2문항)으로 실패하지 않게 둔 값이다",
+    "잘못 거절 기준 9는 replay_v2 값(3회 최대 7보다 2 높음), 출처 정확도 0.95는 3회 최소 0.978 아래로 1~2문항 여유",
+    "기준값은 사람이 정한다. 코드는 이 파일을 갱신하지 않는다"
+  ]
+}

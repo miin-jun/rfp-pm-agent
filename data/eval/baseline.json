@@ -11,6 +11,7 @@
   "no_answer_total": 11,
   "judge_model": "gpt-6-sol",
   "judge_prompt_version": "judge_v1",
+  "scope": "doc",
   "conditions": {
     "eval_set": "data/eval/qa_v2.jsonl 57문항 + data/eval/irrelevant_v1.jsonl 5문항 (q007·q013 측정 전 수정 2468451 반영)",
     "answer_runner": "run_grounded_answer --scope doc (top_k 10, 문항당 LLM 1회)",

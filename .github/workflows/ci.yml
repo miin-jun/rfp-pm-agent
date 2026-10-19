@@ -19,15 +19,15 @@ jobs:
       - run: uv run mypy src tests migrations
       - run: uv run pytest tests/unit -q
       # 평가 기준선 검사(#25, ADR-0014). 실제 평가는 돌리지 않고 커밋된 data/eval/latest_summary.json만 읽는다.
-      # PR이면 기준 브랜치를 받아 와 "평가 영향 파일이 바뀌었는데 latest_summary가 그대로"인지도 본다.
-      # 얕은 clone이라 공통 조상 대신 기준 브랜치 끝과 PR 병합 커밋의 트리를 비교한다
+      # PR이면 "평가 영향 파일이 바뀌었는데 latest_summary가 그대로"인지도 본다. 얕은 clone을 한 단계 늘려
+      # PR 병합 커밋(HEAD)의 첫 부모(HEAD^1 = 병합 기준이 된 base 커밋)와 비교한다
       - name: eval baseline check
         env:
-          BASE_REF: ${{ github.base_ref }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [ -n "$BASE_REF" ]; then
-            git fetch --no-tags --depth=1 origin "$BASE_REF"
-            uv run python -m rfp_pm_agent.eval.check_baseline check --base FETCH_HEAD
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git fetch --no-tags --deepen=1
+            uv run python -m rfp_pm_agent.eval.check_baseline check --base HEAD^1
           else
             uv run python -m rfp_pm_agent.eval.check_baseline check
           fi

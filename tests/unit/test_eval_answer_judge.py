@@ -383,3 +383,39 @@ def test_일치율은_답과_출처를_따로_세고_사람이_비운_출처는_
         ("q001", "citation_supported", True, False, "q001 이유"),
         ("q002", "answer_correct", False, True, "q002 이유"),
     ]
+
+
+def test_근거_답변_채점은_latest_summary를_다시_쓰고_no_latest면_그대로_둔다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import rfp_pm_agent.eval.answer_judge as aj
+
+    _answers, qa, chunks_dir = _write_inputs(tmp_path)
+    run = {
+        "model": "gpt-6-luna",
+        "prompt_version": "grounded_answer_v2",
+        "reasoning_effort": "low",
+        "index_alias": "rfp_chunks",
+        "index_names": ["rfp_chunks_v2_kure"],
+        "scope": "doc",
+    }
+    (tmp_path / "answers_run.json").write_text(json.dumps({"run": run}), "utf-8")
+    monkeypatch.setattr(
+        aj, "OpenAICompatLLMClient", lambda config: ScriptedLLMClient([_verdict()] * 2)
+    )
+    monkeypatch.setenv("COST_LOG_PATH", str(tmp_path / "cost.jsonl"))
+    monkeypatch.chdir(tmp_path)
+    base = ["--answers", "answers.jsonl", "--qa-file", str(qa), "--chunks-dir", str(chunks_dir)]
+    latest = tmp_path / "latest.json"
+
+    assert main([*base, "--model", "m", "--out", "j1.jsonl", "--latest", str(latest)]) == 0
+    written = json.loads(latest.read_text("utf-8"))
+    assert (written["answer_correct"], written["answerable"], written["scope"]) == (1, 2, "doc")
+    assert written["answers_file"] == "answers.jsonl"  # 상대 경로로 남는다
+
+    latest.unlink()
+    assert (
+        main([*base, "--model", "m", "--out", "j2.jsonl", "--latest", str(latest), "--no-latest"])
+        == 0
+    )
+    assert not latest.exists()

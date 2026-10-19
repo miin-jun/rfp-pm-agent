@@ -5,7 +5,7 @@ CI는 실제 평가를 돌리지 않는다(OpenSearch·TEI·GPU·API 키가 필�
 
 - 검사 1 (기준선): latest_summary의 수치가 `data/eval/baseline.json` 기준을 못 넘거나, 채점 조건(채점 모델·채점
   프롬프트·문항 수)이 기준선과 다르면 실패한다. 어느 항목이 얼마인지 메시지로 낸다
-- 검사 2 (재측정 누락): `--base`와 비교해 평가 결과에 영향을 주는 파일(`EVAL_AFFECTING_PATHS`)이 바뀌었는데
+- 검사 2 (재측정 누락): `--base`와 비교해(CI는 PR 병합 커밋의 첫 부모 `HEAD^1`) 평가 결과에 영향을 주는 파일(`EVAL_AFFECTING_PATHS`)이 바뀌었는데
   latest_summary.json이 바뀌지 않았으면 실패한다. `--base`가 없으면(main push) 건너뛴다
 
 latest_summary는 `answer_judge`가 근거 답변 결과를 채점할 때 자동으로 다시 쓴다(`--no-latest`로 끌 수 있다).
@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from collections.abc import Mapping, Sequence
@@ -35,7 +36,12 @@ DEFAULT_LATEST = Path("data/eval/latest_summary.json")
 EVAL_AFFECTING_PATHS: tuple[str, ...] = (
     "src/rfp_pm_agent/search/",  # 검색·근거 답변 코드와 답변 프롬프트(search/prompts/)
     "src/rfp_pm_agent/tools/search_documents.py",  # 서비스 검색 경로
-    "src/rfp_pm_agent/agent/prompts/",  # 에이전트 프롬프트
+    "src/rfp_pm_agent/schemas/answer.py",  # 근거 답변 결과 형식
+    "src/rfp_pm_agent/eval/run_grounded_answer.py",  # 문항 구성·top_k
+    "src/rfp_pm_agent/eval/answer_judge.py",  # 채점 규칙(규칙 판정·인용 없음 처리·입력 구성)
+    # 에이전트 프롬프트 — 소유자 결정(#25)으로 넣었다. latest_summary는 근거 답변만 재므로 에이전트 품질을
+    # 검증하지는 못한다. 에이전트 프롬프트를 바꾼 PR에 "평가를 다시 돌렸는가"를 묻는 표시로 쓴다(ADR-0014 한계)
+    "src/rfp_pm_agent/agent/prompts/",
     "src/rfp_pm_agent/eval/prompts/",  # 채점 프롬프트(judge_*)
     "src/rfp_pm_agent/ingest/index_mapping.json",  # 인덱스 매핑
     "data/eval/qa_v2.jsonl",  # 평가 세트
@@ -62,6 +68,7 @@ class Baseline(BaseModel):
     no_answer_total: int
     judge_model: str
     judge_prompt_version: str
+    scope: str  # 근거 답변 검색 범위(run_grounded_answer --scope). 범위가 다르면 같은 문항이라도 비교할 수 없다
     conditions: dict[str, Any]  # 측정 조건(기록용)
     measurements: list[dict[str, Any]]  # 근거가 된 측정(기록용)
     notes: list[str] = []
@@ -156,6 +163,8 @@ def check_against_baseline(latest: LatestSummary, baseline: Baseline) -> list[st
             f"채점 프롬프트가 기준선과 다르다: {latest.judge_prompt_version} "
             f"(기준선 {baseline.judge_prompt_version})"
         )
+    if latest.scope != baseline.scope:
+        failures.append(f"검색 범위가 기준선과 다르다: {latest.scope} (기준선 {baseline.scope})")
     if latest.answerable != baseline.answerable_total:
         failures.append(
             f"정답 있는 문항 수가 다르다: {latest.answerable} (기준선 {baseline.answerable_total})"
@@ -195,6 +204,7 @@ def is_eval_affecting(path: str) -> bool:
 def check_remeasured(changed: Sequence[str], latest_path: str = str(DEFAULT_LATEST)) -> list[str]:
     """검사 2. 평가에 영향을 주는 파일이 바뀌었는데 latest_summary가 안 바뀌었으면 실패 사유를 낸다."""
     affecting = sorted(p for p in changed if is_eval_affecting(p))
+    latest_path = Path(os.path.normpath(latest_path)).as_posix()
     if not affecting or latest_path in changed:
         return []
     listed = "\n".join(f"  - {p}" for p in affecting)

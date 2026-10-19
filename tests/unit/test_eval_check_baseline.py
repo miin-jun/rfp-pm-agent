@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,7 @@ from rfp_pm_agent.eval.check_baseline import (
     LatestSummary,
     Thresholds,
     build_latest,
+    changed_files,
     check_against_baseline,
     check_remeasured,
     is_eval_affecting,
@@ -38,6 +40,7 @@ def _baseline() -> Baseline:
         no_answer_total=11,
         judge_model="gpt-6-sol",
         judge_prompt_version="judge_v1",
+        scope="doc",
         conditions={},
         measurements=[],
     )
@@ -100,6 +103,7 @@ def test_기준을_모두_넘으면_통과하고_경계값은_포함한다():
         ({"answerable": 52}, "정답 있는 문항 수가 다르다: 52 (기준선 51)"),
         ({"no_answer": 12, "no_answer_refused": 12}, "답 없음·무관 문항 수가 다르다"),
         ({"judge_errors": 2}, "채점 오류 2건"),
+        ({"scope": "all"}, "검색 범위가 기준선과 다르다: all (기준선 doc)"),
     ],
 )
 def test_기준을_못_넘은_항목과_값을_메시지로_낸다(overrides: dict[str, Any], expected: str) -> None:
@@ -123,6 +127,9 @@ def test_기준을_못_넘은_항목과_값을_메시지로_낸다(overrides: di
         "src/rfp_pm_agent/ingest/index_mapping.json",
         "data/eval/qa_v2.jsonl",
         "data/eval/irrelevant_v1.jsonl",
+        "src/rfp_pm_agent/eval/answer_judge.py",
+        "src/rfp_pm_agent/eval/run_grounded_answer.py",
+        "src/rfp_pm_agent/schemas/answer.py",
     ],
 )
 def test_평가에_영향을_주는_파일(path: str) -> None:
@@ -151,6 +158,52 @@ def test_latest도_함께_바뀌었거나_영향_파일이_없으면_통과한�
     affecting = "data/eval/qa_v2.jsonl"
     assert check_remeasured([affecting, str(DEFAULT_LATEST)]) == []
     assert check_remeasured(["README.md", "docs/adr/0014.md"]) == []
+    # 정규화하지 않은 --latest 경로도 같은 파일로 본다
+    assert (
+        check_remeasured([affecting, str(DEFAULT_LATEST)], "./data/eval/latest_summary.json") == []
+    )
+
+
+def _git(repo: Path, *args: str) -> str:
+    result = subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "core.hooksPath=/dev/null",
+            *args,
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout.strip()
+
+
+def test_changed_files는_공통_조상이_없으면_두_트리를_바로_비교한다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    (repo / "a.txt").write_text("a", "utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "base")
+    _git(repo, "checkout", "-q", "--orphan", "other")  # 공통 조상이 없는 기준
+    (repo / "b.txt").write_text("b", "utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "other")
+    other = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "checkout", "-q", "main")
+    monkeypatch.chdir(repo)
+
+    # 기준(other)에는 a·b, HEAD(main)에는 a만 있다 — 3점 비교는 실패하고 2점 비교로 b만 나온다
+    assert changed_files(other) == ["b.txt"]
+    assert changed_files("HEAD") == []
 
 
 def test_영향_경로_목록은_실제로_있는_경로다():

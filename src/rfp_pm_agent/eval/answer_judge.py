@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime
@@ -567,7 +568,8 @@ def main(argv: list[str] | None = None) -> int:
     info = JudgeRunInfo(
         started_at=started.isoformat(timespec="seconds"),
         finished_at=finished.isoformat(timespec="seconds"),
-        answers_file=str(args.answers),
+        # 커밋되는 기록이라 레포 기준 상대 경로로 남긴다(절대 경로에 홈 디렉터리가 남지 않게)
+        answers_file=Path(os.path.relpath(args.answers)).as_posix(),
         kind=kind,
         model=model,
         reasoning_effort=config.llm_reasoning_effort,

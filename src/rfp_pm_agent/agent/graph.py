@@ -51,8 +51,9 @@ from rfp_pm_agent.tools.pms_tools import PmsDeps
 from rfp_pm_agent.tools.search_documents import SearchDeps
 
 # 프롬프트 파일 이름(확장자 제외)이 곧 버전이다. 내용을 바꾸면 파일을 고치지 않고 다음 버전 파일을 새로 만든다.
-# agent_v2: 답 없음 거절 규칙 2·7 정리(#94). agent_v1은 #22 결과 재현용으로 남기고 `AgentDeps.prompt_version`으로 고를 수 있다
-PROMPT_VERSION = "agent_v2"
+# 기본값은 agent_v1. agent_v2(답 없음 거절 규칙 2·7 정리, #94)는 측정에서 거절이 v1과 같아(3/8) 기본값으로 쓰지 않고
+# #94 결과 재현용으로 남긴다 — `AgentDeps.prompt_version`·`run_agent_dev --prompt`로 고른다(ADR-0013)
+PROMPT_VERSION = "agent_v1"
 PROMPT_VERSIONS = ("agent_v1", "agent_v2")
 
 # 마지막(상한) 호출에 덧붙이는 system 메시지

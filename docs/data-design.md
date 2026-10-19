@@ -602,7 +602,7 @@ projects ─┬─< project_members >── users
 ### 에이전트 `Agent.ask` (#22)
 
 설계 근거와 버린 대안: [ADR-0010](adr/0010-langgraph-agent.md). 코드: `agent/graph.py`(그래프·`Agent`), `agent/tools.py`(툴 래퍼),
-`agent/catalog.py`(사업 목록), `agent/prompts/agent_v2.md`(system 프롬프트, #94. `agent_v1`은 #22 재현용 — `AgentDeps.prompt_version`으로 고른다), `clients/chat_model.py`(모델·비용 로그), 결과 `schemas/agent.py`.
+`agent/catalog.py`(사업 목록), `agent/prompts/agent_v1.md`(system 프롬프트 기본값. `agent_v2`는 #94 측정 재현용 — `AgentDeps.prompt_version`으로 고른다, [ADR-0013](adr/0013-agent-refusal-not-by-prompt-wording.md)), `clients/chat_model.py`(모델·비용 로그), 결과 `schemas/agent.py`.
 
 - **그래프**: `prepare` → `agent` ⇄ `tools` → `finalize`. LLM은 OpenAI **Responses API**, 추론 강도 `LLM_REASONING_EFFORT`(low)
 - **반복 상한**: `AGENT_MAX_STEPS` = 질문(사용자 턴) 하나의 **LLM 호출 수**. 상한에 닿는 호출은 `tool_choice="none"`으로 불러 툴 없이 답을 끝낸다
@@ -795,6 +795,8 @@ projects ─┬─< project_members >── users
 (A `type="no_answer"`, B `type="doc"` + `reference_answer`에 있는 사실 값과 "찾지 못했다"). 질문 초안 Claude 채팅 · 원문 확인 Claude Code · 승인 사용자(`source`에 적음).
 통과 기준·문항별 실패 조건·측정 전 예상·회귀(C: `agent_dev_v1` 답 있는 26문항) 목록은 `data/eval/agent_refusal_v1_criteria.md`(측정 전 커밋).
 실행은 `run_agent_dev --questions data/eval/agent_refusal_v1.jsonl --prompt agent_v1|agent_v2`이고, 실행 기록 `_run.json`의 `agent_prompt`에 버전이 남는다.
+결과(2026-10-18, 1회): A 3/8·B 0/3 미통과, C 잘못 거절 0 = 0 통과 — v1·v2가 같아 기본 프롬프트는 `agent_v1` 유지. 이 세트는 결과를 봤으므로 다시 쓰지 않는다
+([docs/eval/agent_refusal_v1_results.md](eval/agent_refusal_v1_results.md), B 판정 `data/eval/results/agent/agent_refusal_v1_agent_v2_20261018_judgments.jsonl`, [ADR-0013](adr/0013-agent-refusal-not-by-prompt-wording.md)).
 
 ### `data/eval/agent_v1.jsonl` — 에이전트 평가 (#25)
 

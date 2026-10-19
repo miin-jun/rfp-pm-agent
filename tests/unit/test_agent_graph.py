@@ -394,7 +394,8 @@ def test_agent_v2_rules_2_and_7_split_partial_and_full_refusal() -> None:
     v1 = load_system_prompt(AS_OF, CATALOG, "agent_v1")
     v2 = load_system_prompt(AS_OF, CATALOG, "agent_v2")
 
-    assert PROMPT_VERSION == "agent_v2"
+    # 기본값은 agent_v1로 되돌렸다 — v2는 거절이 v1과 같아(#94, ADR-0013) 재현용으로만 남긴다
+    assert PROMPT_VERSION == "agent_v1"
     # 규칙 2: 일부만 찾았을 때로 좁힌다 — 찾은 사실은 번호, 못 찾은 사실은 번호 없이
     assert "그중 일부만 청크에 직접 적혀 있으면" in v2
     assert '못 찾은 사실은 번호 없이 "문서에서 찾지 못했다"고 적는다' in v2

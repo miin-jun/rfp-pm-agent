@@ -24,7 +24,7 @@
 | 파이프라인 | Python 스크립트 (멱등·증분) | 확정 | **Airflow**, **PySpark**, **OpenAI Batch API** |
 | 개발 환경 | **WSL2 Ubuntu** ✅ + **uv** ✅ + Docker Compose | 확정 | AWS EC2 |
 | 하네스 | Claude Code(`CLAUDE.md`·hooks·skills·subagents), ruff, mypy, pytest, pre-commit, gitleaks, GitHub Actions | 확정 | 평가 회귀 게이트 강화 |
-| UI | 없음 (API·MCP·CLI로 시연) | 확정 | Streamlit |
+| UI | **시연 화면: FastAPI + HTML 한 파일**(빌드 도구 없음, Pretendard) — 질의응답만 | 확정 (2026-10-20, #40, [ADR-0015](adr/0015-demo-ui-fastapi-single-html.md)) | RTM·검색 비교 화면 |
 
 ---
 
@@ -148,7 +148,8 @@
 
 ## 9. API · MCP
 
-- **FastAPI** + Pydantic v2: `/chat`, `/search`, `/health`
+- **FastAPI** + Pydantic v2: `/chat`, `/search`, `/health`(#23)
+- 시연 화면(#40): `GET /`(HTML 한 파일) + `POST /api/ask`(에이전트 답 + 출처 원문). Streamlit 대신 고른 이유는 [ADR-0015](adr/0015-demo-ui-fastapi-single-html.md)
 - **MCP Python SDK 2.x의 `MCPServer`**(`from mcp.server.mcpserver import MCPServer`): stdio(로컬, Claude Desktop·Claude Code 연결) → Phase 2에 Streamable HTTP.
   1.x의 `FastMCP`가 2.x에서 `MCPServer`로 이름이 바뀌었다 — `mcp.server.fastmcp`는 `ModuleNotFoundError`. 연결 방법은 [development.md](development.md) "MCP 서버"
 - MCP는 **읽기 전용 툴만** 노출

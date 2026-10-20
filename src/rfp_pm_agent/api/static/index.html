@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RFP 근거 질의</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" integrity="sha384-GIdEBaqGN9mNkDkMkzMHW8EKUqtpPIe/sLj1X7DIrnc9uPtLROJgmuDlh+3rBw0j" crossorigin="anonymous">
+<style>
+  /* 이슈 #40 시연 화면. 디자인 결정은 docs/adr/0015-demo-ui-fastapi-single-html.md */
+  :root {
+    --paper: #f6f7f5;      /* 바탕 */
+    --sheet: #ffffff;      /* 원문 종이 */
+    --ink: #1c2330;        /* 본문 */
+    --ink-soft: #5a6372;   /* 보조 글 */
+    --rule: #d4d9e0;       /* 괘선 */
+    --gov: #2f5b86;        /* 출처 번호·버튼 */
+    --gov-deep: #1f3f60;
+    --marker: #ffe98a;     /* 고른 출처 */
+    --seal: #a8261d;       /* 거절 */
+    --seal-wash: #fbf1ef;
+    --focus: #2f5b86;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  button, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  /* 위쪽: 도구 이름, 기준일, 예시 질문 */
+  .top {
+    padding: 14px 28px 12px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--paper);
+  }
+  .top-line { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  .top h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+  .as-of { color: var(--ink-soft); font-size: 14px; }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .example {
+    border: 1px solid var(--rule);
+    background: var(--sheet);
+    border-radius: 999px;
+    padding: 5px 14px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .example:hover { border-color: var(--gov); color: var(--gov-deep); }
+  .example:disabled { opacity: .5; cursor: default; }
+  .example .kind { color: var(--ink-soft); margin-right: 6px; }
+
+  /* 2단: 왼쪽 질문·답변, 오른쪽 원문 */
+  .work {
+    display: grid;
+    grid-template-columns: minmax(0, 55fr) minmax(0, 45fr);
+    min-height: calc(100vh - 100px);
+  }
+  .left { padding: 24px 32px 48px 28px; border-right: 1px solid var(--rule); }
+  .right { padding: 24px 28px 48px 0; }
+
+  form { display: flex; flex-direction: column; gap: 8px; max-width: 46em; }
+  label { font-weight: 600; font-size: 15px; }
+  textarea {
+    width: 100%;
+    min-height: 84px;
+    resize: vertical;
+    padding: 10px 12px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    background: var(--sheet);
+    line-height: 1.6;
+  }
+  .form-row { display: flex; align-items: center; gap: 12px; }
+  .hint { color: var(--ink-soft); font-size: 13px; }
+  .ask {
+    background: var(--gov);
+    color: #fff;
+    border: 0;
+    border-radius: 6px;
+    padding: 8px 20px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .ask:hover { background: var(--gov-deep); }
+  .ask:disabled { background: var(--ink-soft); cursor: default; }
+
+  .result { margin-top: 28px; max-width: 46em; }
+  .result h2 { font-size: 15px; font-weight: 600; margin: 0 0 6px; color: var(--ink-soft); }
+  .question-echo { font-weight: 600; margin: 0 0 14px; }
+  .answer { font-size: 17px; line-height: 1.8; }
+  .answer p { margin: 0 0 .8em; }
+  .answer ul, .answer ol { margin: 0 0 .8em; padding-left: 1.3em; }
+
+  /* 견출지: 답 안의 출처 번호 */
+  .tab {
+    display: inline-block;
+    min-width: 1.9em;
+    margin: 0 1px;
+    padding: 0 5px;
+    border: 0;
+    border-bottom: 2px solid var(--gov-deep);
+    border-radius: 4px 4px 0 0;
+    background: var(--gov);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.6;
+    vertical-align: 2px;
+    cursor: pointer;
+    text-align: center;
+  }
+  .tab:hover { background: var(--gov-deep); }
+  .tab[aria-pressed="true"] { background: var(--marker); color: var(--ink); border-bottom-color: #c9a92a; }
+
+  .refusal {
+    border: 1px solid var(--seal);
+    border-left-width: 6px;
+    background: var(--seal-wash);
+    border-radius: 4px;
+    padding: 14px 18px;
+  }
+  .refusal strong { display: block; color: var(--seal); font-size: 18px; margin-bottom: 4px; }
+  .refusal p { margin: 0; }
+
+  .meta { margin-top: 18px; color: var(--ink-soft); font-size: 14px; display: flex; flex-wrap: wrap; gap: 4px 18px; }
+  .meta code { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 13px; color: var(--ink); }
+
+  .source-list { list-style: none; padding: 0; margin: 20px 0 0; border-top: 1px solid var(--rule); }
+  .source-list li { border-bottom: 1px solid var(--rule); }
+  .source-list button {
+    display: flex; gap: 10px; align-items: baseline;
+    width: 100%; text-align: left; background: none; border: 0; padding: 8px 2px; cursor: pointer; font-size: 15px;
+  }
+  .source-list button:hover .cite { text-decoration: underline; }
+  .source-list .tab { pointer-events: none; }
+
+  .error { color: var(--seal); }
+
+  .loading { display: flex; align-items: center; gap: 10px; color: var(--ink-soft); }
+  .pulse { width: 10px; height: 10px; border-radius: 50%; background: var(--gov); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+
+  /* 오른쪽: 원문 종이 + 가장자리 견출지 */
+  .binder { position: sticky; top: 16px; display: flex; align-items: flex-start; }
+  .edge { display: flex; flex-direction: column; gap: 6px; padding-top: 18px; width: 44px; flex: none; }
+  .edge .tab {
+    width: 44px;
+    margin: 0;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 0;
+    border-right: 2px solid var(--gov-deep);
+    border-radius: 6px 0 0 6px;
+    vertical-align: 0;
+  }
+  .edge .tab[aria-pressed="true"] { border-right-color: var(--marker); }
+  .sheet {
+    flex: 1;
+    min-width: 0;
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    border-radius: 2px 6px 6px 6px;
+    padding: 20px 24px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+  }
+  .sheet.marked { border-left: 6px solid var(--marker); }
+  .sheet h2 { margin: 0 0 4px; font-size: 17px; line-height: 1.5; font-weight: 700; }
+  .sheet .where { color: var(--ink-soft); font-size: 14px; margin: 0 0 16px; padding-bottom: 12px; border-bottom: 1px solid var(--rule); }
+  .chunk { white-space: pre-wrap; font-size: 15px; line-height: 1.85; margin: 0; }
+  .empty { color: var(--ink-soft); }
+
+  @media (max-width: 860px) {
+    .top { padding: 12px 16px; }
+    .work { grid-template-columns: 1fr; }
+    .left { padding: 20px 16px 28px; border-right: 0; border-bottom: 1px solid var(--rule); }
+    .right { padding: 20px 16px 40px; }
+    .binder { position: static; flex-direction: column; }
+    .edge { flex-direction: row; padding: 0 0 0 12px; width: auto; }
+    .edge .tab { width: auto; min-width: 40px; padding: 2px 8px; border-right: 0; border-bottom: 2px solid var(--gov-deep); border-radius: 6px 6px 0 0; }
+    .edge .tab[aria-pressed="true"] { border-bottom-color: var(--marker); }
+    .sheet { max-height: none; border-radius: 6px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pulse { animation: none; opacity: .8; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-line">
+    <h1>RFP 근거 질의</h1>
+    <span class="as-of">기준일 {{AS_OF_DATE}} — “이번 주”는 이 날짜가 속한 주로 판단합니다</span>
+  </div>
+  <div class="examples" id="examples"></div>
+</header>
+
+<main class="work">
+  <section class="left" aria-label="질문과 답변">
+    <form id="ask-form">
+      <label for="question">질문</label>
+      <textarea id="question" name="question" maxlength="1000" placeholder="사업명과 함께 물어보세요. 예: 아산시 스마트폴 구축 용역의 수행 기간은?" required></textarea>
+      <div class="form-row">
+        <button class="ask" id="ask" type="submit">질문하기</button>
+        <span class="hint">Enter로 보내기, Shift+Enter로 줄바꿈</span>
+      </div>
+    </form>
+    <div class="result" id="result" aria-live="polite"></div>
+  </section>
+
+  <aside class="right" aria-label="출처 원문">
+    <div class="binder">
+      <div class="edge" id="edge" role="group" aria-label="출처 번호"></div>
+      <article class="sheet" id="sheet">
+        <p class="empty">답변의 출처 번호를 누르면 이 자리에 문서 원문이 열립니다.</p>
+      </article>
+    </div>
+  </aside>
+</main>
+
+<script>
+// 예시 질문: data/eval/agent_dev_v1.jsonl·agent_refusal_v1.jsonl에서 agent_v1이 맞게 답한 문항
+const EXAMPLES = [
+  { kind: "문서", label: "스마트폴 기둥 수", q: "아산시 강소형 스마트시티 스마트폴 구축 용역에서 세울 기둥은 모두 몇 개이고 종류별로 어떻게 나뉘나요?" },
+  { kind: "문서", label: "AX 사업 예산", q: "AX를 통한 불균형 투자계약 점검 시스템 구축 사업에 쓸 수 있는 돈은 부가세를 포함해 얼마인가요?" },
+  { kind: "PMS", label: "이번 주 지연 업무", q: "AX를 통한 불균형 투자계약 점검 시스템 구축 사업에서 이번 주에 지연된 업무 알려줘" },
+  { kind: "근거 없음", label: "문서에 없는 내용", q: "업무자동화(RPA) 시스템 고도화 사업에서 RPA 봇이 처리해야 하는 월간 목표 처리 건수는?" },
+];
+
+const TOOL_NAMES = {
+  search_documents: "문서 검색",
+  get_delayed_tasks: "지연 업무 조회",
+  get_open_risks: "미해결 Risk 조회",
+  get_deliverables: "산출물 조회",
+};
+
+const $ = (id) => document.getElementById(id);
+const form = $("ask-form"), input = $("question"), askBtn = $("ask"), result = $("result"), edge = $("edge"), sheet = $("sheet");
+let sources = [];
+let busy = false;
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// 답 본문: 이스케이프 → **굵게** → 목록 줄 → [n] 견출지. 서버 extract_citation_numbers와 같은 모양([1], [1, 3])만 바꾼다
+const CITE_RE = /\[\s*([0-9]+(?:\s*,\s*[0-9]+)*)\s*\]/g;
+function linkCitations(html) {
+  const known = new Set(sources.map((s) => s.number));
+  return html.replace(CITE_RE, (whole, list) => {
+    const nums = list.split(",").map((n) => parseInt(n, 10));
+    if (!nums.every((n) => known.has(n))) return whole;
+    return nums.map((n) => `<button type="button" class="tab" data-n="${n}" aria-pressed="false" aria-label="출처 ${n} 원문 보기">${n}</button>`).join("");
+  });
+}
+function renderAnswer(text) {
+  const lines = esc(text.trim()).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").split("\n");
+  let out = "", list = null, para = [];
+  const flushPara = () => { if (para.length) { out += `<p>${para.join("<br>")}</p>`; para = []; } };
+  const flushList = () => { if (list) { out += `<${list.tag}>${list.items.map((i) => `<li>${i}</li>`).join("")}</${list.tag}>`; list = null; } };
+  for (const raw of lines) {
+    const line = raw.trim();
+    const ul = line.match(/^[-*•]\s+(.*)$/), ol = line.match(/^\d+[.)]\s+(.*)$/);
+    if (ul || ol) {
+      flushPara();
+      const tag = ul ? "ul" : "ol";
+      if (!list || list.tag !== tag) { flushList(); list = { tag, items: [] }; }
+      list.items.push((ul || ol)[1]);
+    } else if (!line) { flushPara(); flushList(); }
+    else { flushList(); para.push(line); }
+  }
+  flushPara(); flushList();
+  return linkCitations(out);
+}
+
+function where(s) {
+  const parts = [];
+  if (s.format === "pdf") {
+    if (s.printed_page != null) parts.push(`인쇄 쪽 ${s.printed_page}`);
+    else if (s.page != null) parts.push(`PDF ${s.page + 1}쪽`);
+    else parts.push("PDF");
+  } else if (s.format) {
+    parts.push(`${s.format.toUpperCase()} 문서 (쪽 정보 없음)`);
+  }
+  if (s.requirement_id) parts.push(`요구사항 ${s.requirement_id}`);
+  return parts.join(", ");
+}
+
+function openSource(n) {
+  const s = sources.find((x) => x.number === n);
+  if (!s) return;
+  document.querySelectorAll(".tab[data-n]").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.n) === n)));
+  sheet.classList.add("marked");
+  const body = s.text != null
+    ? `<p class="chunk">${esc(s.text)}</p>`
+    : `<p class="empty">원문을 불러오지 못했습니다. 검색 서버(OpenSearch) 연결을 확인하세요. 출처: ${esc(s.citation)}</p>`;
+  sheet.innerHTML = `<h2>${esc(s.bid_title || s.citation)}</h2><p class="where">[${n}] ${esc(where(s) || "위치 정보 없음")}</p>${body}`;
+  sheet.scrollTop = 0;
+}
+
+function resetSheet(message) {
+  edge.innerHTML = "";
+  sheet.classList.remove("marked");
+  sheet.innerHTML = `<p class="empty">${esc(message)}</p>`;
+}
+
+function renderResult(question, data) {
+  sources = data.sources;
+  const tools = data.tools_used.length
+    ? data.tools_used.map((t) => `${esc(TOOL_NAMES[t] || t)} <code>${esc(t)}</code>`).join(", ")
+    : "사용 안 함";
+  const seconds = (data.elapsed_ms / 1000).toFixed(1);
+  let body;
+  if (data.refused) {
+    body = `<div class="refusal" role="status"><strong>근거를 찾지 못했습니다</strong>
+      <p>검색한 문서에 이 질문에 답할 내용이 없습니다. 추측으로 답하지 않았습니다. 사업명이나 요구사항 ID를 넣어 다시 물어보세요.</p></div>`;
+  } else {
+    body = `<div class="answer">${renderAnswer(data.answer)}</div>`;
+  }
+  const list = sources.length
+    ? `<ul class="source-list">${sources.map((s) => `<li><button type="button" data-open="${s.number}"><span class="tab" data-n="${s.number}" aria-pressed="false">${s.number}</span><span class="cite">${esc(s.citation.replace(/^\[|\]$/g, ""))}</span></button></li>`).join("")}</ul>`
+    : "";
+  result.innerHTML = `<p class="question-echo">${esc(question)}</p><h2>답변</h2>${body}${list}
+    <div class="meta"><span>조회: ${tools}</span><span>걸린 시간 ${seconds}초</span></div>`;
+
+  if (sources.length) {
+    edge.innerHTML = sources.map((s) => `<button type="button" class="tab" data-n="${s.number}" aria-pressed="false" aria-label="출처 ${s.number} 원문 보기">${s.number}</button>`).join("");
+    openSource(sources[0].number);
+  } else {
+    resetSheet(data.refused ? "근거로 쓸 문서를 찾지 못해 열 원문이 없습니다." : "이 답변은 문서를 인용하지 않았습니다. PMS 조회 결과는 업무·Risk·산출물 ID로 표시됩니다.");
+  }
+}
+
+function setBusy(on) {
+  busy = on;
+  askBtn.disabled = on;
+  askBtn.textContent = on ? "답변 만드는 중" : "질문하기";
+  document.querySelectorAll(".example").forEach((b) => (b.disabled = on));
+}
+
+async function submit(question) {
+  if (busy || !question.trim()) return;
+  setBusy(true);
+  sources = [];
+  resetSheet("답변이 오면 출처 원문이 여기에 열립니다.");
+  const started = Date.now();
+  result.innerHTML = `<div class="loading"><span class="pulse" aria-hidden="true"></span><span>문서와 PMS를 조회하고 있습니다. 보통 5~10초 걸립니다 (<span id="tick">0</span>초)</span></div>`;
+  const timer = setInterval(() => { const t = $("tick"); if (t) t.textContent = Math.floor((Date.now() - started) / 1000); }, 500);
+  try {
+    const res = await fetch("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const detail = typeof data.detail === "string" ? data.detail : `HTTP ${res.status}`;
+      throw new Error(detail);
+    }
+    renderResult(question, data);
+  } catch (e) {
+    result.innerHTML = `<p class="error">답변을 받지 못했습니다: ${esc(e.message)}<br>서버 로그를 확인한 뒤 다시 질문하세요.</p>`;
+  } finally {
+    clearInterval(timer);
+    setBusy(false);
+  }
+}
+
+$("examples").innerHTML = EXAMPLES.map((e, i) => `<button type="button" class="example" data-i="${i}" title="${esc(e.q)}"><span class="kind">${esc(e.kind)}</span>${esc(e.label)}</button>`).join("");
+$("examples").addEventListener("click", (ev) => {
+  const b = ev.target.closest(".example");
+  if (!b) return;
+  input.value = EXAMPLES[Number(b.dataset.i)].q;
+  submit(input.value);
+});
+form.addEventListener("submit", (ev) => { ev.preventDefault(); submit(input.value); });
+input.addEventListener("keydown", (ev) => {
+  // 한글 조합 중 Enter는 글자 확정이라 보내지 않는다
+  if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); submit(input.value); }
+});
+document.addEventListener("click", (ev) => {
+  const target = ev.target.closest("[data-open], button.tab[data-n]");
+  if (!target) return;
+  openSource(Number(target.dataset.open || target.dataset.n));
+  // 좁은 화면에서는 원문 패널이 답변 아래에 있어 눌러도 바뀐 것이 보이지 않는다
+  if (window.matchMedia("(max-width: 860px)").matches) sheet.scrollIntoView({ block: "start" });
+});
+</script>
+</body>
+</html>

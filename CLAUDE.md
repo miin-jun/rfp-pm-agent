@@ -27,7 +27,7 @@
 - src/rfp_pm_agent/pms/       PMS 모델·조회·합성 데이터
 - src/rfp_pm_agent/tools/     에이전트와 MCP 서버가 함께 쓰는 툴 함수
 - src/rfp_pm_agent/agent/     LangGraph 에이전트
-- src/rfp_pm_agent/api/       FastAPI
+- src/rfp_pm_agent/api/       FastAPI (시연 화면 `app.py` + `static/index.html`, #40)
 - src/rfp_pm_agent/mcp_server/ MCP 서버 (읽기 전용 툴만)
 - src/rfp_pm_agent/eval/       평가 실행 (청킹 비교: `run_chunk_eval`, 모델 선정: `run_retrieval`, 에이전트 개발 평가: `run_agent_dev`)
 - data/eval/                   평가 세트(qa_*.jsonl), 실행 기록(runs.jsonl), 틀린 질문(failures/) — git 포함
@@ -106,6 +106,7 @@ Claude는 구현하지 말고, 설계 논의·테스트 작성·리뷰·리팩�
 
 ## 끝내기 전 체크
 - `uv run ruff check . && uv run mypy src tests migrations && uv run pytest tests/unit -q` 통과
+- `uv run python -m rfp_pm_agent.eval.check_baseline check --base origin/main` 통과
 - 이슈의 완료 기준 항목을 하나씩 확인하고 결과를 PR 본문 "검증 방법"에 적는다
 - PR 전 reviewer 서브에이전트로 검토한다
 

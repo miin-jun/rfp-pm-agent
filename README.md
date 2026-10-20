@@ -91,6 +91,25 @@
 - 답변 속 PMS 수치(지연 일수 등)는 가짜이고, 요구사항 인용은 실제 문서에서 나온다
 - 원본 파일은 git에 넣지 않는다. 수집 기록 `data/raw/manifest.jsonl`만 커밋한다
 
+## 시연 화면
+
+질문하면 근거 답변을 보여 주고, 답 안의 출처 번호를 누르면 오른쪽에 그 문서 원문이 열린다. 근거를 찾지 못하면 답 대신 "근거를 찾지 못했습니다"를 표시한다.
+
+![문서 질문: 답의 출처 번호 2를 누르면 오른쪽에 요구사항 SCR-001 원문이 열린다](docs/images/demo_doc_answer.png)
+
+| PMS 질문 (이번 주 지연 업무) | 문서에 없는 내용 — 거절 |
+|---|---|
+| ![PMS 질문 답변](docs/images/demo_pms.png) | ![근거를 찾지 못한 질문](docs/images/demo_refusal.png) |
+
+캡처는 2026-10-20 실제 에이전트(`gpt-6-luna`, agent_v1) 응답이다.
+
+```bash
+docker compose up -d                                                     # opensearch·postgres·TEI
+uv run uvicorn rfp_pm_agent.api.app:create_app --factory --port 8000   # http://127.0.0.1:8000
+```
+
+`.env`에 `OPENAI_API_KEY`·`LLM_MODEL_DEV`·`AS_OF_DATE`가 있어야 한다. 자세한 조건은 [docs/development.md](docs/development.md) "시연 화면", 설계 이유는 [ADR-0015](docs/adr/0015-demo-ui-fastapi-single-html.md).
+
 ## 문서
 
 실행 방법과 개발 환경은 [docs/development.md](docs/development.md) 참고.

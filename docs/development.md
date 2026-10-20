@@ -103,6 +103,21 @@ Claude Desktop(Windows)에서 WSL 안의 서버를 부를 때는 `claude_desktop
 - 기동 확인만 할 때: `printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}\n' | uv run python -m rfp_pm_agent.mcp_server.server` — `serverInfo.name`이 `rfp-pm-agent`인 응답 한 줄이 나오면 된다
 - 테스트: `uv run pytest tests/unit/test_mcp_server.py -q`(가짜 deps), `uv run pytest tests/integration/test_mcp_server_db.py -m integration -q`(PRJ-05 정답 대조, postgres 필요)
 
+### 시연 화면 (#40)
+
+질문 → 근거 답변 → 출처 번호를 누르면 원문 청크 → 근거가 없으면 거절을 보여 주는 화면이다. 결정은 [ADR-0015](adr/0015-demo-ui-fastapi-single-html.md).
+opensearch·postgres(합성 PMS 적재)·tei-embed·tei-rerank와 `.env`의 `OPENAI_API_KEY`·`LLM_MODEL_DEV`·`AS_OF_DATE`가 있어야 한다.
+기동할 때 사업 목록을 만들려고 OpenSearch·PMS DB를 읽으므로, 서버가 꺼져 있으면 기동이 실패한다.
+
+```bash
+docker compose up -d
+uv run uvicorn rfp_pm_agent.api.app:create_app --factory --port 8000   # http://127.0.0.1:8000
+```
+
+- 질문 하나에 LLM(`LLM_MODEL_DEV`) 보통 1~4회, 상한 `AGENT_MAX_STEPS`(기본 6). 호출마다 `COST_LOG_PATH`에 남는다
+- 글꼴 Pretendard는 CDN(jsdelivr)에서 받는다. 인터넷이 안 되면 시스템 글꼴로 바뀌어 캡처와 모양이 달라진다
+- 테스트: `uv run pytest tests/unit/test_api_app.py -q`(가짜 에이전트), `uv run pytest tests/integration/test_api_app_opensearch.py -m integration -q`(실제 OpenSearch 원문 조회)
+
 ### RTM (#39)
 
 요구사항×업무 리랭커 점수표 → 사업별 RTM → 누락 채점. 결정과 결과는 [ADR-0012](adr/0012-rtm-reranker-mapping.md).

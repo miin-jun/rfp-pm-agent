@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.0",
+    "fastapi>=0.150.0",
     "httpx>=0.28.1",
     "langchain-openai==1.7.2",
     "langgraph==1.2.15",
@@ -23,6 +24,7 @@ dependencies = [
     "rank-bm25>=0.2.2",
     "six>=1.17.0",
     "sqlalchemy>=2.1.4",
+    "uvicorn>=0.54.0",
 ]
 
 [project.scripts]

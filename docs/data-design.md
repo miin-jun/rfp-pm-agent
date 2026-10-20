@@ -514,6 +514,17 @@ LLM은 번호만 인용한다. 문서명·쪽번호·요구사항 ID를 LLM이 �
 - PMS 사실(WBS·Risk)의 출처 — #21·#22
 - 답변 문장 안의 `[n]`을 출처 문자열로 바꿔 넣기 — 하지 않는다. 출처는 `citations`로 따로 돌려준다
 
+### 시연 화면 API `POST /api/ask` (#40)
+
+설계 근거: [ADR-0015](adr/0015-demo-ui-fastapi-single-html.md). 코드: `api/app.py`, 스키마 `schemas/api.py`.
+
+- 요청 `AskRequest`: `question`(앞뒤 공백을 뗀 1~1000자, 아니면 422)
+- 동작: 질문마다 새 대화로 `Agent.ask`(agent_v1). 답의 유효 번호(나온 순서)와 `cited_chunk_ids`를 1:1로 짝짓고 chunk_id로 OpenSearch를 1회 조회해 원문을 붙인다
+- 응답 `AskResponse`: `answer`(LLM 답 그대로, `[n]` 포함)·`refused`(`is_refusal`)·`sources`·`tools_used`(실행한 툴 이름, 호출 순서)·`elapsed_ms`(에이전트 + 원문 조회)
+- `sources[]` `SourceChunk`: `number`·`chunk_id`·`citation`(`format_citation` 문자열)·`bid_title`·`format`·`printed_page`·`page`·`requirement_id`·`text`.
+  인덱스에 없는 chunk_id거나 OpenSearch에 연결하지 못하면 `citation` 밖의 문서 필드와 `text`는 null
+- 오류: 에이전트 예외는 502(`detail`에는 예외 이름만, 메시지는 서버 로그)
+
 ---
 
 ## 6. PMS 스키마 (PostgreSQL)
